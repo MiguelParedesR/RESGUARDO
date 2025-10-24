@@ -18,7 +18,7 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="/css/dashboard/dashboard-admin.css" />
 
-    <!-- Supabase antes de config -->
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="/config.js"></script>
 
@@ -26,7 +26,7 @@
     <script defer src="/js/dashboard/dashboard-admin.js"></script>
 </head>
 
-<body class="mdl-base sidebar-open"><!-- sidebar visible por defecto -->
+<body class="mdl-base sidebar-open">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <header class="mdl-layout__header">
             <div class="mdl-layout__header-row">
@@ -38,10 +38,10 @@
 
         <main class="mdl-layout__content">
             <section class="page">
+                <!-- TOPBAR -->
                 <div class="topbar">
-                    <button id="btn-toggle" class="btn-toggle"><i class="material-icons">menu</i> Lista</button>
+                    <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
 
-                    <!-- Filtros mínimos -->
                     <div class="field">
                         <label class="lbl">Estado</label>
                         <select id="f-estado" class="select">
@@ -50,6 +50,7 @@
                             <option value="FINALIZADO">Finalizado</option>
                         </select>
                     </div>
+
                     <div class="field">
                         <label class="lbl">Empresa</label>
                         <select id="f-empresa" class="select">
@@ -58,22 +59,27 @@
                             <option value="KARPAR">KARPAR</option>
                         </select>
                     </div>
-                    <div class="search">
-                        <input id="f-texto" type="text" placeholder="Buscar cliente, placa…" />
-                        <button id="btn-aplicar" class="btn-toggle"><i class="material-icons">filter_list</i>
-                            Aplicar</button>
-                        <button id="btn-reset" class="btn-toggle"><i class="material-icons">refresh</i> Limpiar</button>
+
+                    <div class="field" style="flex:1; min-width:220px;">
+                        <label class="lbl">Buscar</label>
+                        <input id="f-texto" class="input" type="text" placeholder="Cliente, placa…" />
                     </div>
+
+                    <button id="btn-aplicar" class="btn btn-ghost"><i class="material-icons">filter_list</i>
+                        Aplicar</button>
+                    <button id="btn-reset" class="btn btn-ghost"><i class="material-icons">refresh</i> Limpiar</button>
                 </div>
 
+                <!-- SPLIT: sidebar + mapa -->
                 <div class="split">
                     <!-- Sidebar -->
                     <aside class="sidebar">
                         <div class="sidebar-head">
-                            <div class="lbl" style="font-size:14px;font-weight:700;color:#37474f;">Servicios</div>
+                            <div class="lbl" style="font-size:14px;font-weight:800;color:#37474f;">Servicios</div>
+                            <span class="lbl" id="count-label">0</span>
                         </div>
                         <div id="listado" class="sidebar-body">
-                            <!-- tarjetas dinámicas -->
+                            <div class="card">Cargando…</div>
                         </div>
                     </aside>
 

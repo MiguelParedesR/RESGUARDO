@@ -1,4 +1,4 @@
-// dashboard-admin.js – Sidebar + Mapa + Supabase + Alertas
+// Sidebar + Mapa + fitBounds + alertas + finalizar
 
 document.addEventListener('DOMContentLoaded', () => {
     const snackbar = document.getElementById('app-snackbar');
@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); }
     };
 
-    // Toggle sidebar (móvil)
+    // Toggle sidebar en móvil
     document.getElementById('btn-toggle').addEventListener('click', () => {
         document.body.classList.toggle('sidebar-open');
     });
@@ -20,15 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
         fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; loadServices();
     });
 
-    // Contenedores
+    // UI refs
     const listado = document.getElementById('listado');
+    const countLabel = document.getElementById('count-label');
     const mapTitle = document.getElementById('map-title');
     const metricPing = document.getElementById('metric-ping');
     const metricEstado = document.getElementById('metric-estado');
     const details = document.getElementById('details');
-    const btnFinalizar = document.getElementById('btn-finalizar');
 
-    // Map
+    // Mapa
     let map;
     const markers = new Map(); // id -> marker
     let selectedId = null;
@@ -42,16 +42,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     initMap();
 
-    // Config
+    // Config alertas
     const POLL_MS = 30_000;
     const STALE_MIN = 5;
     const beeped = new Set();
 
     const fmtDT = (iso) => {
-        try {
-            const d = new Date(iso);
-            return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(d);
-        } catch { return iso || ''; }
+        try { return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(new Date(iso)); }
+        catch { return iso || ''; }
     };
     const minDiff = (a, b) => Math.round((a - b) / 60000);
 
@@ -66,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch { }
     }
 
-    // Cargar servicios
     async function loadServices() {
         if (!window.sb) { showMsg('Supabase no inicializado'); return; }
 
@@ -75,17 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 .select('id,empresa,placa,estado,tipo,created_at,destino_texto,cliente:cliente_id(nombre)')
                 .order('created_at', { ascending: false });
 
-            const estado = fEstado.value;
-            if (estado !== 'TODOS') q.eq('estado', estado);
+            if (fEstado.value !== 'TODOS') q.eq('estado', fEstado.value);
+            if (fEmpresa.value !== 'TODAS') q.eq('empresa', fEmpresa.value);
 
-            const emp = fEmpresa.value;
-            if (emp !== 'TODAS') q.eq('empresa', emp);
-
-            const texto = fTexto.value.trim().toUpperCase();
             let { data, error } = await q;
             if (error) throw error;
 
-            // Filtro textual local (cliente/placa)
+            const texto = fTexto.value.trim().toUpperCase();
             if (texto) {
                 data = data.filter(s =>
                     (s.placa || '').toUpperCase().includes(texto) ||
@@ -108,21 +101,18 @@ document.addEventListener('DOMContentLoaded', () => {
             renderList(enriched);
             updateMarkers(enriched.filter(x => x.estado === 'ACTIVO'));
 
-            // Si hay uno seleccionado, refrescar panel
             if (selectedId) {
-                const current = enriched.find(x => x.id === selectedId);
-                if (current) showDetails(current);
+                const cur = enriched.find(x => x.id === selectedId);
+                if (cur) showDetails(cur);
             }
 
-        } catch (e) {
-            console.error(e);
-            showMsg('No se pudieron cargar servicios');
-        }
+        } catch (e) { console.error(e); showMsg('No se pudieron cargar servicios'); }
     }
 
-    // Render sidebar
     function renderList(services) {
         listado.innerHTML = '';
+        countLabel.textContent = services.length;
+
         if (!services.length) {
             listado.innerHTML = `<div class="card">Sin resultados.</div>`;
             return;
@@ -133,19 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'card';
             if (s.id === selectedId) card.classList.add('active');
 
-            // Ping
             let pingLabel = '—', pingClass = 'ping-ok', alertNow = false;
             if (s.lastPing?.created_at) {
                 const mins = minDiff(new Date(), new Date(s.lastPing.created_at));
                 pingLabel = `${mins} min`;
                 if (mins >= STALE_MIN && s.estado === 'ACTIVO') { pingClass = 'ping-warn'; alertNow = true; }
-            } else if (s.estado === 'ACTIVO') {
-                pingLabel = 'sin datos'; pingClass = 'ping-warn'; alertNow = true;
-            }
+            } else if (s.estado === 'ACTIVO') { pingLabel = 'sin datos'; pingClass = 'ping-warn'; alertNow = true; }
 
-            // Beep
-            if (alertNow) { if (!beeped.has(s.id)) { beep(); beeped.add(s.id); } }
-            else { beeped.delete(s.id); }
+            if (alertNow) { if (!beeped.has(s.id)) { beep(); beeped.add(s.id); } } else { beeped.delete(s.id); }
 
             const tagClass = s.estado === 'FINALIZADO' ? 't-final' : (pingClass === 'ping-warn' ? 't-alerta' : 't-activo');
 
@@ -171,9 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('click', async (e) => {
                 const btn = e.target.closest('button[data-act]');
                 if (!btn) { selectService(s); return; }
-                const act = btn.dataset.act;
-                if (act === 'ver') { selectService(s); }
-                else if (act === 'fin') { await finalizarServicio(s.id); }
+                if (btn.dataset.act === 'ver') { selectService(s); }
+                else if (btn.dataset.act === 'fin') { await finalizarServicio(s.id); }
             });
 
             listado.appendChild(card);
@@ -182,28 +166,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectService(s) {
         selectedId = s.id;
-        // Marcar activo
         for (const el of listado.querySelectorAll('.card')) el.classList.remove('active');
-        const me = Array.from(listado.children).find(c => c.querySelector('[data-id]')?.dataset.id == s.id || c.textContent.includes(`#${s.id}`));
-        if (me) me.classList.add('active');
-
-        // Mostrar en mapa y detalles
+        const me = Array.from(listado.children).find(el => el.innerText.includes(`#${s.id}`));
+        me?.classList.add('active');
         focusMarker(s);
         showDetails(s);
-
-        // En móvil, cerrar lista para ver el mapa completo
-        if (window.innerWidth < 840) {
-            document.body.classList.remove('sidebar-open');
-        }
+        if (window.innerWidth < 860) { document.body.classList.remove('sidebar-open'); }
     }
 
-    // Markers (solo activos)
+    // ===== Markers + fitBounds =====
     function updateMarkers(activos) {
-        // Remove missing
+        // remove los que ya no están
         for (const id of Array.from(markers.keys())) {
             if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); }
         }
-        // Upsert
+        const bounds = [];
         activos.forEach(s => {
             const p = s.lastPing;
             if (!p?.lat || !p?.lng) return;
@@ -217,7 +194,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 m.setLatLng([p.lat, p.lng]);
                 m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} · ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
             }
+            bounds.push([p.lat, p.lng]);
         });
+
+        // fitBounds si hay markers
+        if (bounds.length) {
+            const b = L.latLngBounds(bounds);
+            map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
+        } else {
+            map.setView([-12.0464, -77.0428], 12);
+        }
     }
 
     function focusMarker(s) {
@@ -227,15 +213,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showDetails(s) {
         mapTitle.textContent = `Servicio #${s.id} – ${s.empresa}`;
-        metricEstado.textContent = s.estado;
         if (s.lastPing?.created_at) {
             const mins = minDiff(new Date(), new Date(s.lastPing.created_at));
             metricPing.textContent = `${mins} min`;
             metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok';
-        } else {
-            metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '—';
-            metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : '';
-        }
+        } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '—'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; }
+        metricEstado.textContent = s.estado;
 
         details.innerHTML = `
       <div><strong>Empresa:</strong> ${s.empresa}</div>
@@ -246,11 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div>
       <div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>
     `;
-        // Reasignar handler al botón recién pintado
-        const btn = document.getElementById('btn-finalizar');
-        if (btn) {
-            btn.addEventListener('click', async () => { await finalizarServicio(s.id); });
-        }
+        document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); });
     }
 
     async function finalizarServicio(id) {
@@ -261,13 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) throw error;
             showMsg('Servicio finalizado');
             await loadServices();
-        } catch (e) {
-            console.error(e);
-            showMsg('No se pudo finalizar el servicio');
-        }
+        } catch (e) { console.error(e); showMsg('No se pudo finalizar el servicio'); }
     }
 
-    // Auto-refresh
+    // Auto refresh
     setInterval(loadServices, POLL_MS);
     loadServices();
 });
