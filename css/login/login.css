@@ -1,0 +1,42 @@
+/* Layout */
+.login-wrap {
+    min-height: calc(100vh - 64px);
+    display: grid;
+    place-items: center;
+    padding: 16px;
+}
+
+.login-card {
+    width: min(960px, 95vw);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.hint {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+/* Tabs fixes (MDL) */
+.mdl-tabs__tab-bar {
+    overflow-x: auto;
+}
+
+/* Mejoras visuales pequeñas para selects dentro de textfield */
+.mdl-textfield select.mdl-textfield__input {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+}
+
+/* Botones ocupan ancho completo en móvil para mejor UX */
+@media (max-width: 480px) {
+    .form-grid .mdl-button {
+        width: 100%;
+    }
+}

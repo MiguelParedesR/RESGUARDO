@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accesos – Monitoreo de Resguardos</title>
+
+    <!-- MDL -->
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+    <!-- App styles -->
+    <link rel="stylesheet" href="/css/login/login.css" />
+
+    <!-- Config global (URL Supabase, claves placeholder) -->
+    <script defer src="/config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+    <!-- Lógica del login -->
+    <script defer src="/js/login/login.js"></script>
+
+</head>
+
+<body class="mdl-base">
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Accesos</span>
+                <div class="mdl-layout-spacer"></div>
+                <a class="mdl-button mdl-js-button" href="/index.html">Inicio</a>
+            </div>
+        </header>
+
+        <main class="mdl-layout__content">
+            <section class="login-wrap">
+                <div class="mdl-card mdl-shadow--3dp login-card">
+                    <div class="mdl-card__title">
+                        <h2 class="mdl-card__title-text">Selecciona el tipo de acceso</h2>
+                    </div>
+
+                    <div class="mdl-card__supporting-text">
+                        <!-- Tabs -->
+                        <div class="mdl-tabs mdl-js-tabs mdl-js-ripple-effect">
+                            <div class="mdl-tabs__tab-bar">
+                                <a href="#tab-admin" class="mdl-tabs__tab is-active">Administrador</a>
+                                <a href="#tab-custodia" class="mdl-tabs__tab">Custodia</a>
+                                <a href="#tab-consulta" class="mdl-tabs__tab">Consulta Custodia</a>
+                            </div>
+
+                            <!-- ADMINISTRADOR (solo clave) -->
+                            <div class="mdl-tabs__panel is-active" id="tab-admin">
+                                <form id="admin-form" class="form-grid" autocomplete="off">
+                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                                        <input class="mdl-textfield__input" id="admin-pass" type="password" required />
+                                        <label class="mdl-textfield__label" for="admin-pass">Clave</label>
+                                    </div>
+                                    <button type="submit"
+                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                                        id="admin-login">
+                                        Ingresar
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- CUSTODIA (clave dinámica) -->
+                            <div class="mdl-tabs__panel" id="tab-custodia">
+                                <form id="custodia-form" class="form-grid" autocomplete="off">
+                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
+                                        <select class="mdl-textfield__input" id="empresa" required>
+                                            <option value="ALVICEM">ALVICEM</option>
+                                            <option value="KARPAR">KARPAR</option>
+                                        </select>
+                                        <label class="mdl-textfield__label" for="empresa">Empresa</label>
+                                    </div>
+                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                                        <input class="mdl-textfield__input" id="custodia-pass" type="password"
+                                            placeholder="DDMMEMP (ej. 2410KARPAR)" required />
+                                        <label class="mdl-textfield__label" for="custodia-pass">Clave dinámica</label>
+                                    </div>
+                                    <div class="hint">
+                                        La clave válida se genera como <strong>DDMM + EMPRESA</strong> con fecha de
+                                        <em>America/Lima</em>.
+                                    </div>
+                                    <button type="submit"
+                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                                        id="custodia-login">
+                                        Ingresar
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- CONSULTA CUSTODIA (solo clave) -->
+                            <div class="mdl-tabs__panel" id="tab-consulta">
+                                <form id="consulta-form" class="form-grid" autocomplete="off">
+                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                                        <input class="mdl-textfield__input" id="consulta-pass" type="password"
+                                            required />
+                                        <label class="mdl-textfield__label" for="consulta-pass">Clave</label>
+                                    </div>
+                                    <button type="submit"
+                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                                        id="consulta-login">
+                                        Ingresar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Snackbar mensajes (MDL) -->
+            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
+                aria-relevant="text">
+                <div class="mdl-snackbar__text"></div>
+                <button class="mdl-snackbar__action" type="button"></button>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

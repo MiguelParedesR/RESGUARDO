@@ -1,0 +1,159 @@
+/* ================================
+   Mapa de Seguimiento de Custodia
+   ================================ */
+
+/* --- Layout general --- */
+.page {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    background: #f7f8fb;
+    font-family: "Roboto", sans-serif;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e3e6ed;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.topbar h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.topbar .metrics {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 14px;
+    color: #333;
+}
+
+.topbar .metrics strong {
+    font-weight: 600;
+    color: #000;
+}
+
+#btn-finalizar {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: background 0.2s ease;
+}
+
+#btn-finalizar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* --- Contenedor del mapa --- */
+.map-wrap {
+    position: relative;
+    height: calc(100vh - 64px);
+}
+
+#map-track {
+    width: 100%;
+    height: 100%;
+    background: #e9eef6;
+}
+
+/* --- Panel flotante --- */
+.panel {
+    position: absolute;
+    top: 84px;
+    left: 12px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    padding: 10px 14px;
+    z-index: 500;
+    width: auto;
+    max-width: 260px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.panel p {
+    margin: 0;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.4;
+}
+
+.panel strong {
+    color: #000;
+}
+
+/* Animación de entrada */
+.panel.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.panel.hide {
+    transform: translateY(-20px);
+    opacity: 0;
+}
+
+/* --- Snackbar --- */
+.mdl-snackbar {
+    background: #323232;
+    color: #fff;
+}
+
+/* --- Mapa (Leaflet) --- */
+.leaflet-popup-content-wrapper {
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.leaflet-control-zoom a {
+    background: #fff !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.leaflet-control-zoom a:hover {
+    background: #e3e7f0 !important;
+}
+
+/* --- Indicador de distancia --- */
+#distancia-label {
+    font-weight: 600;
+    font-size: 15px;
+    color: #00796b;
+}
+
+/* --- Adaptación móvil --- */
+@media (max-width: 768px) {
+    .panel {
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        top: 76px;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .topbar .metrics {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    #btn-finalizar {
+        width: 100%;
+    }
+}

@@ -1,0 +1,229 @@
+.page {
+    padding: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.filter-card {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.mdl-textfield select.mdl-textfield__input {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+}
+
+/* Grid de placas */
+.placas-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+@media (min-width: 900px) {
+    .placas-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Tarjeta de placa */
+.placa-card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.placa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #f5f7fb;
+    cursor: pointer;
+}
+
+.placa-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+}
+
+.placa-title .chip {
+    background: #3f51b5;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.placa-meta {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+/* Panel de servicios por placa */
+.servicios-panel {
+    display: none;
+    padding: 8px 16px 16px;
+}
+
+.servicios-panel.open {
+    display: block;
+}
+
+/* Tarjeta de servicio */
+.servicio-card {
+    margin-top: 12px;
+}
+
+.servicio-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+@media (min-width: 700px) {
+    .servicio-body {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.servicio-info p {
+    margin: 6px 0;
+}
+
+.servicio-info .estado {
+    font-weight: 700;
+}
+
+.estado-activo {
+    color: #1e88e5;
+}
+
+.estado-finalizado {
+    color: #2e7d32;
+}
+
+/* Lista de custodios */
+.custodios {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+@media (min-width: 520px) {
+    .custodios {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 980px) {
+    .custodios {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.custodio-card {
+    background: #fafbfd;
+    border: 1px solid #edf0f7;
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.custodio-card h4 {
+    margin: 6px 0 4px;
+    font-size: 14px;
+}
+
+.custodio-card .tipo {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.custodio-card img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    background: #e9eef6;
+    border-radius: 8px;
+    /* Anti arrastre/selección/click */
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+}
+
+/* Zona sensible: prevención básica (disuasiva) */
+.sensitive {
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative;
+}
+
+/* Overlay anti captura/printscreen/visibility */
+.anti-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13, 18, 28, 0.75);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.anti-overlay.show {
+    display: flex;
+}
+
+.anti-inner {
+    color: #fff;
+    text-align: center;
+}
+
+.anti-inner .material-icons {
+    font-size: 52px;
+    margin-bottom: 8px;
+}
+
+/* Fila del filtro */
+.filter-row {
+    display: flex;
+    gap: 16px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+/* Bloque de select sin floating label (evita solapado) */
+.select-block {
+    min-width: 260px;
+    display: grid;
+    gap: 6px;
+}
+
+.select-label {
+    font-size: 12px;
+    letter-spacing: .04em;
+    color: #5a6b8a;
+}
+
+.select-plain {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: 1px solid #d9dfeb;
+    background: #fff;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font: inherit;
+    min-width: 260px;
+}
+
+.select-plain:focus {
+    outline: none;
+    border-color: #3f51b5;
+    box-shadow: 0 0 0 2px rgba(63, 81, 181, .15);
+}

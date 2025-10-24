@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seguimiento de Custodia</title>
+
+    <!-- MDL -->
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="/css/dashboard/mapa-resguardo.css" />
+
+    <!-- Supabase (CDN) ANTES de config.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Config global -->
+    <script defer src="/config.js"></script>
+
+    <!-- Lógica de tracking -->
+    <script defer src="/js/mapa.js"></script>
+</head>
+
+<body class="mdl-base">
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Seguimiento de Custodia</span>
+                <div class="mdl-layout-spacer"></div>
+                <a class="mdl-button mdl-js-button" href="/html/dashboard/dashboard-custodia.html">Volver al
+                    Dashboard</a>
+                <a class="mdl-button mdl-js-button" href="/html/login/login.html">Salir</a>
+            </div>
+        </header>
+
+        <main class="mdl-layout__content">
+            <section class="page">
+                <div class="topbar">
+                    <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                        disabled>
+                        Servicio Finalizado
+                    </button>
+                    <div class="metrics">
+                        <span><strong>Distancia:</strong> <span id="distancia-label">–</span></span>
+                    </div>
+                </div>
+
+                <div class="map-wrap">
+                    <div id="map-track"></div>
+
+                    <!-- Panel informativo -->
+                    <div class="panel show">
+                        <p><strong>Destino:</strong> <span id="destino-texto">Cargando…</span></p>
+                        <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Snackbar -->
+            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
+                <div class="mdl-snackbar__text"></div>
+                <button class="mdl-snackbar__action" type="button"></button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mostrar información del servicio en el panel lateral
+        document.addEventListener('DOMContentLoaded', async () => {
+            const servicioId = sessionStorage.getItem('servicio_id_actual');
+            const destinoEl = document.getElementById('destino-texto');
+            const estadoEl = document.getElementById('estado-texto');
+
+            if (!servicioId || !window.sb) {
+                destinoEl.textContent = '—';
+                estadoEl.textContent = '—';
+                return;
+            }
+
+            try {
+                const { data, error } = await window.sb
+                    .from('servicio')
+                    .select('destino_texto, estado')
+                    .eq('id', servicioId)
+                    .single();
+
+                if (error) throw error;
+
+                destinoEl.textContent = data?.destino_texto || '—';
+                estadoEl.textContent = data?.estado || 'EN CURSO';
+
+                // Cambiar color según estado
+                if (data?.estado === 'FINALIZADO') {
+                    estadoEl.style.color = '#2e7d32'; // verde
+                } else {
+                    estadoEl.style.color = '#f57c00'; // naranja
+                }
+
+            } catch (err) {
+                console.error('[mapa-resguardo] error al cargar servicio', err);
+                destinoEl.textContent = '—';
+                estadoEl.textContent = '—';
+            }
+        });
+    </script>
+</body>
+
+</html>
