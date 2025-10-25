@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data: custodios, error: errC } = await window.sb
                 .from('servicio_custodio')
-                .select('id, tipo_custodia, custodio_id')
+                .select('id, nombre_custodio, tipo_custodia')
                 .eq('servicio_id', svc.id);
             if (errC) throw errC;
 
@@ -208,33 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ids = custodios.map(c => c.id);
                 const { data: selfies, error: errS } = await window.sb
                     .from('selfie')
-                    .select('servicio_custodio_id, mime_type, data_base64')
+                    .select('servicio_custodio_id, mime_type, bytes')
                     .in('servicio_custodio_id', ids);
                 if (errS) throw errS;
 
                 const selfiesMap = new Map();
                 (selfies || []).forEach(s => selfiesMap.set(s.servicio_custodio_id, s));
 
-                // Resolver nombres de custodios por lote (sin relaciones PostgREST)
-                const nombresMap = new Map();
-                try {
-                    const custIds = Array.from(new Set((custodios || []).map(c => c.custodio_id).filter(Boolean)));
-                    if (custIds.length) {
-                        const { data: nombres, error: errN } = await window.sb
-                            .from('custodio')
-                            .select('id, nombre')
-                            .in('id', custIds);
-                        if (errN) throw errN;
-                        (nombres || []).forEach(n => nombresMap.set(n.id, n.nombre));
-                    }
-                } catch (e2) {
-                    console.warn('[consulta] No se pudo resolver nombres de custodios', e2);
-                }
+                // No hay tabla relacionada de custodios en el esquema: usamos nombre_custodio
 
                 for (const c of custodios) {
                     const s = selfiesMap.get(c.id);
-                    const imgSrc = s ? `data:${s.mime_type};base64,${s.data_base64}` : '';
-                    const nombreCustodio = nombresMap.get(c.custodio_id) || '';
+                    const imgSrc = s ? `data:${s.mime_type};base64,${s.bytes}` : '';
+                    const nombreCustodio = c.nombre_custodio || '';
                     const custEl = document.createElement('div');
                     custEl.className = 'custodio-card';
                     custEl.innerHTML = `

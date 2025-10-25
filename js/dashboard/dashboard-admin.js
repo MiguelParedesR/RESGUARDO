@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!window.sb) { showMsg('Supabase no inicializado'); return; }
     try {
       const q = window.sb.from('servicio')
-        .select('id,empresa,placa,estado,tipo,created_at,destino_texto,cliente:cliente_id(nombre)')
+        .select('id,empresa,placa,estado,tipo,created_at,destino_texto,destino_lat,destino_lng,cliente:cliente_id(nombre)')
         .order('created_at', { ascending: false });
       if (fEstado.value !== 'TODOS') q.eq('estado', fEstado.value);
       if (fEmpresa.value !== 'TODAS') q.eq('empresa', fEmpresa.value);
@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (bounds.length) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
+  let selectionLayer = null;
   function focusMarker(s) {
     ensureMap();
     if (!map) return;
@@ -151,7 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
       m.setLatLng([p.lat, p.lng]);
       m.setPopupContent(popup);
     }
-    map.setView(m.getLatLng(), 15);
+    // Limpia capa anterior y dibuja ruta/POIs
+    try { if (selectionLayer) selectionLayer.remove(); } catch {}
+    selectionLayer = L.layerGroup().addTo(map);
+    const start = [p.lat, p.lng];
+    const hasDestino = (s.destino_lat != null && s.destino_lng != null);
+    L.circleMarker(start, { radius: 7, color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.7 })
+      .bindTooltip('Partida/Actual')
+      .addTo(selectionLayer);
+    if (hasDestino) {
+      const dest = [s.destino_lat, s.destino_lng];
+      L.circleMarker(dest, { radius: 7, color: '#e91e63', weight: 2, fillColor: '#e91e63', fillOpacity: 0.7 })
+        .bindTooltip('Destino')
+        .addTo(selectionLayer);
+      L.polyline([start, dest], { color: '#455a64', weight: 3, opacity: 0.85, dashArray: '6,4' }).addTo(selectionLayer);
+      const b = L.latLngBounds([start, dest]);
+      map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
+    } else {
+      map.setView(m.getLatLng(), 15);
+    }
     try { m.openPopup(); } catch {}
   }
   function showDetails(s) { mapTitle.textContent = `Servicio #${s.id} - ${s.empresa}`; if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); metricPing.textContent = `${mins} min`; metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok'; } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '-'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; } metricEstado.textContent = s.estado; details.innerHTML = `<div><strong>Empresa:</strong> ${s.empresa}</div><div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div><div><strong>Placa:</strong> ${s.placa || '-'}</div><div><strong>Tipo:</strong> ${s.tipo || '-'}</div><div><strong>Destino:</strong> ${s.destino_texto || '-'}</div><div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>`; document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); }); }
