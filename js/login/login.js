@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             sessionStorage.setItem('auth_role', 'CUSTODIA');
             sessionStorage.setItem('auth_empresa', empresa);
-            location.href = '/html/dashboard/dasboard-custodia.html';
+            location.href = '/html/dashboard/dashboard-custodia.html';
         });
     }
 

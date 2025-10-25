@@ -23,6 +23,8 @@
 
     <!-- Lógica del login -->
     <script defer src="/js/login/login.js"></script>
+    <script defer src="/js/pwa.js"></script>
+
 
 </head>
 
@@ -79,13 +81,13 @@
                                     </div>
                                     <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                         <input class="mdl-textfield__input" id="custodia-pass" type="password"
-                                            placeholder="DDMMEMP (ej. 2410KARPAR)" required />
+                                            placeholder="DDMMEMP" required />
                                         <label class="mdl-textfield__label" for="custodia-pass">Clave dinámica</label>
                                     </div>
-                                    <div class="hint">
+                                    <!--<div class="hint">
                                         La clave válida se genera como <strong>DDMM + EMPRESA</strong> con fecha de
                                         <em>America/Lima</em>.
-                                    </div>
+                                    </div>-->
                                     <button type="submit"
                                         class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
                                         id="custodia-login">
