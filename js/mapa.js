@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ARRIVE_M = 50;          // umbral de llegada (metros)
     const REDIRECT_DELAY = 2000;  // 2s
     const DASHBOARD_URL = '/html/dashboard/dashboard-custodia.html';
+    const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+    let routeLayer = null;
+    let poiLayer = null;
 
     // Haversine (m)
     function distanciaM(lat1, lon1, lat2, lon2) {
@@ -98,8 +101,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             map.setView([-12.0464, -77.0428], 12); // Lima
         }
+        poiLayer = L.layerGroup().addTo(map);
+        routeLayer = L.layerGroup().addTo(map);
 
         iniciarTracking();
+        // Ruta inicial y refresco periódico
+        setTimeout(updateRouteFromMarkers, 2000);
+        setInterval(updateRouteFromMarkers, 10000);
+    }
+
+    async function updateRouteFromMarkers() {
+        try {
+            if (!destino || !markerYo || !routeLayer || !poiLayer) return;
+            const p = markerYo.getLatLng();
+            const url = `${OSRM_URL}/${p.lng},${p.lat};${destino.lng},${destino.lat}?overview=full&geometries=geojson`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            const coords = j?.routes?.[0]?.geometry?.coordinates || [];
+            const latlngs = coords.map(([LNG, LAT]) => [LAT, LNG]);
+            try { routeLayer.clearLayers(); } catch {}
+            try { poiLayer.clearLayers(); } catch {}
+            L.circleMarker([p.lat, p.lng], { radius: 8, color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.85 }).addTo(poiLayer).bindTooltip('Partida/Actual');
+            L.circleMarker([destino.lat, destino.lng], { radius: 9, color: '#e91e63', weight: 2, fillColor: '#e91e63', fillOpacity: 0.9 }).addTo(poiLayer).bindTooltip('Destino');
+            if (latlngs.length) {
+                L.polyline(latlngs, { color: '#1e88e5', weight: 5, opacity: 0.95 }).addTo(routeLayer);
+            } else {
+                L.polyline([[p.lat, p.lng], [destino.lat, destino.lng]], { color: '#455a64', weight: 3, opacity: 0.85, dashArray: '6,4' }).addTo(routeLayer);
+            }
+        } catch {}
     }
 
     function iniciarTracking() {

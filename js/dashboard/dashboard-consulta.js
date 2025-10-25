@@ -3,6 +3,19 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    const toBase64 = (data) => {
+        try {
+            if (!data) return '';
+            if (/^[A-Za-z0-9+/]+=*$/.test(data)) return data;
+            if (typeof data === 'string' && data.startsWith('\\x')) {
+                const hex = data.slice(2);
+                let bin = '';
+                for (let i = 0; i < hex.length; i += 2) bin += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+                return btoa(bin);
+            }
+            return btoa(data);
+        } catch { return ''; }
+    };
     // Snackbar
     const snackbar = document.getElementById('app-snackbar');
     const showMsg = (message) => {
@@ -219,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 for (const c of custodios) {
                     const s = selfiesMap.get(c.id);
-                    const imgSrc = s ? `data:${s.mime_type};base64,${s.bytes}` : '';
+                    const b64 = s ? toBase64(s.data_base64 || s.bytes) : '';
+                    const imgSrc = b64 ? `data:${s.mime_type};base64,${b64}` : '';
                     const nombreCustodio = c.nombre_custodio || '';
                     const custEl = document.createElement('div');
                     custEl.className = 'custodio-card';
