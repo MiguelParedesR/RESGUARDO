@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 location.href = '/html/dashboard/dashboard-admin.html';
                 break;
             case 'CUSTODIA':
-                location.href = '/html/dashboard/dashboard-custodia.html';
+                location.href = '/html/dashboard/custodia-registros.html';
                 break;
             case 'CONSULTA':
                 location.href = '/html/dashboard/dashboard-consulta.html';

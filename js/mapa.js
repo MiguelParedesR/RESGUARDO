@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SEND_EVERY_MS = 30_000; // 30s
     const ARRIVE_M = 50;          // umbral de llegada (metros)
     const REDIRECT_DELAY = 2000;  // 2s
-    const DASHBOARD_URL = '/html/dashboard/dashboard-custodia.html';
+    const DASHBOARD_URL = '/html/dashboard/custodia-registros.html';
     // Ruteo local (OSRM/GraphHopper en 127.0.0.1). Requiere js/lib/router-local.js
     let routeLayer = null, poiLayer = null, lastRouteSig = '';
     function beep() { try { const ctx = new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); g.gain.value=0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+0.01); o.start(); setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.15); o.stop(ctx.currentTime+0.2); },160); } catch {} }

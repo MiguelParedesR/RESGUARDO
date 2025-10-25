@@ -1,12 +1,29 @@
+:root {
+    --page-max: 1280px;
+    --gap-sm: 8px;
+    --gap-md: 14px;
+    --gap-lg: 20px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --elev-1: 0 1px 2px rgba(16, 24, 40, 0.08), 0 1px 1px rgba(16, 24, 40, 0.06);
+    --elev-2: 0 2px 6px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.06);
+    --brand: #3f51b5;
+    --ink-500: #1f2937;
+    --ink-400: #374151;
+    --ink-300: #6b7280;
+    --bg-soft: #f5f7fb;
+}
+
 .page {
     padding: 16px;
-    max-width: 1200px;
+    max-width: var(--page-max);
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .filter-card {
     width: 100%;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .mdl-textfield select.mdl-textfield__input {
@@ -16,23 +33,57 @@
     padding: 4px 0;
 }
 
-/* Grid de placas */
-.placas-grid {
+/* Agrupación por cliente */
+.cliente-group {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    gap: var(--gap-md);
+    margin-bottom: 24px;
 }
 
-@media (min-width: 900px) {
+.cliente-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-md);
+    padding: 10px 4px;
+}
+
+.cliente-title {
+    font-weight: 700;
+    color: var(--ink-500);
+}
+
+.cliente-subtitle {
+    color: var(--ink-300);
+    font-size: 12px;
+}
+
+/* Grid de placas/cards responsivo y centrado */
+.placas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--gap-md);
+    align-items: stretch;
+}
+
+@media (min-width: 768px) {
     .placas-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--gap-lg);
     }
 }
 
 /* Tarjeta de placa */
 .placa-card {
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     overflow: hidden;
+    transition: box-shadow .2s ease, transform .2s ease;
+}
+
+.placa-card:hover,
+.placa-card:focus-within {
+    box-shadow: var(--elev-2);
+    transform: translateY(-1px);
 }
 
 .placa-header {
@@ -41,7 +92,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 16px;
-    background: #f5f7fb;
+    background: var(--bg-soft);
     cursor: pointer;
 }
 
@@ -53,7 +104,7 @@
 }
 
 .placa-title .chip {
-    background: #3f51b5;
+    background: var(--brand);
     color: #fff;
     padding: 4px 10px;
     border-radius: 999px;
@@ -78,6 +129,7 @@
 /* Tarjeta de servicio */
 .servicio-card {
     margin-top: 12px;
+    border-radius: var(--radius-md);
 }
 
 .servicio-body {
@@ -130,7 +182,7 @@
 .custodio-card {
     background: #fafbfd;
     border: 1px solid #edf0f7;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     padding: 8px;
 }
 
@@ -216,7 +268,7 @@
     -moz-appearance: none;
     border: 1px solid #d9dfeb;
     background: #fff;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 10px 12px;
     font: inherit;
     min-width: 260px;

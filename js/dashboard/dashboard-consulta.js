@@ -130,6 +130,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const porPlaca = groupBy(servicios, s => s.placa || 'SIN-PLACA');
 
+        // Agrupación por cliente con encabezado
+        const selectedText = (selectCliente.options[selectCliente.selectedIndex] || {}).textContent || '';
+        const group = document.createElement('section');
+        group.className = 'cliente-group';
+        const totalPlacas = Object.keys(porPlaca).length;
+        group.innerHTML = `
+          <header class="cliente-header">
+            <h3 class="cliente-title">${h(selectedText)}</h3>
+            <div class="cliente-subtitle">${servicios.length} servicio(s) · ${totalPlacas} placa(s)</div>
+          </header>
+          <div class="placas-grid" id="cliente-cards"></div>
+        `;
+        const cardsContainer = group.querySelector('#cliente-cards');
+        placasContainer.appendChild(group);
+
         Object.entries(porPlaca).forEach(([placa, lista]) => {
             const total = lista.length;
             const ultima = lista[0]; // más reciente por order('created_at', desc)
@@ -171,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.appendChild(header);
             card.appendChild(panel);
-            placasContainer.appendChild(card);
+            cardsContainer.appendChild(card);
             if (window.componentHandler && window.componentHandler.upgradeElement) {
                 window.componentHandler.upgradeElement(card);
             }

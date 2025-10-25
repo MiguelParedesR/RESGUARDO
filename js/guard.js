@@ -9,6 +9,7 @@
     const ROLE_BY_PATH = [
         { test: /\/html\/dashboard\/dashboard-admin\.html$/i, roles: ["ADMIN"] },
         { test: /\/html\/dashboard\/dashboard-custodia\.html$/i, roles: ["CUSTODIA"] },
+        { test: /\/html\/dashboard\/custodia-registros\.html$/i, roles: ["CUSTODIA"] },
         { test: /\/html\/dashboard\/mapa-resguardo\.html$/i, roles: ["CUSTODIA"], needsServicio: true },
         { test: /\/html\/dashboard\/dashboard-consulta\.html$/i, roles: ["CONSULTA"] },
     ];
@@ -16,7 +17,7 @@
     function pathForRole(role) {
         role = String(role || "").toUpperCase();
         if (role === "ADMIN") return "/html/dashboard/dashboard-admin.html";
-        if (role === "CUSTODIA") return "/html/dashboard/dashboard-custodia.html";
+        if (role === "CUSTODIA") return "/html/dashboard/custodia-registros.html";
         if (role === "CONSULTA") return "/html/dashboard/dashboard-consulta.html";
         return LOGIN_URL;
     }

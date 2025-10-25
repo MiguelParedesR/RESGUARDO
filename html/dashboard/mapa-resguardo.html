@@ -55,11 +55,17 @@
                     </div>
                 </div>
 
-                <div class="map-wrap">
+                <div class="layout-track">
+                    <aside id="custodios-sidebar" class="cust-sidebar">
+                        <h3>Custodios</h3>
+                        <div id="custodios-list"></div>
+                    </aside>
+                    <div class="map-wrap with-sidebar">
                     <div id="map-track"></div>
                     <div class="panel show">
                         <p><strong>Destino:</strong> <span id="destino-texto">Cargando…</span></p>
                         <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
+                    </div>
                     </div>
                 </div>
             </section>
@@ -97,6 +103,100 @@
                 estadoEl.textContent = '—';
             }
         });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const servicioId = sessionStorage.getItem('servicio_id_actual');
+      if (!servicioId || !window.sb) return;
+      try {
+        const listEl = document.getElementById('custodios-list');
+        const { data: custodios, error } = await window.sb
+          .from('servicio_custodio')
+          .select('id, nombre, selfie_url')
+          .eq('servicio_id', servicioId)
+          .order('id');
+        if (error) throw error;
+        listEl.innerHTML = '';
+        (custodios||[]).forEach(c => {
+          const row = document.createElement('div'); row.className = 'cust-row';
+          const nm = document.createElement('span'); nm.className='cust-name'; nm.textContent = c.nombre || '(Sin nombre)';
+          const btn = document.createElement('button'); btn.className='edit-btn'; btn.title='Editar'; btn.innerHTML='<i class="material-icons">edit</i>';
+          btn.addEventListener('click', () => openEdit(c));
+          row.appendChild(nm); row.appendChild(btn); listEl.appendChild(row);
+        });
+      } catch (e) { console.error('[sidebar custodios]', e); }
+
+      let mediaStream = null, selfieDataUrl = null;
+      function stopCam() { try { if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop()); } catch{} mediaStream=null; }
+      function openEdit(c) {
+        selfieDataUrl = null;
+        const modal = document.createElement('div'); modal.className = 'edit-modal';
+        modal.innerHTML = `
+        <div class="inner">
+          <h4>Editar custodio</h4>
+          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre||''}">
+            <span class="mdl-textfield__label">Nombre</span>
+          </label>
+          <div class="cam">
+            <div class="cam-actions">
+              <button id="em-start" class="mdl-button mdl-js-button">Iniciar cámara</button>
+              <button id="em-shot" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
+              <button id="em-reset" class="mdl-button mdl-js-button" disabled>Repetir</button>
+            </div>
+            <p id="em-status" class="hint"></p>
+            <video id="em-video" playsinline autoplay muted></video>
+            <canvas id="em-canvas" style="display:none"></canvas>
+            <img id="em-preview" alt="Selfie" />
+          </div>
+          <div class="row-actions">
+            <button id="em-save" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
+            <button id="em-cancel" class="mdl-button mdl-js-button">Cancelar</button>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        const emNombre = modal.querySelector('#em-nombre');
+        const emStart = modal.querySelector('#em-start');
+        const emShot = modal.querySelector('#em-shot');
+        const emReset = modal.querySelector('#em-reset');
+        const emStatus = modal.querySelector('#em-status');
+        const emVideo = modal.querySelector('#em-video');
+        const emCanvas = modal.querySelector('#em-canvas');
+        const emPreview = modal.querySelector('#em-preview');
+        const emSave = modal.querySelector('#em-save');
+        const emCancel = modal.querySelector('#em-cancel');
+
+        emStart.addEventListener('click', async () => {
+          try { emStart.disabled = true; emStatus.textContent = 'Solicitando permisos...';
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
+            emVideo.srcObject = mediaStream; emVideo.style.display='block'; emPreview.style.display='none'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Cámara lista';
+          } catch { emStatus.textContent='No se pudo acceder a la cámara'; emStart.disabled=false; }
+        });
+        emShot.addEventListener('click', () => {
+          if (!mediaStream) return;
+          const w = emVideo.videoWidth||640, h=emVideo.videoHeight||480;
+          emCanvas.width=w; emCanvas.height=h; const ctx=emCanvas.getContext('2d'); ctx.drawImage(emVideo,0,0,w,h);
+          selfieDataUrl = emCanvas.toDataURL('image/jpeg',0.85); emPreview.src=selfieDataUrl; emPreview.style.display='block'; emVideo.style.display='none'; emShot.disabled=true; emReset.disabled=false; emStatus.textContent='Selfie capturada';
+        });
+        emReset.addEventListener('click', () => { if (!mediaStream) return; selfieDataUrl=null; emPreview.style.display='none'; emVideo.style.display='block'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Listo para otra'; });
+
+        async function saveAndClose() {
+          const nombre = (emNombre.value||'').trim(); if (!nombre) { alert('Ingrese nombre'); return; }
+          try {
+            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre }).eq('id', c.id);
+            if (errN) throw errN;
+            if (selfieDataUrl) {
+              const base64 = selfieDataUrl.split(',')[1];
+              const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: c.id, p_mime_type: 'image/jpeg', p_base64: base64 });
+              if (errS) throw errS;
+            }
+            document.body.removeChild(modal); stopCam(); location.reload();
+          } catch (e) { console.error(e); alert('Error al guardar'); }
+        }
+        emSave.addEventListener('click', saveAndClose);
+        emCancel.addEventListener('click', () => { document.body.removeChild(modal); stopCam(); });
+      }
+    });
     </script>
 </body>
 

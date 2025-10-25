@@ -66,6 +66,41 @@
     background: #e9eef6;
 }
 
+/* --- Layout con sidebar de custodios --- */
+.layout-track { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 980px) {
+  .layout-track { grid-template-columns: 300px 1fr; }
+}
+
+.cust-sidebar {
+  display: none;
+  background:#fff;
+  border-right:1px solid #e3e6ed;
+  padding: 12px;
+  height: calc(100vh - 64px);
+  overflow:auto;
+}
+.cust-sidebar h3 { margin: 6px 0 10px; font-size: 16px; }
+.cust-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 6px; border:1px solid #edf0f7; border-radius:8px; margin-bottom:8px; background:#fafbfd; }
+.cust-name { font-size: 13px; font-weight: 600; color:#37474f; }
+.edit-btn { background:#fff; border:1px solid #e3e6ed; border-radius:8px; padding:4px 8px; cursor:pointer; }
+.edit-btn .material-icons { font-size:18px; }
+
+@media (min-width: 980px) {
+  .cust-sidebar { display:block; }
+  .map-wrap.with-sidebar { height: calc(100vh - 64px); }
+}
+
+/* --- Modal de edición --- */
+.edit-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
+.edit-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:10px; padding:14px; }
+.edit-modal .cam { display:grid; gap:8px; }
+.edit-modal video { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; }
+.edit-modal img { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; object-fit:cover; }
+.edit-modal .cam-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.edit-modal .hint { font-size:12px; color:#607d8b; }
+.edit-modal .row-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
+
 /* --- Panel flotante --- */
 .panel {
     position: absolute;

@@ -1,0 +1,74 @@
+/* custodia-registros.css — Grid de tarjetas + drawer edición */
+
+:root {
+  --card-bg: #fff;
+  --card-stroke: #e3e6ed;
+  --txt: #263238;
+  --muted: #5a6b8a;
+  --ok: #2e7d32;
+  --info: #1e88e5;
+  --warn: #c62828;
+}
+
+body { background: #f7f8fb; font-family: "Roboto", system-ui, sans-serif; }
+.page { padding: 16px; max-width: 1200px; margin: 0 auto; }
+
+.topbar { display: flex; align-items: center; gap: 12px; }
+.topbar h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.topbar .spacer { flex: 1; }
+
+.filters { margin: 10px 0 14px; }
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.svc-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-stroke);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.svc-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+
+.svc-head { padding: 12px 14px; border-bottom: 1px solid var(--card-stroke); display:flex; align-items:center; gap:8px; }
+.svc-title { font-weight: 700; font-size: 14px; color: var(--txt); }
+
+.badge { padding:2px 8px; border-radius:999px; font-weight:700; font-size:11px; }
+.badge.activo { background:#e3f2fd; color:#1976d2; }
+.badge.finalizado { background:#e8f5e9; color:#2e7d32; }
+.badge.alerta { background:#ffebee; color:#c62828; }
+
+.svc-body { padding: 12px 14px; color:#37474f; }
+.svc-body p { margin:6px 0; font-size: 13px; }
+.svc-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; font-size:12px; color:var(--muted); }
+
+.svc-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.icon-btn { background:#fff; border:1px solid var(--card-stroke); border-radius:10px; padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+.icon-btn i.material-icons { font-size:18px; }
+
+/* Drawer derecho */
+.drawer { position: fixed; top: 64px; right: -420px; width: 380px; max-width: 92%; height: calc(100vh - 64px); background:#fff; border-left:1px solid var(--card-stroke); box-shadow: -4px 0 16px rgba(0,0,0,.08); transition:right .22s ease; z-index: 999; display:flex; flex-direction:column; }
+.drawer.open { right: 0; }
+.drawer-header { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--card-stroke); }
+.drawer-body { padding: 12px 14px; overflow:auto; }
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.2); display:none; z-index: 998; }
+.drawer-backdrop.show { display:block; }
+
+.incompletos-list { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.incom-item { border:1px solid var(--card-stroke); border-radius:8px; padding:6px 8px; cursor:pointer; background:#fafbfd; font-size:12px; }
+.incom-item.active { outline:2px solid #3f51b5; }
+
+.camara { display:grid; gap:8px; margin-top:10px; }
+#cam-video { width:100%; max-height:240px; background:#e9eef6; border-radius:8px; display:none; }
+#selfie-preview { width:100%; max-height:240px; background:#e9eef6; border-radius:8px; display:none; object-fit:cover; }
+.cam-estado { font-size:12px; color:#607d8b; }
+.cam-controls { display:flex; gap:8px; flex-wrap:wrap; }
+
+@media (max-width: 720px) {
+  .drawer { top: 56px; height: calc(100vh - 56px); width: 100%; right: -100%; }
+}
+

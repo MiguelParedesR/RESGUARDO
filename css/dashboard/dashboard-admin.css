@@ -61,6 +61,9 @@ body {
 /* Avoid horizontal scroll on any viewport */
 html, body { overflow-x: hidden; }
 
+/* Consistent sizing across components */
+*, *::before, *::after { box-sizing: border-box; }
+
 
 
 /* ===== Contenedor principal de página ===== */
@@ -268,13 +271,10 @@ body.view-lista .sidebar {
 
     flex-direction: column;
 
-    height: calc(100vh - 120px);
-
-    /* header+topbar aprox */
-
+    /* Altura y posición sincronizadas con el header */
+    height: calc(100vh - var(--header-h));
     position: sticky;
-
-    top: 80px;
+    top: var(--header-h);
 
     /* pegado bajo header MDL */
 
@@ -627,13 +627,10 @@ body.filters-open .map-panel::after {
 
 
 #map-admin {
-
     width: 100%;
-
-    height: calc(100vh - 220px);
-
+    flex: 1 1 auto;
     min-height: 440px;
-
+    height: auto;
 }
 
 
@@ -703,11 +700,7 @@ body.filters-open .map-panel::after {
         display: none !important;
     }
 
-    #map-admin {
-
-        height: calc(100vh - 260px);
-
-    }
+    #map-admin { height: auto; }
 
 }
 
