@@ -40,36 +40,10 @@
 
         <main class="mdl-layout__content">
             <section class="page">
-                <!-- TOPBAR -->
+                <!-- TOPBAR: lista + toggle filtros en móvil -->
                 <div class="topbar">
                     <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
-
-                    <div class="field">
-                        <label class="lbl">Estado</label>
-                        <select id="f-estado" class="select">
-                            <option value="TODOS">Todos</option>
-                            <option value="ACTIVO" selected>Activo</option>
-                            <option value="FINALIZADO">Finalizado</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label class="lbl">Empresa</label>
-                        <select id="f-empresa" class="select">
-                            <option value="TODAS">Todas</option>
-                            <option value="ALVICEM">ALVICEM</option>
-                            <option value="KARPAR">KARPAR</option>
-                        </select>
-                    </div>
-
-                    <div class="field" style="flex:1; min-width:220px;">
-                        <label class="lbl">Buscar</label>
-                        <input id="f-texto" class="input" type="text" placeholder="Cliente, placa…" />
-                    </div>
-
-                    <button id="btn-aplicar" class="btn btn-ghost"><i class="material-icons">filter_list</i>
-                        Aplicar</button>
-                    <button id="btn-reset" class="btn btn-ghost"><i class="material-icons">refresh</i> Limpiar</button>
+                    <button id="btn-filtros" class="btn btn-ghost"><i class="material-icons">tune</i> Filtros</button>
                 </div>
 
                 <!-- SPLIT: sidebar + mapa -->
@@ -92,6 +66,33 @@
                             <div class="map-metrics">
                                 <span><strong>Ping:</strong> <span id="metric-ping">—</span></span>
                                 <span><strong>Estado:</strong> <span id="metric-estado">—</span></span>
+                            </div>
+                        </div>
+                        <!-- Drawer de filtros: visible siempre en desktop/tablet; colapsable en móvil -->
+                        <div class="filters-drawer" aria-label="Filtros de búsqueda">
+                            <div class="field">
+                                <label class="lbl">Estado</label>
+                                <select id="f-estado" class="select">
+                                    <option value="TODOS">Todos</option>
+                                    <option value="ACTIVO" selected>Activo</option>
+                                    <option value="FINALIZADO">Finalizado</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="lbl">Empresa</label>
+                                <select id="f-empresa" class="select">
+                                    <option value="TODAS">Todas</option>
+                                    <option value="ALVICEM">ALVICEM</option>
+                                    <option value="KARPAR">KARPAR</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="lbl">Buscar</label>
+                                <input id="f-texto" class="input" type="text" placeholder="Cliente, placa…" />
+                            </div>
+                            <div class="row-actions">
+                                <button id="btn-aplicar" class="btn btn-ghost"><i class="material-icons">filter_list</i> Aplicar</button>
+                                <button id="btn-reset" class="btn btn-ghost"><i class="material-icons">refresh</i> Limpiar</button>
                             </div>
                         </div>
                         <div id="map-admin"></div>

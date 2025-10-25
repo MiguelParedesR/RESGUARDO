@@ -11,13 +11,26 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.toggle('sidebar-open');
     });
 
+    // Toggle filtros (drawer) en móvil
+    const btnFiltros = document.getElementById('btn-filtros');
+    if (btnFiltros) {
+        btnFiltros.addEventListener('click', () => {
+            document.body.classList.toggle('filters-open');
+        });
+    }
+
     // Filtros
     const fEstado = document.getElementById('f-estado');
     const fEmpresa = document.getElementById('f-empresa');
     const fTexto = document.getElementById('f-texto');
-    document.getElementById('btn-aplicar').addEventListener('click', loadServices);
+    document.getElementById('btn-aplicar').addEventListener('click', () => {
+        loadServices();
+        if (window.innerWidth <= 860) document.body.classList.remove('filters-open');
+    });
     document.getElementById('btn-reset').addEventListener('click', () => {
-        fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; loadServices();
+        fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = '';
+        loadServices();
+        if (window.innerWidth <= 860) document.body.classList.remove('filters-open');
     });
 
     // UI refs

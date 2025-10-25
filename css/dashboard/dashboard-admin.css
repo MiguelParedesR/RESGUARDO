@@ -1,323 +1,767 @@
 /* dashboard-admin.css – Sidebar fijo + mapa a la derecha + topbar pro */
 
+
+
 :root {
+
     --bg: #f5f7fa;
+
     --card: #ffffff;
+
     --txt: #263238;
+
     --muted: #546e7a;
+
     --accent: #e91e63;
+
     --accent-dark: #c2185b;
+
     --stroke: #e0e6ec;
+
     --ok: #2e7d32;
+
     --warn: #c62828;
+
     --chip-ok-bg: #e3f2fd;
+
     --chip-ok-txt: #1976d2;
+
     --chip-end-bg: #e8f5e9;
+
     --chip-end-txt: #2e7d32;
+
     --chip-warn-bg: #ffebee;
+
     --chip-warn-txt: #c62828;
+
 }
+
+
 
 html,
-body {
-    height: 100%;
-}
 
 body {
-    background: var(--bg);
-    font-family: 'Roboto', system-ui, Segoe UI, Arial;
+
+    height: 100%;
+
 }
+
+
+
+body {
+
+    background: var(--bg);
+
+    font-family: 'Roboto', system-ui, Segoe UI, Arial;
+
+}
+
+
 
 /* ===== Contenedor principal de página ===== */
+
 .page {
+
     width: 100%;
+
     margin: 0;
+
     padding: 12px 16px 24px;
+
     box-sizing: border-box;
+
 }
+
+
 
 /* ===== Topbar ===== */
+
 .topbar {
+
     display: flex;
+
     align-items: center;
+
     gap: 10px;
+
     flex-wrap: wrap;
+
     margin: 0 auto 12px;
+
     max-width: 1800px;
+
 }
+
+
 
 .btn {
+
     display: inline-flex;
+
     align-items: center;
+
     gap: 8px;
+
     padding: 8px 12px;
+
     border-radius: 10px;
+
     border: 1px solid var(--stroke);
+
     background: #fff;
+
     cursor: pointer;
+
     font-weight: 600;
+
     color: #37474f;
+
 }
+
+
 
 .btn i {
+
     font-size: 20px;
+
 }
+
+
 
 .btn-accent {
+
     background: var(--accent);
+
     color: #fff;
+
     border-color: transparent;
+
 }
+
+
 
 .btn-ghost {
+
     background: #fff;
+
     color: #37474f;
+
 }
+
+
 
 .btn:disabled {
+
     opacity: .55;
+
     cursor: not-allowed;
+
 }
+
+
 
 .field {
+
     display: flex;
+
     flex-direction: column;
+    position: relative;
+    z-index: 0;
+    /* keep behind overlay/sidebar */
+
     gap: 6px;
+
 }
+
+
 
 .lbl {
+
     font-size: 12px;
+
     color: var(--muted);
+
     font-weight: 700;
+
     letter-spacing: .02em;
+
 }
+
+
 
 .select,
+
 .input {
+
     border: 1px solid #cfd8dc;
+
     border-radius: 10px;
+
     padding: 8px 10px;
+
     min-width: 160px;
+
+    width: 100%;
+
     background: #fff;
+
 }
+
+
 
 /* ===== Split: Sidebar (izq) + Mapa (der) ===== */
+
 .split {
+
     display: grid;
+
     grid-template-columns: 360px 1fr;
+
     gap: 16px;
+
     max-width: 1800px;
+
     margin: 0 auto;
+
 }
+
+
 
 /* Sidebar pegado a la izquierda, altura viewport */
+
 .sidebar {
+
     background: var(--card);
+
     border-radius: 14px;
+
     box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+
     display: flex;
+
     flex-direction: column;
+
     height: calc(100vh - 120px);
+
     /* header+topbar aprox */
+
     position: sticky;
+
     top: 80px;
+
     /* pegado bajo header MDL */
+
     overflow: hidden;
+
 }
+
+
+
+/* Filtros dentro de la sidebar (overlay en móvil) */
+
+.sidebar .filters {
+
+    padding: 10px 12px;
+
+    border-top: 1px solid var(--stroke);
+
+    border-bottom: 1px solid var(--stroke);
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 10px 12px;
+
+    background: #fff;
+
+    z-index: 1;
+
+}
+
+.sidebar .filters .row-actions {
+
+    margin-top: 6px;
+
+}
+
+
 
 .sidebar-head {
+
     padding: 14px 16px;
+
     border-bottom: 1px solid var(--stroke);
+
     display: flex;
+
     align-items: center;
+
     justify-content: space-between;
+
 }
+
+
 
 .sidebar-body {
+
     overflow: auto;
+
     padding: 10px;
+
     display: grid;
+
     gap: 10px;
+
 }
+
+
 
 /* Tarjeta del listado */
+
 .card {
+
     background: #fff;
+
     border: 1px solid var(--stroke);
+
     border-radius: 12px;
+
     padding: 12px;
+
     display: flex;
+
     flex-direction: column;
+
     gap: 6px;
+
     transition: .15s ease;
+
     cursor: pointer;
+
 }
+
+
 
 .card:hover {
+
     box-shadow: 0 6px 16px rgba(0, 0, 0, .10);
+
     transform: translateY(-1px);
+
 }
+
+
 
 .card.active {
+
     outline: 2px solid var(--accent);
+
 }
+
+
 
 .title {
+
     display: flex;
+
     justify-content: space-between;
+
     align-items: center;
+
     gap: 10px;
+
 }
+
+
 
 .tag {
+
     padding: 2px 10px;
+
     border-radius: 999px;
+
     font-size: 11px;
+
     font-weight: 700;
+
 }
+
+
 
 .t-activo {
+
     background: var(--chip-ok-bg);
+
     color: var(--chip-ok-txt);
+
 }
+
+
 
 .t-final {
+
     background: var(--chip-end-bg);
+
     color: var(--chip-end-txt);
+
 }
+
+
 
 .t-alerta {
+
     background: var(--chip-warn-bg);
+
     color: var(--chip-warn-txt);
+
 }
+
+
 
 .meta {
+
     font-size: 12px;
+
     color: #37474f;
+
     opacity: .95;
+
     display: flex;
+
     gap: 8px;
+
     flex-wrap: wrap;
+
 }
+
+
 
 .meta .pill {
+
     background: #f1f3f7;
+
     padding: 2px 8px;
+
     border-radius: 999px;
+
 }
+
+
 
 .ping-ok {
+
     color: var(--ok);
+
     font-weight: 700;
+
 }
+
+
 
 .ping-warn {
+
     color: var(--warn);
+
     font-weight: 800;
+
 }
+
+
 
 .row-actions {
+
     display: flex;
+
     gap: 8px;
+
     flex-wrap: wrap;
+
     margin-top: 6px;
+
 }
+
+
 
 .row-actions .btn {
+
     padding: 6px 10px;
+
     border-radius: 8px;
+
 }
+
+
 
 .row-actions .btn-accent {
+
     background: var(--accent);
+
     color: #fff;
+
     border: none;
+
 }
+
+
 
 /* Panel del mapa (derecha) */
+
 .map-panel {
+
     background: #fff;
+
     border-radius: 14px;
+
     box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+
     overflow: hidden;
+
     min-height: 520px;
+
     display: flex;
+
     flex-direction: column;
+
 }
+
+
 
 .map-head {
+
     padding: 10px 14px;
+
     border-bottom: 1px solid var(--stroke);
+
     display: flex;
+
     justify-content: space-between;
+
     align-items: center;
+
     gap: 10px;
+
 }
+
+
 
 .map-title {
+
     font-size: 16px;
+
     font-weight: 800;
+
     color: var(--txt);
+
 }
+
+
 
 .map-metrics {
+
     font-size: 13px;
+
     color: var(--muted);
+
     display: flex;
+
     gap: 16px;
+
     align-items: center;
+
 }
+
+
 
 #map-admin {
+
     width: 100%;
+
     height: calc(100vh - 220px);
+
     min-height: 440px;
+
 }
+
+
+/* Drawer de filtros (dentro del panel del mapa) */
+.filters-drawer {
+
+    background: #fff;
+
+    border-bottom: 1px solid var(--stroke);
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+
+    padding: 12px 14px;
+
+    display: grid;
+
+    gap: 10px 12px;
+
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+
+}
+
+.filters-drawer .field {
+    min-width: 0;
+}
+
+.filters-drawer .row-actions {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+}
+
+.filters-drawer .row-actions .btn {
+    padding: 8px 12px;
+}
+
+
 
 .details {
+
     border-top: 1px solid var(--stroke);
+
     padding: 12px 14px;
+
     display: grid;
+
     gap: 6px;
+
     font-size: 14px;
+
     color: #37474f;
+
 }
 
+
+
 /* ===== Responsive ===== */
+
 @media (max-width: 1024px) {
+
     .split {
+
         grid-template-columns: 320px 1fr;
+
+    }
+
+}
+
+/* Extra tablet rules for filters drawer */
+@media (max-width: 1024px) {
+    .filters-drawer {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
     }
 }
+
+
 
 @media (max-width: 860px) {
 
+
+
     /* Sidebar como overlay */
+
     .split {
+
         grid-template-columns: 1fr;
+
     }
+
+
 
     body:not(.sidebar-open) .sidebar {
+
         display: none;
+
     }
 
+
+
     .sidebar {
+
         position: fixed;
+
         top: 64px;
+
         left: 0;
+
         right: 0;
+
         height: calc(100vh - 64px);
-        z-index: 20;
+
+        z-index: 5000;
+        /* above map and controls */
+
         border-radius: 0;
+
+    }
+
+
+
+    /* En móvil los filtros quedan arriba y ocupan todo el ancho */
+
+    .sidebar .filters {
+
+        position: sticky;
+
+        top: 0;
+
+        z-index: 5001;
+        /* above sidebar content and Leaflet controls */
+
+    }
+
+
+    /* Hide Leaflet controls while overlay is open to prevent overlap */
+    body.sidebar-open #map-admin .leaflet-control-container {
+        display: none !important;
     }
 
     #map-admin {
+
         height: calc(100vh - 260px);
+
+    }
+
+}
+
+/* Mobile drawer behavior (separate block to avoid patching existing one) */
+@media (max-width: 860px) {
+    .filters-drawer {
+        display: none;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        grid-template-columns: 1fr;
+        padding: 12px 14px;
+    }
+
+    body.filters-open .filters-drawer {
+        display: grid;
+    }
+
+    .filters-drawer .row-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Hide Leaflet controls while drawer is open */
+    body.filters-open #map-admin .leaflet-control-container {
+        display: none !important;
     }
 }
 
+
+
 /* Snackbar */
+
 .mdl-snackbar {
+
     background: #263238;
+
     color: #fff;
+
 }
