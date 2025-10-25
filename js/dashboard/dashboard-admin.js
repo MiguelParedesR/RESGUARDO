@@ -61,13 +61,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const texto = fTexto.value.trim().toUpperCase();
       if (texto) { data = (data || []).filter(s => (s.placa || '').toUpperCase().includes(texto) || (s.cliente?.nombre || '').toUpperCase().includes(texto)); }
       const enriched = await Promise.all((data || []).map(async s => {
-        const { data: ping } = await window.sb.from('ubicacion')
-          .select('lat,lng,created_at')
-          .eq('servicio_id', s.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return { ...s, lastPing: ping || null };
+        try {
+          const { data: ping, error: pingErr } = await window.sb
+            .from('ubicacion')
+            .select('id,lat,lng,created_at')
+            .eq('servicio_id', s.id)
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (pingErr) {
+            console.warn('[admin] ubicacion query error', pingErr);
+          }
+          return { ...s, lastPing: ping || null };
+        } catch (e) {
+          console.warn('[admin] ubicacion query exception', e);
+          return { ...s, lastPing: null };
+        }
       }));
       renderList(enriched);
       updateMarkers(enriched.filter(x => x.estado === 'ACTIVO'));
@@ -119,15 +128,32 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!map) return;
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
-    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${s.placa || ''} - ${s.cliente?.nombre || ''}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label }).addTo(map); m.bindPopup(`<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}`); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}`); } bounds.push([p.lat, p.lng]); });
+    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${s.placa || ''} - ${s.cliente?.nombre || ''}`; const popup = `<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}<br>Destino: ${s.destino_texto || '-'}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
     if (bounds.length) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
-  function focusMarker(s) { const m = markers.get(s.id); if (m) { map.setView(m.getLatLng(), 15); m.openPopup(); } }
+  function focusMarker(s) {
+    ensureMap();
+    if (!map) return;
+    const p = s.lastPing;
+    if (!p?.lat || !p?.lng) return;
+    const label = `#${s.id} - ${s.placa || ''} - ${s.cliente?.nombre || ''}`;
+    const popup = `<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}<br>Destino: ${s.destino_texto || '-'}`;
+    let m = markers.get(s.id);
+    if (!m) {
+      m = L.marker([p.lat, p.lng], { title: label }).addTo(map);
+      m.bindPopup(popup);
+      markers.set(s.id, m);
+    } else {
+      m.setLatLng([p.lat, p.lng]);
+      m.setPopupContent(popup);
+    }
+    map.setView(m.getLatLng(), 15);
+    try { m.openPopup(); } catch {}
+  }
   function showDetails(s) { mapTitle.textContent = `Servicio #${s.id} - ${s.empresa}`; if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); metricPing.textContent = `${mins} min`; metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok'; } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '-'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; } metricEstado.textContent = s.estado; details.innerHTML = `<div><strong>Empresa:</strong> ${s.empresa}</div><div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div><div><strong>Placa:</strong> ${s.placa || '-'}</div><div><strong>Tipo:</strong> ${s.tipo || '-'}</div><div><strong>Destino:</strong> ${s.destino_texto || '-'}</div><div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>`; document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); }); }
   async function finalizarServicio(id) { const ok = confirm(`Finalizar el servicio #${id}?`); if (!ok) return; try { const { error } = await window.sb.from('servicio').update({ estado: 'FINALIZADO' }).eq('id', id); if (error) throw error; showMsg('Servicio finalizado'); await loadServices(); } catch (e) { console.error(e); showMsg('No se pudo finalizar el servicio'); } }
 
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
-
