@@ -1,4 +1,4 @@
-// Sidebar + Mapa + fitBounds + alertas + finalizar
+ï»¿// Sidebar + Mapa + fitBounds + alertas + finalizar
 
 document.addEventListener('DOMContentLoaded', () => {
     const snackbar = document.getElementById('app-snackbar');
@@ -8,20 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Vistas fijas: Lista / Filtros (sin solaparse)
     const root = document.body;
-    function showPanel(name) {
-        const filtros = name === 'filtros';
-        root.classList.toggle('view-filtros', filtros);
-        root.classList.toggle('view-lista', !filtros);
-        setTimeout(() => { try { map?.invalidateSize?.(); } catch { } }, 60);
-    }
+    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;\n    function showPanel(name) {\n        if (isDesktop()) { ensureMap(); requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch {} }); return; }\n        const filtros = name === 'filtros';\n        root.classList.toggle('view-filtros', filtros);\n        root.classList.toggle('view-lista', !filtros);\n        setTimeout(() => { try { map?.invalidateSize?.(); } catch { } }, 60);\n    }
     document.getElementById('btn-toggle').addEventListener('click', () => showPanel('lista'));
     document.getElementById('btn-filtros').addEventListener('click', () => showPanel('filtros'));
-    // Vista por defecto
-    showPanel('lista');
-
-    
-
-    // Toggle filtros (drawer) en mÃ³vil
+    // Vista por defecto\n    if (isDesktop()) { ensureMap(); } else { root.classList.add('view-lista'); }\n    window.addEventListener('resize', () => { if (isDesktop()) { root.classList.remove('view-lista','view-filtros'); ensureMap(); requestAnimationFrame(()=>{try{map?.invalidateSize?.();}catch{}}); } });\n\n    // Toggle filtros (drawer) en mÃ³vil
     const btnFiltros = document.getElementById('btn-filtros');
     if (btnFiltros) {
         btnFiltros.addEventListener('click', () => {
@@ -208,15 +198,15 @@ document.addEventListener('DOMContentLoaded', () => {
         activos.forEach(s => {
             const p = s.lastPing;
             if (!p?.lat || !p?.lng) return;
-            const label = `#${s.id} – ${s.placa || ''} – ${s.cliente?.nombre || ''}`;
+            const label = `#${s.id} ï¿½ ${s.placa || ''} ï¿½ ${s.cliente?.nombre || ''}`;
             if (!markers.has(s.id)) {
                 const m = L.marker([p.lat, p.lng], { title: label }).addTo(map);
-                m.bindPopup(`<strong>Servicio #${s.id}</strong><br>${s.empresa} – ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
+                m.bindPopup(`<strong>Servicio #${s.id}</strong><br>${s.empresa} ï¿½ ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
                 markers.set(s.id, m);
             } else {
                 const m = markers.get(s.id);
                 m.setLatLng([p.lat, p.lng]);
-                m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} – ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
+                m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} ï¿½ ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
             }
             bounds.push([p.lat, p.lng]);
         });
@@ -269,3 +259,4 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(loadServices, POLL_MS);
     loadServices();
 });
+

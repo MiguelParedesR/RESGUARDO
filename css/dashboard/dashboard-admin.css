@@ -223,7 +223,7 @@ body {
 /* ===== Contenedor principal ===== */
 .split {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 1fr;
     gap: 16px;
     max-width: 1200px;
     margin: 0 auto;
@@ -242,6 +242,13 @@ body.view-lista .sidebar {
     height: auto !important;
     z-index: 1 !important;
     border-radius: 14px;
+}
+
+/* Desktop: mostrar Lista (izq) + Mapa (der) siempre visibles */
+@media (min-width: 1024px) {
+  .split { grid-template-columns: 360px 1fr; max-width: 1600px; }
+  .sidebar { display: block !important; }
+  .map-panel { display: flex !important; }
 }
 
 
