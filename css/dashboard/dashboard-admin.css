@@ -35,8 +35,8 @@
     --chip-warn-txt: #c62828;
 
     /* layout */
-    --header-h: 64px; /* MDL header */
-    --topbar-h: 52px; /* toolbar Lista/Filtros */
+    --header-h: 64px; /* MDL header (una fila) */
+    --topbar-h: 48px; /* subheader Lista/Filtros */
 
 }
 
@@ -96,14 +96,10 @@ body {
 
 }
 
-/* Hacer fija la barra con botones Lista/Filtros debajo del header */
-.topbar {
-    position: sticky;
-    top: var(--header-h);
-    z-index: 7000; /* por encima del overlay de la lista */
-    background: var(--bg);
-    border-bottom: 1px solid var(--stroke);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+/* Hacer fija la barra con botones Lista/Filtros dentro del header */
+.sub-header {
+    gap: 10px;
+    align-items: center;
     min-height: var(--topbar-h);
 }
 
@@ -626,27 +622,7 @@ body.filters-open .map-panel::after {
 
 
 /* Drawer de filtros (dentro del panel del mapa) */
-.filters-drawer {
-
-    background: #fff;
-
-    border-bottom: 1px solid var(--stroke);
-
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
-
-    padding: 12px 14px;
-
-    display: grid;
-
-    gap: 10px 12px;
-
-    grid-template-columns: repeat(4, minmax(160px, 1fr));
-
-    position: relative;
-
-    z-index: 3; /* sobre el oscurecido del mapa */
-
-}
+.filters-drawer { position: sticky; top: var(--header-h); }
 
 .filters-drawer .field {
     min-width: 0;
@@ -696,53 +672,7 @@ body.filters-open .map-panel::after {
 
 /* Extra tablet rules for filters drawer */
 @media (max-width: 1024px) {
-    .filters-drawer {
-        grid-template-columns: repeat(2, minmax(160px, 1fr));
-    }
-}
-
-
-
-@media (max-width: 860px) {
-
-
-
-    /* Sidebar como overlay */
-
-    .split {
-
-        grid-template-columns: 1fr;
-
-    }
-
-
-
-    body:not(.sidebar-open) .sidebar {
-
-        display: none;
-
-    }
-
-
-
-    .sidebar {
-
-        position: fixed;
-
-        top: calc(var(--header-h) + var(--topbar-h));
-
-        left: 0;
-
-        right: 0;
-
-        height: calc(100vh - (var(--header-h) + var(--topbar-h)));
-
-        z-index: 5000;
-        /* above map and controls */
-
-        border-radius: 0;
-
-    }
+    .filters-drawer { position: sticky; top: var(--header-h); }
 
 
 
@@ -775,14 +705,7 @@ body.filters-open .map-panel::after {
 
 /* Mobile drawer behavior (separate block to avoid patching existing one) */
 @media (max-width: 860px) {
-    .filters-drawer {
-        display: none;
-        position: sticky;
-        top: 0;
-        z-index: 30;
-        grid-template-columns: 1fr;
-        padding: 12px 14px;
-    }
+    .filters-drawer { position: sticky; top: var(--header-h); }
 
     body.filters-open .filters-drawer {
         display: grid;
@@ -810,3 +733,6 @@ body.filters-open .map-panel::after {
     color: #fff;
 
 }
+
+/* Ajuste: cuando la p�gina tiene subheader, elevamos la altura del header fijo */
+.has-subheader{ --header-h: calc(64px + var(--topbar-h)); }

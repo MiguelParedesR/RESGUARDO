@@ -9,7 +9,9 @@
     <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" />
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,7 +30,7 @@
     <script defer src="/js/pwa.js"></script>
 </head>
 
-<body class="mdl-base">
+<body class="mdl-base has-subheader">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <header class="mdl-layout__header">
             <div class="mdl-layout__header-row">
@@ -36,15 +38,16 @@
                 <div class="mdl-layout-spacer"></div>
                 <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>
+            <!-- Sub-header fijo con Lista / Filtros -->
+            <div class="mdl-layout__header-row sub-header">
+                <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
+                <button id="btn-filtros" class="btn btn-ghost"><i class="material-icons">tune</i> Filtros</button>
+            </div>
         </header>
 
         <main class="mdl-layout__content">
             <section class="page">
-                <!-- TOPBAR -->
-                <div class="topbar">
-                    <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
-                    <button id="btn-filtros" class="btn btn-ghost"><i class="material-icons">tune</i> Filtros</button>
-                </div>
+                <!-- La barra Lista/Filtros se movió al header para quedar fija -->
 
                 <!-- SPLIT: sidebar + mapa -->
                 <div class="split">
