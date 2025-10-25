@@ -5,7 +5,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard Administrador</title>
-    <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
 
     <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
@@ -19,15 +18,14 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="/css/dashboard/dashboard-admin.css" />
 
-    <!-- Supabase -->
+    <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="/config.js"></script>
 
-    <!-- Lógica -->
+    <!-- Protección y lógica -->
     <script defer src="/js/guard.js"></script>
     <script defer src="/js/dashboard/dashboard-admin.js"></script>
     <script defer src="/js/pwa.js"></script>
-
 </head>
 
 <body class="mdl-base">
@@ -36,13 +34,13 @@
             <div class="mdl-layout__header-row">
                 <span class="mdl-layout-title">Administrador</span>
                 <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="/html/login/login.html">Salir</a>
+                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>
         </header>
 
         <main class="mdl-layout__content">
             <section class="page">
-                <!-- TOPBAR: lista + toggle filtros en móvil -->
+                <!-- TOPBAR -->
                 <div class="topbar">
                     <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
                     <button id="btn-filtros" class="btn btn-ghost"><i class="material-icons">tune</i> Filtros</button>
@@ -70,7 +68,8 @@
                                 <span><strong>Estado:</strong> <span id="metric-estado">—</span></span>
                             </div>
                         </div>
-                        <!-- Drawer de filtros: visible siempre en desktop/tablet; colapsable en móvil -->
+
+                        <!-- Filtros -->
                         <div class="filters-drawer" aria-label="Filtros de búsqueda">
                             <div class="field">
                                 <label class="lbl">Estado</label>
@@ -99,16 +98,21 @@
                                     Limpiar</button>
                             </div>
                         </div>
+
                         <div id="map-admin"></div>
+
                         <div class="details" id="details">
                             <div><strong>Empresa:</strong> —</div>
                             <div><strong>Cliente:</strong> —</div>
                             <div><strong>Placa:</strong> —</div>
                             <div><strong>Tipo:</strong> —</div>
                             <div><strong>Destino:</strong> —</div>
-                            <div><button id="btn-finalizar"
-                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                    disabled>Finalizar servicio</button></div>
+                            <div>
+                                <button id="btn-finalizar"
+                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
+                                    Finalizar servicio
+                                </button>
+                            </div>
                         </div>
                     </section>
                 </div>

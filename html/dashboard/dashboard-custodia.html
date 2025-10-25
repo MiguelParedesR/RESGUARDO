@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-    <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -24,11 +23,10 @@
     <!-- Config (crea window.sb y expone LOCATIONIQ_KEY) -->
     <script defer src="/config.js"></script>
 
-    <!-- Módulo del dashboard de custodia -->
+    <!-- Protección + módulo -->
     <script defer src="/js/guard.js"></script>
     <script defer src="/js/dashboard/dashboard-custodia.js"></script>
     <script defer src="/js/pwa.js"></script>
-
 </head>
 
 <body class="mdl-base">
@@ -37,7 +35,7 @@
             <div class="mdl-layout__header-row">
                 <span class="mdl-layout-title">Registro de Custodia</span>
                 <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="/html/login/login.html">Salir</a>
+                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>
         </header>
 
@@ -49,9 +47,7 @@
                     </div>
 
                     <div class="mdl-card__supporting-text grid">
-                        <!-- Columna izquierda -->
                         <div class="col">
-                            <!-- Tipo -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
                                 <select class="mdl-textfield__input" id="tipo" required>
                                     <option value="Simple">Simple</option>
@@ -61,34 +57,29 @@
                                 <label class="mdl-textfield__label" for="tipo">Tipo de custodia</label>
                             </div>
 
-                            <!-- Cantidad -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <input class="mdl-textfield__input" id="cantidad" type="number" min="1" max="10"
                                     required>
                                 <label class="mdl-textfield__label" for="cantidad">Cantidad de custodios</label>
                             </div>
 
-                            <!-- Nombres de custodios -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <textarea class="mdl-textfield__input" id="nombres" rows="3" placeholder="Uno por línea"
                                     required></textarea>
                                 <label class="mdl-textfield__label" for="nombres">Nombres de custodios</label>
                             </div>
 
-                            <!-- Cliente -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <input class="mdl-textfield__input" id="cliente" type="text" required>
                                 <label class="mdl-textfield__label" for="cliente">Cliente (carga)</label>
                             </div>
 
-                            <!-- Placa -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <input class="mdl-textfield__input" id="placa" type="text" placeholder="Ej: AUP767"
                                     required>
                                 <label class="mdl-textfield__label" for="placa">Placa de unidad</label>
                             </div>
 
-                            <!-- Destino (autocomplete tipo Uber) -->
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label destino-wrapper">
                                 <input class="mdl-textfield__input" id="destino" type="text"
                                     placeholder="Dirección destino" required autocomplete="off">
@@ -98,15 +89,12 @@
 
                             <div class="row-inline">
                                 <button type="button" id="btn-abrir-mapa"
-                                    class="mdl-button mdl-js-button mdl-button--raised">
-                                    Buscar en el mapa
-                                </button>
+                                    class="mdl-button mdl-js-button mdl-button--raised">Buscar en el mapa</button>
                                 <span id="direccion-estado" class="hint">Empieza a escribir para ver sugerencias o usa
                                     “Buscar en el mapa”.</span>
                             </div>
                         </div>
 
-                        <!-- Columna derecha (Selfie) -->
                         <div class="col">
                             <div class="section-title">
                                 <i class="material-icons">photo_camera</i> Selfie del resguardo
@@ -118,17 +106,13 @@
                                 <canvas id="cam-canvas" style="display:none"></canvas>
 
                                 <div class="camera-actions">
-                                    <button type="button" id="btn-iniciar-cam" class="mdl-button mdl-js-button">
-                                        Iniciar cámara
-                                    </button>
+                                    <button type="button" id="btn-iniciar-cam" class="mdl-button mdl-js-button">Iniciar
+                                        cámara</button>
                                     <button type="button" id="btn-tomar-foto"
-                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
-                                        Tomar selfie
-                                    </button>
+                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                                        disabled>Tomar selfie</button>
                                     <button type="button" id="btn-repetir-foto" class="mdl-button mdl-js-button"
-                                        disabled>
-                                        Repetir
-                                    </button>
+                                        disabled>Repetir</button>
                                 </div>
                                 <div id="cam-estado" class="hint"></div>
                             </div>
@@ -137,12 +121,9 @@
 
                     <div class="mdl-card__actions actions">
                         <button type="submit" id="btn-guardar"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
-                            Guardar registro
-                        </button>
-                        <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">
-                            Limpiar
-                        </button>
+                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar
+                            registro</button>
+                        <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">Limpiar</button>
                     </div>
                 </form>
             </section>
@@ -172,7 +153,6 @@
                 </div>
             </section>
 
-            <!-- Snackbar -->
             <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
                 <div class="mdl-snackbar__text"></div>
                 <button class="mdl-snackbar__action" type="button"></button>

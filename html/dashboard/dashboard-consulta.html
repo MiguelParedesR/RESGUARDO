@@ -5,7 +5,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Consulta de Custodias</title>
-    <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
 
     <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
@@ -17,14 +16,12 @@
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Config (crea window.sb) -->
     <script defer src="/config.js"></script>
 
-    <!-- Lógica del módulo -->
+    <!-- Protección y lógica -->
     <script defer src="/js/guard.js"></script>
     <script defer src="/js/dashboard/dashboard-consulta.js"></script>
     <script defer src="/js/pwa.js"></script>
-
 </head>
 
 <body class="mdl-base">
@@ -33,13 +30,12 @@
             <div class="mdl-layout__header-row">
                 <span class="mdl-layout-title">Consulta de Custodias</span>
                 <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="/html/login/login.html">Salir</a>
+                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>
         </header>
 
         <main class="mdl-layout__content">
             <section class="page">
-                <!-- Filtro por cliente -->
                 <div class="filter-card mdl-card mdl-shadow--2dp">
                     <div class="mdl-card__supporting-text filter-row">
                         <div class="select-block">
@@ -52,11 +48,8 @@
                     </div>
                 </div>
 
-
-                <!-- Contenedor de resultados por placas -->
                 <div id="placas-container" class="placas-grid"></div>
 
-                <!-- Zona sensible (overlay) -->
                 <div id="anti-capture-overlay" class="anti-overlay" aria-hidden="true">
                     <div class="anti-inner">
                         <i class="material-icons">lock</i>
@@ -65,7 +58,6 @@
                 </div>
             </section>
 
-            <!-- Snackbar -->
             <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
                 <div class="mdl-snackbar__text"></div>
                 <button class="mdl-snackbar__action" type="button"></button>
