@@ -4,10 +4,14 @@
     display: grid;
     place-items: center;
     padding: 16px;
+    background: linear-gradient(135deg, #f5f7fb 0%, #eef2ff 35%, #f8f5ff 100%);
 }
 
 .login-card {
     width: min(960px, 95vw);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: cardIn 320ms ease-out;
 }
 
 .form-grid {
@@ -26,6 +30,31 @@
     overflow-x: auto;
 }
 
+/* Acento y animaciones de tabs */
+.login-tabs .mdl-tabs__tab-bar {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.login-tabs .mdl-tabs__tab {
+    color: #607d8b;
+    transition: color 160ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.login-tabs .mdl-tabs__tab.is-active { color: var(--accent); }
+.login-tabs .mdl-tabs__tab.is-active:after {
+    content: "";
+    display: block;
+    height: 2px;
+    background: var(--accent);
+    transform: translateY(14px);
+}
+.login-tabs .tab-icon { font-size: 1rem; line-height: 1; }
+
+/* Animación sutil al cambiar de panel */
+.login-tabs .mdl-tabs__panel { opacity: 0; transform: translateY(4px); transition: opacity 180ms ease, transform 220ms ease; }
+.login-tabs .mdl-tabs__panel.is-active { opacity: 1; transform: translateY(0); }
+
 /* Mejoras visuales pequeñas para selects dentro de textfield */
 .mdl-textfield select.mdl-textfield__input {
     background: transparent;
@@ -34,9 +63,51 @@
     padding: 4px 0;
 }
 
+/* Estado de validación visual */
+.mdl-textfield.is-invalid .mdl-textfield__input {
+    border-bottom: 2px solid #e53935 !important;
+}
+.mdl-textfield.is-invalid::after {
+    content: attr(data-error);
+    display: block;
+    color: #e53935;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Botón de ingresar con spinner */
+.btn-login { position: relative; min-height: 40px; }
+.btn-login .btn-spinner {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    opacity: 0; pointer-events: none;
+}
+.btn-login.loading { opacity: 0.9; }
+.btn-login.loading .btn-label { opacity: 0.6; }
+.btn-login.loading .btn-spinner { opacity: 1; animation: spin 0.9s linear infinite; }
+
 /* Botones ocupan ancho completo en móvil para mejor UX */
 @media (max-width: 480px) {
     .form-grid .mdl-button {
         width: 100%;
     }
 }
+
+/* Acordeón vertical de roles */
+.roles-accordion { display: grid; gap: 12px; }
+.role-item { border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; overflow: hidden; background: #fff; }
+.role-header { width: 100%; display: flex; align-items: center; gap: 8px; padding: 14px 16px; background: #fff; border: 0; cursor: pointer; font-weight: 600; color: #37474f; text-align: left; }
+.role-header:hover { background: rgba(124,77,255,0.06); }
+.role-item.active .role-header { color: var(--accent); box-shadow: inset 4px 0 0 0 var(--accent); }
+.role-content { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 0 16px; max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-4px); transition: max-height 240ms ease, opacity 160ms ease, transform 200ms ease; }
+.role-item.active .role-content { padding: 12px 16px 16px; max-height: 500px; opacity: 1; transform: none; }
+
+@keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { from { transform: translateY(-50%) rotate(0); } to { transform: translateY(-50%) rotate(360deg); } }
+:root { --accent: #7c4dff; }

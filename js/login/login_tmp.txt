@@ -1,4 +1,4 @@
-﻿/* login.js – Accesos para ADMIN / CUSTODIA / CONSULTA
+/* login.js – Accesos para ADMIN / CUSTODIA / CONSULTA
    -----------------------------------------------
    ADMIN y CONSULTA:
      - Solo clave (sin usuario)
@@ -184,12 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!empresa) return showMsg('Seleccione una empresa');
             if (!passInput.value) { markInvalid(passField); passInput.focus(); return; }
-    
-            setButtonLoading(btn, true);
+            showLoader('Validando clave dinámica...');
+            hideLoader(); setButtonLoading(btn, true);
             setTimeout(() => {
                 if (input !== expected) {
                     setButtonLoading(btn, false);
-                    return showMsg('Clave din�mica incorrecta');
+                    return showMsg('Clave dinámica incorrecta');
                 }
 
                 sessionStorage.setItem('auth_role', 'CUSTODIA');
@@ -238,23 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (role) console.log('Tipo de acceso seleccionado:', role);
         });
     });
-    // ======= Acordeón vertical: selección de rol =======
-    const accordion = document.getElementById('roles-accordion');
-    if (accordion) {
-        const items = Array.from(accordion.querySelectorAll('.role-item'));
-        const headers = Array.from(accordion.querySelectorAll('.role-header'));
-        const setActive = (item) => {
-            items.forEach(i => {
-                const active = i === item && !i.classList.contains('active');
-                i.classList.toggle('active', active);
-                const h = i.querySelector('.role-header');
-                if (h) h.setAttribute('aria-expanded', active ? 'true' : 'false');
-            });
-            const role = item?.getAttribute('data-role');
-            if (role) console.log('Tipo de acceso seleccionado:', role);
-        };
-        headers.forEach(h => h.addEventListener('click', () => setActive(h.closest('.role-item'))));
-    }
+
     // Limpiar estado inválido al teclear
     [['admin-pass','admin-pass-field'],['custodia-pass','custodia-pass-field'],['consulta-pass','consulta-pass-field']]
       .forEach(([inputId, fieldId]) => {
@@ -306,5 +290,3 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(style);
 });
-
-

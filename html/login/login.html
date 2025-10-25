@@ -23,12 +23,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js"></script>
 
-
     <!-- Lógica del login -->
     <script defer src="../../js/login/login.js"></script>
     <script defer src="../../js/pwa.js"></script>
-
-
 </head>
 
 <body class="mdl-base">
@@ -49,70 +46,73 @@
                     </div>
 
                     <div class="mdl-card__supporting-text">
-                        <!-- Tabs -->
-                        <div class="mdl-tabs mdl-js-tabs mdl-js-ripple-effect">
-                            <div class="mdl-tabs__tab-bar">
-                                <a href="#tab-admin" class="mdl-tabs__tab is-active">Administrador</a>
-                                <a href="#tab-custodia" class="mdl-tabs__tab">Custodia</a>
-                                <a href="#tab-consulta" class="mdl-tabs__tab">Consulta Custodia</a>
+                        <!-- Roles (vertical) -->
+                        <div class="roles-accordion" id="roles-accordion">
+                            <!-- ADMINISTRADOR -->
+                            <div class="role-item" data-role="ADMIN">
+                                <button class="role-header" id="header-admin" aria-expanded="false" aria-controls="panel-admin">
+                                    <i class="material-icons" aria-hidden="true">settings</i>
+                                    <span>Administrador</span>
+                                </button>
+                                <div class="role-content" id="panel-admin" role="region" aria-labelledby="header-admin">
+                                    <form id="admin-form" class="form-grid" autocomplete="off">
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="admin-pass-field">
+                                            <input class="mdl-textfield__input" id="admin-pass" type="password" required />
+                                            <label class="mdl-textfield__label" for="admin-pass">Clave</label>
+                                        </div>
+                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="admin-login">
+                                            <span class="btn-label">INGRESAR</span>
+                                            <span class="btn-spinner" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
 
-                            <!-- ADMINISTRADOR (solo clave) -->
-                            <div class="mdl-tabs__panel is-active" id="tab-admin">
-                                <form id="admin-form" class="form-grid" autocomplete="off">
-                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                        <input class="mdl-textfield__input" id="admin-pass" type="password" required />
-                                        <label class="mdl-textfield__label" for="admin-pass">Clave</label>
-                                    </div>
-                                    <button type="submit"
-                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                        id="admin-login">
-                                        Ingresar
-                                    </button>
-                                </form>
+                            <!-- CUSTODIA -->
+                            <div class="role-item" data-role="CUSTODIA">
+                                <button class="role-header" id="header-custodia" aria-expanded="false" aria-controls="panel-custodia">
+                                    <i class="material-icons" aria-hidden="true">handyman</i>
+                                    <span>Custodia</span>
+                                </button>
+                                <div class="role-content" id="panel-custodia" role="region" aria-labelledby="header-custodia">
+                                    <form id="custodia-form" class="form-grid" autocomplete="off">
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
+                                            <select class="mdl-textfield__input" id="empresa" required>
+                                                <option value="ALVICEM">ALVICEM</option>
+                                                <option value="KARPAR">KARPAR</option>
+                                            </select>
+                                            <label class="mdl-textfield__label" for="empresa">Empresa</label>
+                                        </div>
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="custodia-pass-field">
+                                            <input class="mdl-textfield__input" id="custodia-pass" type="password" placeholder="DDMMEMP" required />
+                                            <label class="mdl-textfield__label" for="custodia-pass">Clave dinámica</label>
+                                        </div>
+                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="custodia-login">
+                                            <span class="btn-label">INGRESAR</span>
+                                            <span class="btn-spinner" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
 
-                            <!-- CUSTODIA (clave dinámica) -->
-                            <div class="mdl-tabs__panel" id="tab-custodia">
-                                <form id="custodia-form" class="form-grid" autocomplete="off">
-                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
-                                        <select class="mdl-textfield__input" id="empresa" required>
-                                            <option value="ALVICEM">ALVICEM</option>
-                                            <option value="KARPAR">KARPAR</option>
-                                        </select>
-                                        <label class="mdl-textfield__label" for="empresa">Empresa</label>
-                                    </div>
-                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                        <input class="mdl-textfield__input" id="custodia-pass" type="password"
-                                            placeholder="DDMMEMP" required />
-                                        <label class="mdl-textfield__label" for="custodia-pass">Clave dinámica</label>
-                                    </div>
-                                    <!--<div class="hint">
-                                        La clave válida se genera como <strong>DDMM + EMPRESA</strong> con fecha de
-                                        <em>America/Lima</em>.
-                                    </div>-->
-                                    <button type="submit"
-                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                        id="custodia-login">
-                                        Ingresar
-                                    </button>
-                                </form>
-                            </div>
-
-                            <!-- CONSULTA CUSTODIA (solo clave) -->
-                            <div class="mdl-tabs__panel" id="tab-consulta">
-                                <form id="consulta-form" class="form-grid" autocomplete="off">
-                                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                        <input class="mdl-textfield__input" id="consulta-pass" type="password"
-                                            required />
-                                        <label class="mdl-textfield__label" for="consulta-pass">Clave</label>
-                                    </div>
-                                    <button type="submit"
-                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                        id="consulta-login">
-                                        Ingresar
-                                    </button>
-                                </form>
+                            <!-- CONSULTA -->
+                            <div class="role-item" data-role="CONSULTA">
+                                <button class="role-header" id="header-consulta" aria-expanded="false" aria-controls="panel-consulta">
+                                    <i class="material-icons" aria-hidden="true">search</i>
+                                    <span>Consulta</span>
+                                </button>
+                                <div class="role-content" id="panel-consulta" role="region" aria-labelledby="header-consulta">
+                                    <form id="consulta-form" class="form-grid" autocomplete="off">
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="consulta-pass-field">
+                                            <input class="mdl-textfield__input" id="consulta-pass" type="password" required />
+                                            <label class="mdl-textfield__label" for="consulta-pass">Clave</label>
+                                        </div>
+                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="consulta-login">
+                                            <span class="btn-label">INGRESAR</span>
+                                            <span class="btn-spinner" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -120,8 +120,7 @@
             </section>
 
             <!-- Snackbar mensajes (MDL) -->
-            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
-                aria-relevant="text">
+            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true" aria-relevant="text">
                 <div class="mdl-snackbar__text"></div>
                 <button class="mdl-snackbar__action" type="button"></button>
             </div>
@@ -130,3 +129,4 @@
 </body>
 
 </html>
+

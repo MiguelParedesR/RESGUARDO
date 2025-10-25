@@ -46,20 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function ensureMap() { if (!map) { initMap(); } }
 
   // Utilidades
-  const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
   const POLL_MS = 30000; const STALE_MIN = 5; const beeped = new Set();
   const fmtDT = (iso) => { try { return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(new Date(iso)); } catch { return iso || ''; } };
   const minDiff = (a, b) => Math.round((a - b) / 60000);
   function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch { } }
   async function fetchRoute(from, to) {
     try {
-      const url = `${OSRM_URL}/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('OSRM ' + r.status);
-      const j = await r.json();
-      const coords = j?.routes?.[0]?.geometry?.coordinates || [];
-      return coords.map(([lng, lat]) => [lat, lng]);
-    } catch (e) { console.warn('[admin] OSRM route error', e); return null; }
+      if (!window.routerLocal) return null;
+      return await window.routerLocal.route(from, to);
+    } catch (e) { console.warn('[admin] local route error', e); return null; }
   }
 
   // Datos
@@ -147,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let selectionLayer = null;
+  let lastRouteSig = '';
   async function focusMarker(s) {
     ensureMap();
     if (!map) return;
@@ -179,6 +175,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const route = await fetchRoute(start, dest);
       if (route && route.length) {
         L.polyline(route, { color: '#1e88e5', weight: 4, opacity: 0.95 }).addTo(selectionLayer);
+        const sig = String(route[0]) + '|' + String(route[route.length-1]) + '|' + route.length;
+        if (sig !== lastRouteSig) { lastRouteSig = sig; beep(); }
         const b = L.latLngBounds(route);
         map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
       } else {
