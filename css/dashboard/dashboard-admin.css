@@ -34,6 +34,10 @@
 
     --chip-warn-txt: #c62828;
 
+    /* layout */
+    --header-h: 64px; /* MDL header */
+    --topbar-h: 52px; /* toolbar Lista/Filtros */
+
 }
 
 
@@ -95,11 +99,12 @@ body {
 /* Hacer fija la barra con botones Lista/Filtros debajo del header */
 .topbar {
     position: sticky;
-    top: 64px; /* altura del header MDL */
+    top: var(--header-h);
     z-index: 120;
     background: var(--bg);
     border-bottom: 1px solid var(--stroke);
     box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    min-height: var(--topbar-h);
 }
 
 
@@ -724,13 +729,13 @@ body.filters-open .map-panel::after {
 
         position: fixed;
 
-        top: 64px;
+        top: calc(var(--header-h) + var(--topbar-h));
 
         left: 0;
 
         right: 0;
 
-        height: calc(100vh - 64px);
+        height: calc(100vh - (var(--header-h) + var(--topbar-h)));
 
         z-index: 5000;
         /* above map and controls */

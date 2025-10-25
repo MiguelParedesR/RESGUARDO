@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard Administrador</title>
+    <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
 
     <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
@@ -23,12 +24,13 @@
     <script defer src="/config.js"></script>
 
     <!-- Lógica -->
+    <script defer src="/js/guard.js"></script>
     <script defer src="/js/dashboard/dashboard-admin.js"></script>
     <script defer src="/js/pwa.js"></script>
 
 </head>
 
-<body class="mdl-base sidebar-open">
+<body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <header class="mdl-layout__header">
             <div class="mdl-layout__header-row">
@@ -91,8 +93,10 @@
                                 <input id="f-texto" class="input" type="text" placeholder="Cliente, placa…" />
                             </div>
                             <div class="row-actions">
-                                <button id="btn-aplicar" class="btn btn-ghost"><i class="material-icons">filter_list</i> Aplicar</button>
-                                <button id="btn-reset" class="btn btn-ghost"><i class="material-icons">refresh</i> Limpiar</button>
+                                <button id="btn-aplicar" class="btn btn-ghost"><i class="material-icons">filter_list</i>
+                                    Aplicar</button>
+                                <button id="btn-reset" class="btn btn-ghost"><i class="material-icons">refresh</i>
+                                    Limpiar</button>
                             </div>
                         </div>
                         <div id="map-admin"></div>
