@@ -92,13 +92,17 @@ document.addEventListener('DOMContentLoaded', () => {
   async function getCustodios(servicioId) {
     const { data, error } = await window.sb
       .from('servicio_custodio')
-      .select('id, nombre, selfie_url, created_at')
+      .select('id, nombre_custodio, created_at, selfie(id)')
       .eq('servicio_id', servicioId);
     if (error) throw error;
     return data || [];
   }
 
-  function isCompleto(c) { return Boolean((c?.nombre || '').trim()) && Boolean(c?.selfie_url); }
+  function isCompleto(c) {
+    const nombreOk = Boolean((c?.nombre_custodio || '').trim());
+    const tieneSelfie = Array.isArray(c?.selfie) ? c.selfie.length > 0 : false;
+    return nombreOk && tieneSelfie;
+  }
 
   async function cargar() {
     try {
@@ -192,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'incom-item' + (idx === 0 ? ' active' : '');
-      item.textContent = (c.nombre || '(Sin nombre)');
+      item.textContent = (c.nombre_custodio || '(Sin nombre)');
       item.dataset.id = c.id;
       item.addEventListener('click', () => seleccionarCustodio(c.id, item));
       incompletosList.appendChild(item);
@@ -206,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Array.from(incompletosList.children).forEach(el => el.classList.toggle('active', el === btnEl));
     custIdEl.value = String(id);
     const c = currentRow.custodios.find(x => x.id === id);
-    nombreEl.value = c?.nombre || '';
+    nombreEl.value = c?.nombre_custodio || '';
     if (window.componentHandler && nombreEl.parentElement) try { componentHandler.upgradeElement(nombreEl.parentElement); } catch {}
     // reset cámara
     selfieDataUrl = null; selfiePreview.style.display = 'none'; camVideo.style.display = 'none';
@@ -215,14 +219,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = Number(custIdEl.value);
+    const id = (custIdEl.value || '').trim();
     const nombre = (nombreEl.value || '').trim();
     if (!id) return showMsg('Seleccione un custodio');
     if (!nombre) return showMsg('Ingrese un nombre');
 
     try {
       // 1) update nombre
-      const { error: errName } = await window.sb.from('servicio_custodio').update({ nombre }).eq('id', id);
+      const { error: errName } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre }).eq('id', id);
       if (errName) { console.error(errName); return showMsg('Error al actualizar nombre'); }
 
       // 2) selfie opcional (si se tomó)
