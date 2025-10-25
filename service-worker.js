@@ -1,30 +1,26 @@
-/* service-worker.js — precache + runtime cache + offline fallback */
+/* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.0.0";
+const VERSION = "v1.0.2";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
 
-// Rutas core (solo mismo origen). Ajusta si cambias estructura.
 const CORE_ASSETS = [
-    "/", // si sirves index; si no, puedes quitarlo
+    "/",
     "/config.js",
 
-    // HTML
     "/html/login/login.html",
     "/html/dashboard/dashboard-custodia.html",
     "/html/dashboard/dashboard-admin.html",
     "/html/dashboard/dashboard-consulta.html",
     "/html/dashboard/mapa-resguardo.html",
 
-    // CSS
     "/css/login/login.css",
     "/css/dashboard/dashboard-custodia.css",
     "/css/dashboard/dashboard-admin.css",
     "/css/dashboard/dashboard-consulta.css",
     "/css/dashboard/mapa-resguardo.css",
 
-    // JS (propios)
     "/js/login/login.js",
     "/js/dashboard/dashboard-custodia.js",
     "/js/dashboard/dashboard-admin.js",
@@ -33,7 +29,6 @@ const CORE_ASSETS = [
     "/js/pwa.js",
 ];
 
-// Respuesta offline básica (HTML inlined)
 const OFFLINE_HTML = `
 <!doctype html><html lang="es"><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -53,17 +48,12 @@ const OFFLINE_HTML = `
 </div>
 </html>`;
 
-// Utilidades
-function isHTML(request) {
-    return request.destination === "document" ||
-        (request.headers.get("accept") || "").includes("text/html");
-}
-function sameOrigin(url) {
-    try { return new URL(url, self.location.href).origin === self.location.origin; }
-    catch { return false; }
-}
+const isHttp = (url) => url.protocol === "http:" || url.protocol === "https:";
+const isHTML = (request) =>
+    request.destination === "document" ||
+    (request.headers.get("accept") || "").includes("text/html");
+const sameOrigin = (url) => url.origin === self.location.origin;
 
-// Pre-cache install
 self.addEventListener("install", (event) => {
     event.waitUntil(
         (async () => {
@@ -74,7 +64,6 @@ self.addEventListener("install", (event) => {
     );
 });
 
-// Activación: limpiar cachés viejas
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         (async () => {
@@ -89,24 +78,27 @@ self.addEventListener("activate", (event) => {
     );
 });
 
-// Mensajes desde la app (para saltar waiting)
 self.addEventListener("message", (event) => {
     if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
-// Política de caché por tipo de request
 self.addEventListener("fetch", (event) => {
     const req = event.request;
-    const url = new URL(req.url);
 
-    // Navegaciones (HTML): network-first con fallback a cache u offline
+    // Solo atender GET y http/https. Ignora chrome-extension:, blob:, data:, etc.
+    if (req.method !== "GET") return;
+    let url;
+    try { url = new URL(req.url); } catch { return; }
+    if (!isHttp(url)) return;
+
+    // Navegaciones HTML: network-first con fallback
     if (isHTML(req)) {
         event.respondWith(
             (async () => {
                 try {
                     const fresh = await fetch(req);
                     const cache = await caches.open(RUNTIME_CACHE);
-                    cache.put(req, fresh.clone());
+                    if (fresh && fresh.ok) cache.put(req, fresh.clone());
                     return fresh;
                 } catch {
                     const cache = await caches.open(RUNTIME_CACHE);
@@ -118,8 +110,8 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Assets de mismo origen (CSS/JS/imagenes): cache-first
-    if (sameOrigin(url.href)) {
+    // Assets de mismo origen: cache-first
+    if (sameOrigin(url)) {
         event.respondWith(
             (async () => {
                 const cache = await caches.open(STATIC_CACHE);
@@ -127,7 +119,7 @@ self.addEventListener("fetch", (event) => {
                 if (cached) return cached;
                 try {
                     const fresh = await fetch(req);
-                    cache.put(req, fresh.clone());
+                    if (fresh && fresh.ok) cache.put(req, fresh.clone());
                     return fresh;
                 } catch {
                     return cached || Response.error();
@@ -137,18 +129,14 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Tiles de mapas / librerías externas / APIs: network-first con fallback a cache
-    // (p.ej. OSM tiles, Leaflet CDN, LocationIQ). *No* se precachean.
+    // Externos (tiles, CDNs, APIs): network-first con fallback a su cache
     event.respondWith(
         (async () => {
             const runtime = await caches.open(TILE_CACHE);
             try {
                 const fresh = await fetch(req, { cache: "no-store" });
-                // Guardamos solo si es 200
-                if (fresh && fresh.status === 200) {
-                    runtime.put(req, fresh.clone());
-                    trimCache(TILE_CACHE, 150); // mantenimiento simple
-                }
+                if (fresh && fresh.ok) runtime.put(req, fresh.clone());
+                trimCache(TILE_CACHE, 150);
                 return fresh;
             } catch {
                 const cached = await runtime.match(req);
@@ -158,12 +146,14 @@ self.addEventListener("fetch", (event) => {
     );
 });
 
-// Limitar tamaño aproximado de un caché (FIFO best-effort)
+// Mantenimiento simple del tamaño del cache
 async function trimCache(cacheName, maxItems) {
-    const cache = await caches.open(cacheName);
-    const keys = await cache.keys();
-    if (keys.length <= maxItems) return;
-    const excess = keys.length - maxItems;
-    for (let i = 0; i < excess; i++) await cache.delete(keys[i]);
+    try {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        if (keys.length <= maxItems) return;
+        const excess = keys.length - maxItems;
+        for (let i = 0; i < excess; i++) await cache.delete(keys[i]);
+    } catch { }
 }
-// Fin service-worker.js
+// End of service-worker.js
