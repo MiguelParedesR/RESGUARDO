@@ -113,13 +113,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function updateRouteFromMarkers() {
+        // sugerencia: reemplazar esta lógica por tracking-common.drawRouteWithPOIs + trackingStore
+        // así esta vista solo consume el mismo flujo de datos que el admin.
         try {
             if (!destino || !markerYo || !routeLayer || !poiLayer) return;
             const p = markerYo.getLatLng();
             let latlngs = null;
-            if (window.routerLocal && typeof window.routerLocal.route === 'function') {
-                latlngs = await window.routerLocal.route([p.lat, p.lng], [destino.lat, destino.lng]);
-            }
+            // sugerencia: usar trackingCommon.routeLocal cuando esté disponible
+            if (window.trackingCommon?.routeLocal) latlngs = await window.trackingCommon.routeLocal([p.lat, p.lng], [destino.lat, destino.lng]);
+            else if (window.routerLocal?.route) latlngs = await window.routerLocal.route([p.lat, p.lng], [destino.lat, destino.lng]);
             if (!Array.isArray(latlngs)) latlngs = [];
             try { routeLayer.clearLayers(); } catch {}
             try { poiLayer.clearLayers(); } catch {}

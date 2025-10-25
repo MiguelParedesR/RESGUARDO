@@ -52,8 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch { } }
   async function fetchRoute(from, to) {
     try {
-      if (!window.routerLocal) return null;
-      return await window.routerLocal.route(from, to);
+      // sugerencia: mover a tracking-common.routeLocal y eliminar duplicado
+      if (window.trackingCommon?.routeLocal) return await window.trackingCommon.routeLocal(from, to);
+      if (window.routerLocal?.route) return await window.routerLocal.route(from, to);
+      return null;
     } catch (e) { console.warn('[admin] local route error', e); return null; }
   }
 
@@ -137,6 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Markers + fitBounds
   function updateMarkers(activos) {
+    // sugerencia: este método comparte responsabilidades (gestión markers + layout bounds).
+    // Conviene extraer markers a un gestor y dejar solo layout aquí o moverlo a tracking-common.
     ensureMap();
     if (!map) return;
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
@@ -148,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectionLayer = null;
   let lastRouteSig = '';
   async function focusMarker(s) {
+    // sugerencia: extraer esta función a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
+    // para reutilizar en la vista de resguardo sin duplicar.
     ensureMap();
     if (!map) return;
     const p = s.lastPing;
