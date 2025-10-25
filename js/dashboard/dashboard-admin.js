@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
   const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+  const rootEl = document.documentElement;
   function showPanel(name) {
     if (isDesktop()) { ensureMap(); requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } }); return; }
     const filtros = name === 'filtros';
@@ -20,7 +21,90 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-toggle').addEventListener('click', () => showPanel('lista'));
   document.getElementById('btn-filtros').addEventListener('click', () => showPanel('filtros'));
   if (isDesktop()) { ensureMap(); } else { root.classList.add('view-lista'); }
-  window.addEventListener('resize', () => { if (isDesktop()) { root.classList.remove('view-lista', 'view-filtros'); ensureMap(); requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } }); } });
+  window.addEventListener('resize', () => {
+    if (isDesktop()) {
+      root.classList.remove('view-lista', 'view-filtros');
+      ensureMap();
+      ensureSidebarResizer();
+      requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } });
+    }
+  });
+
+  // Sidebar width: resizable on desktop and persisted
+  const SIDEBAR_KEY = 'admin.sidebarW';
+  const SIDEBAR_MIN = 280, SIDEBAR_MAX = 520;
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+  function setSidebarWidth(px) {
+    const v = clamp(Math.round(px), SIDEBAR_MIN, SIDEBAR_MAX);
+    rootEl.style.setProperty('--sidebar-w', v + 'px');
+    try { localStorage.setItem(SIDEBAR_KEY, String(v)); } catch {}
+  }
+  (function initSidebarWidthFromStorage(){
+    try {
+      const saved = parseInt(localStorage.getItem(SIDEBAR_KEY), 10);
+      if (!isNaN(saved) && saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) {
+        rootEl.style.setProperty('--sidebar-w', saved + 'px');
+      }
+    } catch {}
+  })();
+  function ensureSidebarResizer() {
+    if (!isDesktop()) return; // only desktop
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    let resizer = sidebar.querySelector('.sidebar-resizer');
+    if (!resizer) {
+      resizer = document.createElement('div');
+      resizer.className = 'sidebar-resizer';
+      resizer.setAttribute('role', 'separator');
+      resizer.setAttribute('aria-orientation', 'vertical');
+      resizer.tabIndex = 0;
+      resizer.title = 'Ajustar ancho';
+      sidebar.appendChild(resizer);
+    }
+    // Pointer drag
+    let dragging = false;
+    let startX = 0;
+    let startW = 0;
+    const onDown = (e) => {
+      if (!isDesktop()) return;
+      dragging = true;
+      root.classList.add('is-resizing');
+      const rect = sidebar.getBoundingClientRect();
+      startX = (e.touches?.[0]?.clientX ?? e.clientX);
+      const cs = getComputedStyle(rootEl);
+      const current = parseInt(cs.getPropertyValue('--sidebar-w'), 10) || rect.width;
+      startW = current;
+      e.preventDefault();
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('mouseup', onUp);
+      window.addEventListener('touchend', onUp);
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const x = (e.touches?.[0]?.clientX ?? e.clientX);
+      const dx = x - startX;
+      setSidebarWidth(startW + dx);
+      e.preventDefault();
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      root.classList.remove('is-resizing');
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchend', onUp);
+    };
+    resizer.onmousedown = onDown;
+    resizer.ontouchstart = onDown;
+    // Keyboard accessibility
+    resizer.onkeydown = (ev) => {
+      if (ev.key === 'ArrowLeft') { setSidebarWidth((parseInt(getComputedStyle(rootEl).getPropertyValue('--sidebar-w'))||360) - 12); ev.preventDefault(); }
+      if (ev.key === 'ArrowRight') { setSidebarWidth((parseInt(getComputedStyle(rootEl).getPropertyValue('--sidebar-w'))||360) + 12); ev.preventDefault(); }
+    };
+  }
+  ensureSidebarResizer();
 
   // Filtros
   const fEstado = document.getElementById('f-estado');

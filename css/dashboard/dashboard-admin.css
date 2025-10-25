@@ -37,6 +37,7 @@
     /* layout */
     --header-h: 64px; /* MDL header (una fila) */
     --topbar-h: 48px; /* subheader Lista/Filtros */
+    --sidebar-w: 360px; /* ancho inicial del panel de servicios en desktop */
 
 }
 
@@ -53,12 +54,12 @@ body {
 
 
 body {
-
     background: var(--bg);
-
-    font-family: 'Roboto', system-ui, Segoe UI, Arial;
-
+    font-family: 'Inter', 'Roboto', system-ui, Segoe UI, Arial;
 }
+
+/* Avoid horizontal scroll on any viewport */
+html, body { overflow-x: hidden; }
 
 
 
@@ -246,7 +247,7 @@ body.view-lista .sidebar {
 
 /* Desktop: mostrar Lista (izq) + Mapa (der) siempre visibles */
 @media (min-width: 1024px) {
-  .split { grid-template-columns: 360px 1fr; max-width: 1600px; }
+  .split { grid-template-columns: var(--sidebar-w) 1fr; }
   .sidebar { display: block !important; }
   .map-panel { display: flex !important; }
 }
@@ -748,13 +749,15 @@ body.filters-open .map-panel::after {
 body.view-lista .map-panel { display: none !important; }
 body.view-filtros .sidebar { display: none !important; }
 
-.split { display: grid; gap: 16px; grid-template-columns: 1fr; max-width: 1200px; margin: 0 auto; }
+.split { display: grid; gap: 16px; grid-template-columns: 1fr; width: 100%; max-width: none; margin: 0; }
 
 /* Desktop: ambas vistas visibles lado a lado */
 @media (min-width: 1024px) {
-  .split { grid-template-columns: 360px 1fr; max-width: 1600px; }
-  .sidebar { display: block !important; position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); }
+  .split { grid-template-columns: var(--sidebar-w) 1fr; }
+  .sidebar { display: block !important; position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); border-radius: 0 14px 14px 0; }
   .map-panel { display: flex !important; flex-direction: column; }
+  /* Remove left padding so the sidebar hugs the viewport edge */
+  .page { padding-left: 0; padding-right: 16px; }
 }
 
 /* Asegurar que en mobile la lista no sea overlay */
@@ -763,4 +766,57 @@ body.view-filtros .sidebar { display: none !important; }
 }
 
 /* Filtros debajo del subheader fijo sin solaparse */
-.filters-drawer { position: sticky; top: var(--header-h); z-index: 3; }
+.filters-drawer {
+  position: sticky; top: var(--header-h); z-index: 3;
+  background: #fff; border-bottom: 1px solid var(--stroke);
+  padding: 12px 16px; display: grid; gap: 12px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: end;
+}
+
+/* Inputs and selects – Material-like focus */
+.input:focus, .select:focus { outline: none; border-color: #90caf9; box-shadow: 0 0 0 3px rgba(144, 202, 249, 0.35); transition: box-shadow .18s ease, border-color .18s ease; }
+
+/* Stronger, accessible focus on interactive items */
+.btn:focus-visible, .card:focus-visible { outline: 3px solid rgba(144, 202, 249, 0.9); outline-offset: 2px; }
+
+/* Subtle hover interaction for buttons */
+.btn:hover { background: #fafbfc; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+
+/* Make the services list scroll smoother */
+.sidebar-body { scroll-behavior: smooth; }
+
+/* Sidebar resizer and control heights */
+@media (min-width: 1024px) {
+  .sidebar {
+    position: sticky;
+  }
+  .sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px; /* hit area ligeramente afuera para agarrar mejor */
+    width: 10px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 5;
+    background: transparent;
+  }
+  .sidebar-resizer::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 20px;
+    bottom: 20px;
+    width: 2px;
+    background: rgba(0,0,0,.08);
+    border-radius: 2px;
+    transition: background .15s ease;
+  }
+  .sidebar-resizer:hover::before { background: rgba(0,0,0,.18); }
+  body.is-resizing { cursor: col-resize; }
+}
+
+/* Alturas y espaciados consistentes en filtros */
+.input, .select { min-height: 40px; }
+.btn { min-height: 40px; }
+.filters-drawer .row-actions { margin-top: 2px; }
