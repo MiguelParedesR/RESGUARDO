@@ -220,20 +220,28 @@ body {
 
 
 
-/* ===== Split: Sidebar (izq) + Mapa (der) ===== */
-
+/* ===== Contenedor principal ===== */
 .split {
-
     display: grid;
-
     grid-template-columns: 360px 1fr;
-
     gap: 16px;
-
-    max-width: 1800px;
-
+    max-width: 1200px;
     margin: 0 auto;
+}
 
+/* Vistas: alternar Lista / Filtros sin mover el header */
+body.view-lista .map-panel { display: none !important; }
+body.view-lista .split { grid-template-columns: 1fr; }
+body.view-filtros .sidebar { display: none !important; }
+body.view-filtros .split { grid-template-columns: 1fr; }
+
+/* En vista de lista, la lista no es overlay */
+body.view-lista .sidebar {
+    position: relative !important;
+    top: 0 !important;
+    height: auto !important;
+    z-index: 1 !important;
+    border-radius: 14px;
 }
 
 
@@ -660,15 +668,7 @@ body.filters-open .map-panel::after {
 
 /* ===== Responsive ===== */
 
-@media (max-width: 1024px) {
-
-    .split {
-
-        grid-template-columns: 320px 1fr;
-
-    }
-
-}
+@media (max-width: 1024px) { .split { grid-template-columns: 1fr; } }
 
 /* Extra tablet rules for filters drawer */
 @media (max-width: 1024px) {

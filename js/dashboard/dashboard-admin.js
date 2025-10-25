@@ -6,10 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
         try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); }
     };
 
-    // Toggle sidebar en mÃ³vil
-    document.getElementById('btn-toggle').addEventListener('click', () => {
-        document.body.classList.toggle('sidebar-open');
-    });
+    // Vistas fijas: Lista / Filtros (sin solaparse)
+    const root = document.body;
+    function showPanel(name) {
+        const filtros = name === 'filtros';
+        root.classList.toggle('view-filtros', filtros);
+        root.classList.toggle('view-lista', !filtros);
+        setTimeout(() => { try { map?.invalidateSize?.(); } catch { } }, 60);
+    }
+    document.getElementById('btn-toggle').addEventListener('click', () => showPanel('lista'));
+    document.getElementById('btn-filtros').addEventListener('click', () => showPanel('filtros'));
+    // Vista por defecto
+    showPanel('lista');
+
+    
 
     // Toggle filtros (drawer) en mÃ³vil
     const btnFiltros = document.getElementById('btn-filtros');
@@ -182,14 +192,15 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const el of listado.querySelectorAll('.card')) el.classList.remove('active');
         const me = Array.from(listado.children).find(el => el.innerText.includes(`#${s.id}`));
         me?.classList.add('active');
+        showPanel('filtros');
         focusMarker(s);
         showDetails(s);
         if (window.innerWidth < 860) { document.body.classList.remove('sidebar-open'); }
     }
 
-    // ===== Markers + fitBounds =====
+        // ===== Markers + fitBounds =====
     function updateMarkers(activos) {
-        // remove los que ya no estÃ¡n
+        if (!map) return;
         for (const id of Array.from(markers.keys())) {
             if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); }
         }
@@ -197,27 +208,25 @@ document.addEventListener('DOMContentLoaded', () => {
         activos.forEach(s => {
             const p = s.lastPing;
             if (!p?.lat || !p?.lng) return;
-            const label = `#${s.id} Â· ${s.placa || ''} Â· ${s.cliente?.nombre || ''}`;
+            const label = `#${s.id} – ${s.placa || ''} – ${s.cliente?.nombre || ''}`;
             if (!markers.has(s.id)) {
                 const m = L.marker([p.lat, p.lng], { title: label }).addTo(map);
-                m.bindPopup(`<strong>Servicio #${s.id}</strong><br>${s.empresa} Â· ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
+                m.bindPopup(`<strong>Servicio #${s.id}</strong><br>${s.empresa} – ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
                 markers.set(s.id, m);
             } else {
                 const m = markers.get(s.id);
                 m.setLatLng([p.lat, p.lng]);
-                m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} Â· ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
+                m.setPopupContent(`<strong>Servicio #${s.id}</strong><br>${s.empresa} – ${s.cliente?.nombre || ''}<br>${s.placa || ''}`);
             }
             bounds.push([p.lat, p.lng]);
         });
-
-        // fitBounds si hay markers
         if (bounds.length) {
             const b = L.latLngBounds(bounds);
             map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
         } else {
             map.setView([-12.0464, -77.0428], 12);
         }
-    }
+    }}
 
     function focusMarker(s) {
         const m = markers.get(s.id);
