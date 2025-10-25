@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function getServicios() {
     const { data, error } = await window.sb
       .from('servicio')
-      .select('id, empresa, placa, tipo, estado, destino_texto, origen_texto, created_at, cliente:cliente_id(nombre)')
+      .select('id, empresa, placa, tipo, estado, destino_texto, created_at, cliente:cliente_id(nombre)')
       .eq('empresa', empresa)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -264,4 +264,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   cargar();
 });
-
