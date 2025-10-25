@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { data: ping, error: pingErr } = await window.sb
             .from('ubicacion')
-            .select('id,lat,lng,created_at')
+            .select('id,lat,lng')
             .eq('servicio_id', s.id)
             .order('id', { ascending: false })
             .limit(1)
