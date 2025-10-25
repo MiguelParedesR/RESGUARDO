@@ -89,7 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }));
       renderList(enriched);
       updateMarkers(enriched.filter(x => x.estado === 'ACTIVO'));
-      if (selectedId) { const cur = enriched.find(x => x.id === selectedId); if (cur) showDetails(cur); }
+      // Mantener seguimiento centrado en el admin: si hay seleccionado, actualiza detalles y ruta
+      if (selectedId) {
+        const cur = enriched.find(x => x.id === selectedId);
+        if (cur) { showDetails(cur); try { await focusMarker(cur); } catch {} }
+      }
     } catch (e) { console.error(e); showMsg('No se pudieron cargar servicios'); }
   }
 
@@ -164,12 +168,14 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionLayer = L.layerGroup().addTo(map);
     const start = [p.lat, p.lng];
     const hasDestino = (s.destino_lat != null && s.destino_lng != null);
-    L.circleMarker(start, { radius: 7, color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.7 })
+    const pinUser = L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24,24], iconAnchor: [12,24] });
+    L.marker(start, { icon: pinUser, title: 'Partida/Actual' })
       .bindTooltip('Partida/Actual')
       .addTo(selectionLayer);
     if (hasDestino) {
       const dest = [s.destino_lat, s.destino_lng];
-      L.circleMarker(dest, { radius: 7, color: '#e91e63', weight: 2, fillColor: '#e91e63', fillOpacity: 0.7 })
+      const pinDest = L.divIcon({ className: 'pin-dest', html: '&#128204;', iconSize: [24,24], iconAnchor: [12,24] });
+      L.marker(dest, { icon: pinDest, title: 'Destino' })
         .bindTooltip('Destino')
         .addTo(selectionLayer);
       const route = await fetchRoute(start, dest);
