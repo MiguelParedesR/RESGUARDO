@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const snackbar = document.getElementById('app-snackbar');
   const showMsg = (message) => { try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); } };
 
+  // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
+  let map; const markers = new Map(); let selectedId = null;
+
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
   const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
@@ -34,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const details = document.getElementById('details');
 
   // Mapa
-  let map; const markers = new Map(); let selectedId = null;
   function initMap() {
     map = L.map('map-admin');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
