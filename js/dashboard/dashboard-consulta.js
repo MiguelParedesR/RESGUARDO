@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data: custodios, error: errC } = await window.sb
                 .from('servicio_custodio')
-                .select('id, tipo_custodia, custodio:custodio_id(nombre)')
+                .select('id, tipo_custodia, custodio_id')
                 .eq('servicio_id', svc.id);
             if (errC) throw errC;
 
@@ -215,10 +215,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selfiesMap = new Map();
                 (selfies || []).forEach(s => selfiesMap.set(s.servicio_custodio_id, s));
 
+                // Resolver nombres de custodios por lote (sin relaciones PostgREST)
+                const nombresMap = new Map();
+                try {
+                    const custIds = Array.from(new Set((custodios || []).map(c => c.custodio_id).filter(Boolean)));
+                    if (custIds.length) {
+                        const { data: nombres, error: errN } = await window.sb
+                            .from('custodio')
+                            .select('id, nombre')
+                            .in('id', custIds);
+                        if (errN) throw errN;
+                        (nombres || []).forEach(n => nombresMap.set(n.id, n.nombre));
+                    }
+                } catch (e2) {
+                    console.warn('[consulta] No se pudo resolver nombres de custodios', e2);
+                }
+
                 for (const c of custodios) {
                     const s = selfiesMap.get(c.id);
                     const imgSrc = s ? `data:${s.mime_type};base64,${s.data_base64}` : '';
-                    const nombreCustodio = (c && c.custodio && c.custodio.nombre) ? c.custodio.nombre : '';
+                    const nombreCustodio = nombresMap.get(c.custodio_id) || '';
                     const custEl = document.createElement('div');
                     custEl.className = 'custodio-card';
                     custEl.innerHTML = `
