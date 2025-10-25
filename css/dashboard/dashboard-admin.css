@@ -743,3 +743,24 @@ body.filters-open .map-panel::after {
 
 /* Ajuste: cuando la p�gina tiene subheader, elevamos la altura del header fijo */
 .has-subheader{ --header-h: calc(64px + var(--topbar-h)); }
+/* ===== Overrides para alternar paneles de forma profesional ===== */
+/* Mobile/Tablet: una sola columna, alternar por clases en <body> */
+body.view-lista .map-panel { display: none !important; }
+body.view-filtros .sidebar { display: none !important; }
+
+.split { display: grid; gap: 16px; grid-template-columns: 1fr; max-width: 1200px; margin: 0 auto; }
+
+/* Desktop: ambas vistas visibles lado a lado */
+@media (min-width: 1024px) {
+  .split { grid-template-columns: 360px 1fr; max-width: 1600px; }
+  .sidebar { display: block !important; position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); }
+  .map-panel { display: flex !important; flex-direction: column; }
+}
+
+/* Asegurar que en mobile la lista no sea overlay */
+@media (max-width: 1023px) {
+  .sidebar { position: relative !important; top: 0 !important; height: auto !important; border-radius: 14px; z-index: 1 !important; }
+}
+
+/* Filtros debajo del subheader fijo sin solaparse */
+.filters-drawer { position: sticky; top: var(--header-h); z-index: 3; }
