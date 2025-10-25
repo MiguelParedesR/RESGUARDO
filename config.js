@@ -16,6 +16,10 @@ window.APP_CONFIG = {
 })();
 
 (async () => {
+    if (!window.sb) {
+        console.warn('[config] Saltando prueba de conexi\u00f3n: cliente Supabase no inicializado');
+        return;
+    }
     try {
         const { data, error } = await window.sb.from('usuario').select('role').limit(1);
         if (error) throw error;

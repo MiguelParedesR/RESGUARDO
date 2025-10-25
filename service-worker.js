@@ -1,6 +1,6 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.0.10";
+const VERSION = "v1.0.11";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -129,7 +129,16 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Externos (tiles, CDNs, APIs): network-first con fallback a su cache
+    // Externos: solo manejar tiles OSM. Dejar pasar CDNs/APIs para respetar CSP.
+    const host = url.hostname || "";
+    const isOSMTile = host.endsWith("tile.openstreetmap.org");
+
+    if (!isOSMTile) {
+        // No interceptamos otras peticiones cross‑origin (CDNs, Supabase, Google Fonts, etc.).
+        return;
+    }
+
+    // Tiles de OpenStreetMap: network-first con fallback a cache local
     event.respondWith(
         (async () => {
             const runtime = await caches.open(TILE_CACHE);
