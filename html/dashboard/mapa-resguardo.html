@@ -112,14 +112,14 @@
         const listEl = document.getElementById('custodios-list');
         const { data: custodios, error } = await window.sb
           .from('servicio_custodio')
-          .select('id, nombre, selfie_url')
+          .select('id, nombre_custodio, created_at, selfie(id)')
           .eq('servicio_id', servicioId)
           .order('id');
         if (error) throw error;
         listEl.innerHTML = '';
         (custodios||[]).forEach(c => {
           const row = document.createElement('div'); row.className = 'cust-row';
-          const nm = document.createElement('span'); nm.className='cust-name'; nm.textContent = c.nombre || '(Sin nombre)';
+          const nm = document.createElement('span'); nm.className='cust-name'; nm.textContent = c.nombre_custodio || '(Sin nombre)';
           const btn = document.createElement('button'); btn.className='edit-btn'; btn.title='Editar'; btn.innerHTML='<i class="material-icons">edit</i>';
           btn.addEventListener('click', () => openEdit(c));
           row.appendChild(nm); row.appendChild(btn); listEl.appendChild(row);
@@ -135,7 +135,7 @@
         <div class="inner">
           <h4>Editar custodio</h4>
           <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
-            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre||''}">
+            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre_custodio||''}">
             <span class="mdl-textfield__label">Nombre</span>
           </label>
           <div class="cam">
@@ -183,7 +183,7 @@
         async function saveAndClose() {
           const nombre = (emNombre.value||'').trim(); if (!nombre) { alert('Ingrese nombre'); return; }
           try {
-            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre }).eq('id', c.id);
+            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre }).eq('id', c.id);
             if (errN) throw errN;
             if (selfieDataUrl) {
               const base64 = selfieDataUrl.split(',')[1];
