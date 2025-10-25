@@ -1,5 +1,6 @@
 // Dashboard Admin — limpio y estable (Lista + Filtros/Mapa)
 document.addEventListener('DOMContentLoaded', () => {
+  const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
   const snackbar = document.getElementById('app-snackbar');
   const showMsg = (message) => { try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); } };
 
@@ -97,11 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (alertNow) { if (!beeped.has(s.id)) { beep(); beeped.add(s.id); } } else { beeped.delete(s.id); }
       const tagClass = s.estado === 'FINALIZADO' ? 't-final' : (pingClass === 'ping-warn' ? 't-alerta' : 't-activo');
       card.innerHTML = `
-        <div class="title"><div><strong>#${s.id}</strong> - ${s.placa || '-'}</div><span class="tag ${tagClass}">${s.estado}</span></div>
-        <div class="meta"><span class="pill">${s.empresa}</span><span class="pill">${s.tipo || '-'}</span></div>
-        <div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div>
-        <div><strong>Destino:</strong> ${s.destino_texto || '-'}</div>
-        <div class="${pingClass}"><strong>Ultimo ping:</strong> ${pingLabel}</div>
+        <div class="title"><div><strong>#${s.id}</strong> - ${h(s.placa || '-')}</div><span class="tag ${tagClass}">${h(s.estado)}</span></div>
+        <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-')}</span></div>
+        <div><strong>Cliente:</strong> ${h(s.cliente?.nombre || '-')}</div>
+        <div><strong>Destino:</strong> ${h(s.destino_texto || '-')}</div>
+        <div class="${pingClass}"><strong>Último ping:</strong> ${pingLabel}</div>
         <div class="meta">Creado: ${fmtDT(s.created_at)}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${s.id}">Ver en mapa</button>
@@ -130,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!map) return;
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
-    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${s.placa || ''} - ${s.cliente?.nombre || ''}`; const popup = `<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}<br>Destino: ${s.destino_texto || '-'}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
+    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
     if (bounds.length) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
@@ -139,8 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!map) return;
     const p = s.lastPing;
     if (!p?.lat || !p?.lng) return;
-    const label = `#${s.id} - ${s.placa || ''} - ${s.cliente?.nombre || ''}`;
-    const popup = `<strong>Servicio #${s.id}</strong><br>${s.empresa} - ${s.cliente?.nombre || ''}<br>${s.placa || ''}<br>Destino: ${s.destino_texto || '-'}`;
+    const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`;
+    const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`;
     let m = markers.get(s.id);
     if (!m) {
       m = L.marker([p.lat, p.lng], { title: label }).addTo(map);

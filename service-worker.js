@@ -8,6 +8,7 @@ const TILE_CACHE = `tiles-${VERSION}`;
 const CORE_ASSETS = [
     "/",
     "/config.js",
+    "/js/guard.js",
 
     "/html/login/login.html",
     "/html/dashboard/dashboard-custodia.html",
@@ -47,6 +48,26 @@ const OFFLINE_HTML = `
 <p><code>Monitoreo de Resguardos</code></p>
 </div>
 </html>`;
+
+// Re-define OFFLINE_HTML with proper UTF-8 accents to avoid mojibake
+try { OFFLINE_HTML = `
+<!doctype html><html lang="es"><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sin conexión</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f7fa;margin:0;display:grid;place-items:center;height:100vh;color:#263238}
+  .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;margin:16px}
+  h1{margin:0 0 8px;font-size:20px}
+  p{opacity:.8}
+  code{background:#f1f3f7;padding:2px 6px;border-radius:6px}
+</style>
+<div class="card">
+<h1>Estás sin conexión</h1>
+<p>No pudimos cargar la página solicitada. Revisa tu conexión e inténtalo de nuevo.</p>
+<p>Los recursos básicos de la aplicación están disponibles offline gracias al modo PWA.</p>
+<p><code>Monitoreo de Resguardos</code></p>
+</div>
+</html>`; } catch {}
 
 const isHttp = (url) => url.protocol === "http:" || url.protocol === "https:";
 const isHTML = (request) =>

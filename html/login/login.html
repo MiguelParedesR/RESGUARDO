@@ -15,10 +15,12 @@
 
     <!-- App styles -->
     <link rel="stylesheet" href="../../css/login/login.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: https://tile.openstreetmap.org; font-src https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com;" />
 
-    <!-- Config global (URL Supabase, claves placeholder) -->
-    <script defer src="../../config.js"></script>
+    <!-- Supabase (primero) + Config (luego) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="../../config.js"></script>
 
 
     <!-- Lógica del login -->

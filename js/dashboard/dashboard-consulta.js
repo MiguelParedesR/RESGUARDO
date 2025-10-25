@@ -2,6 +2,7 @@
 // Requiere: window.sb (config.js) y tablas conforme al esquema definido.
 
 document.addEventListener('DOMContentLoaded', () => {
+    const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
     // Snackbar
     const snackbar = document.getElementById('app-snackbar');
     const showMsg = (message) => {
@@ -193,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data: custodios, error: errC } = await window.sb
                 .from('servicio_custodio')
-                .select('id, nombre, tipo_custodia')
+                .select('id, tipo_custodia, custodio:custodio_id(nombre)')
                 .eq('servicio_id', svc.id);
             if (errC) throw errC;
 
@@ -217,13 +218,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const c of custodios) {
                     const s = selfiesMap.get(c.id);
                     const imgSrc = s ? `data:${s.mime_type};base64,${s.data_base64}` : '';
+                    const nombreCustodio = (c && c.custodio && c.custodio.nombre) ? c.custodio.nombre : '';
                     const custEl = document.createElement('div');
                     custEl.className = 'custodio-card';
                     custEl.innerHTML = `
-            ${imgSrc ? `<img draggable="false" alt="Selfie de ${c.nombre}" src="${imgSrc}" />` : `<div class="hint">Sin selfie</div>`}
-            <h4>${c.nombre}</h4>
+            ${imgSrc ? `<img draggable="false" alt="Selfie de ${nombreCustodio}" src="${imgSrc}" />` : `<div class="hint">Sin selfie</div>`}
+            <h4>${nombreCustodio || '—'}</h4>
             <div class="tipo">${c.tipo_custodia || ''}</div>
           `;
+                    // Reemplazar el contenido por construcción segura de nodos
+                    try {
+                        const n = nombreCustodio || '-';
+                        const t = c.tipo_custodia || '';
+                        const frag = document.createDocumentFragment();
+                        if (imgSrc) {
+                            const img = document.createElement('img');
+                            img.setAttribute('draggable', 'false');
+                            img.alt = `Selfie de ${n}`;
+                            img.src = imgSrc;
+                            frag.appendChild(img);
+                        } else {
+                            const noImg = document.createElement('div');
+                            noImg.className = 'hint';
+                            noImg.textContent = 'Sin selfie';
+                            frag.appendChild(noImg);
+                        }
+                        const h4 = document.createElement('h4');
+                        h4.textContent = n;
+                        frag.appendChild(h4);
+                        const tipoDiv = document.createElement('div');
+                        tipoDiv.className = 'tipo';
+                        tipoDiv.textContent = t;
+                        frag.appendChild(tipoDiv);
+                        custEl.innerHTML = '';
+                        custEl.appendChild(frag);
+                    } catch {}
                     cont.appendChild(custEl);
                 }
             }
