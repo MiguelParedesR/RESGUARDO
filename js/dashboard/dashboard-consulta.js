@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="placas-grid" id="cliente-cards"></div>
     `;
         const cardsContainer = group.querySelector('#cliente-cards');
-        placasContainer.appendChild(group);
+        placasContainer.appendChild(group); group.classList.add("mount-fade");
 
         Object.entries(porPlaca).forEach(([placa, lista]) => {
             const total = lista.length;
@@ -187,15 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const header = document.createElement('div');
             header.className = 'placa-header';
             header.setAttribute('aria-expanded', 'false');
-            header.innerHTML = `
+            '
+header.innerHTML = `
         <div class="placa-title">
           <span class="chip">${placa}</span>
-          <div class="placa-meta">${total} servicio(s) – último: ${fmtFecha(ultima.created_at)}</div>
+          <div class="placa-meta">${h((clienteSeleccionado && clienteSeleccionado.nombre) || ')} � ${ultima.tipo || '}</div>
         </div>
         <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Expandir">
           <i class="material-icons expand-icon">expand_more</i>
         </button>
       `;
+'
 
             const panel = document.createElement('div');
             panel.className = 'servicios-panel';
@@ -330,7 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sidebar toggle
     function openSidebar() { sidebar && sidebar.classList.add('open'); scrim && scrim.removeAttribute('hidden'); }
     function closeSidebar() { sidebar && sidebar.classList.remove('open'); scrim && scrim.setAttribute('hidden', ''); }
-    toggleSidebarBtn && toggleSidebarBtn.addEventListener('click', () => {
+      // Ensure correct UI when resizing (hide overlay or close drawer)
+  const mqTablet = window.matchMedia('(max-width: 1023px)');
+  const mqMobile = window.matchMedia('(max-width: 599px)');
+  function syncResponsiveState(){
+    if (mqMobile.matches) { closeSidebar(); if (toggleSidebarBtn) toggleSidebarBtn.style.display = 'none'; }
+    else { if (toggleSidebarBtn) toggleSidebarBtn.style.display = ''; }
+    if (!mqTablet.matches) { scrim && scrim.setAttribute('hidden',''); }
+  }
+  window.addEventListener('resize', () => { syncResponsiveState(); });
+  syncResponsiveState();toggleSidebarBtn && toggleSidebarBtn.addEventListener('click', () => {
         if (sidebar && sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
     });
     scrim && scrim.addEventListener('click', closeSidebar);
