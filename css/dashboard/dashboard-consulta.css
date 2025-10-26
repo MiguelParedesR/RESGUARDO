@@ -54,7 +54,7 @@ z-index: 700;
 .sidebar-list li.is-active { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(63,81,181,.15); background:#fff; }
 .sidebar-list .badge { background: var(--bg-soft); color: var(--ink-400); border-radius: 999px; padding:2px 8px; font-size:12px; }
 
-.scrim { position: fixed; inset:0; background: rgba(13,18,28,.32); backdrop-filter: blur(1px); display:none; z-index: 600; opacity: 0; transition: opacity .25s ease; }
+.scrim { position: fixed; inset:0; background: rgba(13,18,28,.32); backdrop-filter: blur(1px); display:none; z-index: 600; opacity: 0; transition: opacity .2s ease; }
 .scrim[hidden] { display:none; opacity: 0; }
 .scrim:not([hidden]) { display:block; opacity: 1; }
 
@@ -84,7 +84,7 @@ z-index: 700;
 .fab:hover { background: #5C6BC0; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.18); }
 .fab .material-icons { font-size: 18px; }
 @media (max-width: 599px) { #toggle-sidebar { display: none !important; } }
-.mount-fade { animation: fadeSlide .25s ease both; }
+.mount-fade { animation: fadeSlide .2s ease both; }
 .toolbar { display:flex; justify-content:flex-end; }
 
 .filter-card {
@@ -183,7 +183,7 @@ z-index: 700;
 }
 
 /* Panel de servicios por placa */
-.servicios-panel { padding: 8px 16px 16px; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .25s ease, opacity .2s ease; }
+.servicios-panel { padding: 8px 16px 16px; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .2s ease, opacity .2s ease; }
 .servicios-panel.open { max-height: 1200px; opacity: 1; }
 
 /* Animación simple de apertura */
@@ -371,6 +371,17 @@ z-index: 700;
   .sidebar { display: none !important; }
   .fab { display: none !important; }
   .scrim { display: none !important; }
+}
+.mdl-button:focus-visible,
+.mobile-clear-btn:focus-visible,
+.mobile-select:focus-visible,
+.placa-header:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(63,81,181,.3); }
+
+/* Center mobile controls inside header on small screens */
+@media (max-width: 599px) {
+  .mdl-layout__header-row { flex-wrap: wrap; }
+  .mobile-controls { display: flex; justify-content: center; width: 100%; padding: 6px 0; }
+  .mobile-select { min-width: 58vw; }
 }
 .is-consulta .mdl-layout__content { height: 100vh; overflow: hidden; }
 /* Consulta overrides: fixed sidebar + fluid content */

@@ -374,6 +374,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Close modal or drawer with Esc
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (fotosModal && fotosModal.getAttribute('aria-hidden') === 'false') {
+        fotosModal.setAttribute('aria-hidden','true');
+        fotosGrid && (fotosGrid.innerHTML = '');
+      }
+      if (sidebar && sidebar.classList.contains('open')) closeSidebar();
+    }
+  });
+
   // Reset
   btnReset && btnReset.addEventListener('click', () => {
     clienteSeleccionado = null;
@@ -393,4 +404,3 @@ document.addEventListener('DOMContentLoaded', () => {
   // Start
   cargarClientes();
 });
-
