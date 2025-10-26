@@ -1,8 +1,368 @@
-﻿<!-- /index.html -->
-<!doctype html>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: https://tile.openstreetmap.org; font-src https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io;">
-<link rel="manifest" href="/manifest.json">
-<meta http-equiv="refresh" content="0; url=login/login.html">
-<title>Redirigiendoâ€¦</title>
-<a href="login/login.html">Ir al login</a>
+
+    // Estado y render del sidebar
+    let clientesCache = [];
+    let clienteSeleccionado = null;
+
+    function renderSidebar(clientes) {
+        listaClientes.innerHTML = '';
+        for (const c of clientes) {
+            const li = document.createElement('li');
+            li.dataset.id = c.id;
+            li.innerHTML = <span></span>;
+            li.addEventListener('click', async () => {
+                clienteSeleccionado = c;
+                for (const item of listaClientes.querySelectorAll('li')) item.classList.remove('is-active');
+                li.classList.add('is-active');
+                placasContainer.innerHTML = '';
+                await cargarServiciosPorCliente(c.id);
+                if (window.matchMedia('(max-width: 1023px)').matches) closeSidebar();
+            });
+            listaClientes.appendChild(li);
+        }
+    }
+
+    function filterClientes(q) {
+        q = (q || '').toLowerCase().trim();
+        if (!q) return renderSidebar(clientesCache);
+        renderSidebar(clientesCache.filter(c => (c.nombre || '').toLowerCase().includes(q)));
+    }// dashboard-consulta.js – Consulta por Cliente → Placas → Servicios → Custodios + Selfies
+// Requiere: window.sb (config.js) y tablas conforme al esquema definido.
+
+document.addEventListener('DOMContentLoaded', () => {
+    const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    const toBase64 = (data) => {
+        try {
+            if (!data) return '';
+            if (/^[A-Za-z0-9+/]+=*$/.test(data)) return data;
+            if (typeof data === 'string' && data.startsWith('\\x')) {
+                const hex = data.slice(2);
+                let bin = '';
+                for (let i = 0; i < hex.length; i += 2) bin += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+                return btoa(bin);
+            }
+            return btoa(data);
+        } catch { return ''; }
+    };
+    // Snackbar
+    const snackbar = document.getElementById('app-snackbar');
+    const showMsg = (message) => {
+        try {
+            if (snackbar && snackbar.MaterialSnackbar) snackbar.MaterialSnackbar.showSnackbar({ message });
+            else alert(message);
+        } catch { alert(message); }
+    };
+
+    // Anti-exfiltración básica (disuasiva)
+    const antiOverlay = document.getElementById('anti-capture-overlay');
+    // Bloquear menú contextual
+    document.addEventListener('contextmenu', (e) => {
+        if (e.target.closest('.sensitive')) {
+            e.preventDefault();
+            showMsg('Zona protegida');
+        }
+    });
+    // Overlay si la pestaña se oculta
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            antiOverlay.classList.add('show');
+        } else {
+            antiOverlay.classList.remove('show');
+        }
+    });
+    // Intento disuasivo ante PrintScreen
+    document.addEventListener('keydown', (e) => {
+        if (e.key && e.key.toLowerCase() === 'printscreen') {
+            antiOverlay.classList.add('show');
+            setTimeout(() => antiOverlay.classList.remove('show'), 1200);
+            showMsg('Captura desaconsejada en esta zona');
+        }
+    });
+
+    // UI elementos
+    const btnReset = document.getElementById('btn-reset');
+    const placasContainer = document.getElementById('placas-container');
+    const sidebar = document.getElementById('sidebar');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+    const scrim = document.getElementById('scrim');
+    const searchClientes = document.getElementById('search-clientes');
+    const listaClientes = document.getElementById('lista-clientes');
+    const fotosModal = document.getElementById('fotos-modal');
+    const fotosGrid = document.getElementById('fotos-grid');
+
+    if (!window.sb) {
+        console.error('[consulta] Supabase no inicializado (config.js)');
+        showMsg('Error de inicialización');
+        return;
+    }
+
+    // Helpers
+    const fmtFecha = (iso) => {
+        try {
+            const d = new Date(iso);
+            return new Intl.DateTimeFormat('es-PE', {
+                dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima'
+            }).format(d);
+        } catch { return iso || ''; }
+    };
+
+    function groupBy(arr, keyFn) {
+        return arr.reduce((acc, item) => {
+            const k = keyFn(item);
+            (acc[k] ||= []).push(item);
+            return acc;
+        }, {});
+    }
+
+    async function cargarClientes() {
+        try {
+            const { data, error } = await window.sb
+                .from('cliente')
+                .select('id, nombre')
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+
+                        clientesCache = data || [];\n            renderSidebar(clientesCache);\n        }\n        } catch (e) {
+            console.error(e);
+            showMsg('No se pudieron cargar los clientes');
+        }
+    }
+
+    async function cargarServiciosPorCliente(clienteId) {
+        try {
+            const { data, error } = await window.sb
+                .from('servicio')
+                .select('id, placa, destino_texto, estado, tipo, created_at')
+                .eq('cliente_id', clienteId)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+
+            renderPlacasAgrupadas(data || []);
+        } catch (e) {
+            console.error(e);
+            showMsg('No se pudieron cargar los servicios del cliente');
+        }
+    }
+
+    function renderPlacasAgrupadas(servicios) {
+        placasContainer.innerHTML = '';
+        if (!servicios.length) {
+            placasContainer.innerHTML = `
+        <div class="mdl-card mdl-shadow--2dp placa-card">
+          <div class="mdl-card__supporting-text">Sin servicios para este cliente.</div>
+        </div>`;
+            return;
+        }
+
+        const porPlaca = groupBy(servicios, s => s.placa || 'SIN-PLACA');
+
+        // Agrupación por cliente con encabezado
+        const selectedText = (clienteSeleccionado && clienteSeleccionado.nombre) || '';
+        const group = document.createElement('section');
+        group.className = 'cliente-group';
+        const totalPlacas = Object.keys(porPlaca).length;
+        group.innerHTML = `
+          <header class="cliente-header">
+            <h3 class="cliente-title">${h(selectedText)}</h3>
+            <div class="cliente-subtitle">${servicios.length} servicio(s) · ${totalPlacas} placa(s)</div>
+          </header>
+          <div class="placas-grid" id="cliente-cards"></div>
+        `;
+        const cardsContainer = group.querySelector('#cliente-cards');
+        placasContainer.appendChild(group);
+
+        Object.entries(porPlaca).forEach(([placa, lista]) => {
+            const total = lista.length;
+            const ultima = lista[0]; // más reciente por order('created_at', desc)
+
+            const card = document.createElement('div');
+            card.className = 'mdl-card mdl-shadow--2dp placa-card sensitive';
+
+            const header = document.createElement('div');
+            header.className = 'placa-header';
+            header.innerHTML = `
+        <div class="placa-title">
+          <span class="chip">${placa}</span>
+          <div class="placa-meta">${total} servicio(s) · Último: ${fmtFecha(ultima.created_at)}</div>
+        </div>
+        <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Expandir">
+          <i class="material-icons expand-icon">expand_more</i>
+        </button>
+      `;
+
+            const panel = document.createElement('div');
+            panel.className = 'servicios-panel';
+
+            header.addEventListener('click', async () => {
+                panel.classList.toggle('open');
+                const icon = header.querySelector('.material-icons');
+                icon.textContent = panel.classList.contains('open') ? 'expand_less' : 'expand_more';\n                header.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
+
+                // Si se está abriendo, renderizar servicios si aún no se cargaron
+                if (panel.classList.contains('open') && !panel.dataset.loaded) {
+                    // Render sincrónico: pintamos skeleton y luego cargamos custodia+foto
+                    panel.innerHTML = '';
+                    for (const svc of lista) {
+                        const svcEl = await renderServicioCard(svc);
+                        panel.appendChild(svcEl);
+                    }
+                    panel.dataset.loaded = '1';
+                }
+            });
+
+            card.appendChild(header);
+            card.appendChild(panel);
+            cardsContainer.appendChild(card);
+            if (window.componentHandler && window.componentHandler.upgradeElement) {
+                window.componentHandler.upgradeElement(card);
+            }
+        });
+    }
+
+    async function renderServicioCard(svc) {
+        const card = document.createElement('div');
+        card.className = 'mdl-card mdl-shadow--2dp servicio-card';
+
+        const estadoClass = (svc.estado === 'FINALIZADO') ? 'estado-finalizado' : 'estado-activo';
+
+        // Estructura base
+        card.innerHTML = `
+      <div class="mdl-card__title">
+        <h2 class="mdl-card__title-text">Servicio #${svc.id}</h2>
+      </div>
+      <div class="mdl-card__supporting-text servicio-body">
+        <div class="servicio-info">
+          <p><strong>Placa:</strong> ${svc.placa || '—'}</p>
+          <p><strong>Tipo:</strong> ${svc.tipo || '—'}</p>
+          <p><strong>Destino:</strong> ${svc.destino_texto || '—'}</p>
+          <p><strong>Fecha:</strong> ${fmtFecha(svc.created_at)}</p>
+          <p class="estado ${estadoClass}"><strong>Estado:</strong> ${svc.estado}</p>
+        </div>
+        <div class="custodios" id="custodios-${svc.id}">
+          <!-- Se llenará con custodios + selfies -->
+        </div>
+      </div>
+    `;
+
+        // Cargar custodios y selfies
+        try {
+            const { data: custodios, error: errC } = await window.sb
+                .from('servicio_custodio')
+                .select('id, nombre_custodio, tipo_custodia')
+                .eq('servicio_id', svc.id);
+            if (errC) throw errC;
+
+            const cont = card.querySelector(`#custodios-${svc.id}`);
+            cont.innerHTML = '';
+
+            if (!custodios || !custodios.length) {
+                cont.innerHTML = `<div class="hint">Sin custodios registrados en este servicio.</div>`;
+            } else {
+                // Traer todas las selfies de golpe para estos custodios
+                const ids = custodios.map(c => c.id);
+                const { data: selfies, error: errS } = await window.sb
+                    .from('selfie')
+                    .select('servicio_custodio_id, mime_type, bytes')
+                    .in('servicio_custodio_id', ids);
+                if (errS) throw errS;
+
+                const selfiesMap = new Map();
+                (selfies || []).forEach(s => selfiesMap.set(s.servicio_custodio_id, s));
+
+                // No hay tabla relacionada de custodios en el esquema: usamos nombre_custodio
+
+                for (const c of custodios) {
+                    const s = selfiesMap.get(c.id);
+                    const b64 = s ? toBase64(s.data_base64 || s.bytes) : '';
+                    const imgSrc = b64 ? `data:${s.mime_type};base64,${b64}` : '';
+                    const nombreCustodio = c.nombre_custodio || '';
+                    const custEl = document.createElement('div');
+                    custEl.className = 'custodio-card';
+                    custEl.innerHTML = `
+            ${imgSrc ? `<img draggable="false" alt="Selfie de ${nombreCustodio}" src="${imgSrc}" />` : `<div class="hint">Sin selfie</div>`}
+            <h4>${nombreCustodio || '—'}</h4>
+            <div class="tipo">${c.tipo_custodia || ''}</div>
+          `;
+                    // Reemplazar el contenido por construcción segura de nodos
+                    try {
+                        const n = nombreCustodio || '-';
+                        const t = c.tipo_custodia || '';
+                        const frag = document.createDocumentFragment();
+                        if (imgSrc) {
+                            const img = document.createElement('img');
+                            img.setAttribute('draggable', 'false');
+                            img.alt = `Selfie de ${n}`;
+                            img.src = imgSrc;
+                            frag.appendChild(img);
+                        } else {
+                            const noImg = document.createElement('div');
+                            noImg.className = 'hint';
+                            noImg.textContent = 'Sin selfie';
+                            frag.appendChild(noImg);
+                        }
+                        const h4 = document.createElement('h4');
+                        h4.textContent = n;
+                        frag.appendChild(h4);
+                        const tipoDiv = document.createElement('div');
+                        tipoDiv.className = 'tipo';
+                        tipoDiv.textContent = t;
+                        frag.appendChild(tipoDiv);
+                        custEl.innerHTML = '';
+                        custEl.appendChild(frag);
+                    } catch {}
+                    cont.appendChild(custEl);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            showMsg('No se pudieron cargar custodios/selfies');
+        }
+
+        if (window.componentHandler && window.componentHandler.upgradeElement) {
+            window.componentHandler.upgradeElement(card);
+        }
+        return card;
+    }
+
+    
+    // Sidebar toggle
+    function openSidebar(){ sidebar && sidebar.classList.add('open'); scrim && scrim.removeAttribute('hidden'); }
+    function closeSidebar(){ sidebar && sidebar.classList.remove('open'); scrim && scrim.setAttribute('hidden',''); }
+    toggleSidebarBtn && toggleSidebarBtn.addEventListener('click', () => {
+        if (sidebar && sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
+    });
+    scrim && scrim.addEventListener('click', closeSidebar);
+
+    // Buscar clientes
+    searchClientes && searchClientes.addEventListener('input', () => filterClientes(searchClientes.value));// Eventos
+    
+    });
+
+    btnReset && btnReset.addEventListener('click', () => { clienteSeleccionado = null; placasContainer.innerHTML = ''; listaClientes && listaClientes.querySelectorAll('li').forEach(li => li.classList.remove('is-active')); if (searchClientes) { searchClientes.value = ''; renderSidebar(clientesCache); } });
+
+    
+    function showFotosCustodia(items){
+        if (!fotosModal || !fotosGrid) return;
+        fotosGrid.innerHTML = '';
+        for (const it of items) {
+            const fig = document.createElement('figure');
+            const img = document.createElement('img');
+            img.src = it.src;
+            img.alt = it.label || 'Foto de custodia';
+            const cap = document.createElement('figcaption');
+            cap.textContent = it.label || '';
+            fig.appendChild(img);
+            fig.appendChild(cap);
+            fotosGrid.appendChild(fig);
+        }
+        fotosModal.setAttribute('aria-hidden','false');
+    }
+    fotosModal && fotosModal.addEventListener('click', (e) => {
+        const t = e.target;
+        if (t.matches('[data-close="modal"], .modal-backdrop')) {
+            fotosModal.setAttribute('aria-hidden','true');
+            fotosGrid && (fotosGrid.innerHTML = '');
+        }
+    });// Start
+    cargarClientes();
+});
+
