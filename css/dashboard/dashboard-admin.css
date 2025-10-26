@@ -579,6 +579,8 @@ body.view-lista .sidebar {
 body.filters-open .map-panel::after {
     opacity: 1;
 }
+/* Show subtle skeleton overlay while tiles load */
+.map-panel.loading::after { opacity: 1; }
 
 
 

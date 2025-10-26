@@ -89,9 +89,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initMap() {
-        map = L.map(mapElId);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19, attribution: '&copy; OpenStreetMap'
+        const options = { preferCanvas: true, zoomAnimation: false, markerZoomAnimation: false, wheelDebounceTime: 40 };
+        map = L.map(mapElId, options);
+        const tl = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19, attribution: '&copy; OpenStreetMap', updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 3, crossOrigin: true
         }).addTo(map);
 
         window.__autoFollow = true; map.on("dragstart", () => { window.__autoFollow = false; showFollowControl(true); }); map.on("zoomstart", () => { window.__autoFollow = false; showFollowControl(true); });

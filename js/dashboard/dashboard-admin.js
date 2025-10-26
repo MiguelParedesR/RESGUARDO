@@ -171,8 +171,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Mapa
   function initMap() {
-    map = L.map('map-admin');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    const options = { preferCanvas: true, zoomAnimation: false, markerZoomAnimation: false, wheelDebounceTime: 40 };
+    map = L.map('map-admin', options);
+    const tl = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap', updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 3, crossOrigin: true }).addTo(map);
+    try { document.querySelector('.map-panel')?.classList.add('loading'); tl.on('load', () => { document.querySelector('.map-panel')?.classList.remove('loading'); }); } catch (e) {}
     map.setView([-12.0464, -77.0428], 12);
 overviewLayer = L.layerGroup().addTo(map);
 focusLayer = L.layerGroup().addTo(map);
