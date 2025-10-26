@@ -1,0 +1,15 @@
+/* Minimal unification for header look */
+.mdl-layout__header {
+  min-height: 64px;
+}
+.mdl-layout__header-row {
+  height: 64px;
+  padding: 0 16px;
+}
+#app-header-title {
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+#app-header-home, #app-header-logout {
+  font-weight: 600;
+}

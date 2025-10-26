@@ -25,6 +25,7 @@
 
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/dashboard-admin.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -33,24 +34,15 @@
     <!-- ProtecciÃ³n y lÃ³gica -->
     <script defer src="../../js/guard.js"></script>
     <script defer src="../../js/lib/router-local.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/dashboard/dashboard-admin.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base has-subheader">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Administrador</span>
-                <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
-            </div>
-            <!-- Sub-header fijo con Lista / Filtros -->
-            <div class="mdl-layout__header-row sub-header">
-                <button id="btn-toggle" class="btn btn-ghost"><i class="material-icons">menu</i> Lista</button>
-                <button id="btn-filtros" class="btn btn-ghost"><i class="material-icons">tune</i> Filtros</button>
-            </div>
-        </header>
+        <!-- Header compartido inyectado -->
+        <div id="app-header" data-page-title="Administrador"></div>
 
         <main class="mdl-layout__content">
             <section class="page">
@@ -76,11 +68,14 @@
                             <div class="map-metrics">
                                 <span><strong>Ping:</strong> <span id="metric-ping">â€”</span></span>
                                 <span><strong>Estado:</strong> <span id="metric-estado">â€”</span></span>
+                                <button id="btn-filtros" class="btn btn-ghost" aria-controls="filters-drawer" aria-expanded="false" title="Mostrar filtros"><i class="material-icons">tune</i> Filtros</button>
                             </div>
                         </div>
 
                         <!-- Filtros -->
-                        <div class="filters-drawer" aria-label="Filtros de bÃºsqueda">
+                        <div id="filters-drawer" class="filters-drawer" aria-label="Filtros de búsqueda" role="dialog" aria-modal="false" aria-hidden="true">
+                        <div id="filters-drawer" class="filters-drawer" aria-label="Filtros de búsqueda" role="dialog" aria-modal="false" aria-hidden="true">
+                            <button class="drawer-close" type="button" aria-label="Cerrar filtros"><i class="material-icons">close</i></button>
                             <div class="field">
                                 <label class="lbl">Estado</label>
                                 <select id="f-estado" class="select">
@@ -109,6 +104,7 @@
                             </div>
                         </div>
 
+                        <div class="map-overlay" hidden></div>
                         <div id="map-admin"></div>
 
                         <div class="details" id="details">
@@ -138,3 +134,6 @@
 </body>
 
 </html>
+
+
+

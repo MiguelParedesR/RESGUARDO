@@ -20,6 +20,7 @@
 
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/mapa-resguardo.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -27,21 +28,14 @@
 
     <!-- Protección + Lógica -->
     <script defer src="../../js/lib/router-local.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/mapa.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Seguimiento de Custodia</span>
-                <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="./dashboard-custodia.html">Volver al
-                    Dashboard</a>
-                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
-            </div>
-        </header>
+        <div id="app-header" data-page-title="Seguimiento de Custodia"></div>
 
         <main class="mdl-layout__content">
             <section class="page">

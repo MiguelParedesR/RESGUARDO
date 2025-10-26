@@ -18,8 +18,37 @@ document.addEventListener('DOMContentLoaded', () => {
     root.classList.toggle('view-lista', !filtros);
     setTimeout(() => { try { map?.invalidateSize?.(); } catch { } }, 60);
   }
-  document.getElementById('btn-toggle').addEventListener('click', () => showPanel('lista'));
-  document.getElementById('btn-filtros').addEventListener('click', () => showPanel('filtros'));
+  const mapPanel = document.querySelector('.map-panel');
+  const btnFiltros = document.getElementById('btn-filtros');
+  const filtersDrawer = document.getElementById('filters-drawer');
+  const drawerCloseBtn = document.querySelector('.drawer-close');
+  const mapOverlay = document.querySelector('.map-overlay');
+
+  function openFiltersDrawer() {
+    if (!filtersDrawer || !mapPanel) return;
+    mapPanel.classList.add('filters-open');
+    btnFiltros?.setAttribute('aria-expanded', 'true');
+    filtersDrawer?.setAttribute('aria-hidden', 'false');
+    if (mapOverlay) mapOverlay.hidden = false;
+    // invalidate after transition
+    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch {} }, 260);
+    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
+    filtersDrawer.addEventListener('transitionend', onEnd);
+  }
+  function closeFiltersDrawer() {
+    if (!filtersDrawer || !mapPanel) return;
+    mapPanel.classList.remove('filters-open');
+    btnFiltros?.setAttribute('aria-expanded', 'false');
+    filtersDrawer?.setAttribute('aria-hidden', 'true');
+    if (mapOverlay) mapOverlay.hidden = true;
+    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch {} }, 260);
+    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
+    filtersDrawer.addEventListener('transitionend', onEnd);
+  }
+  btnFiltros?.addEventListener('click', (e) => { e.preventDefault(); openFiltersDrawer(); });
+  drawerCloseBtn?.addEventListener('click', () => closeFiltersDrawer());
+  mapOverlay?.addEventListener('click', () => closeFiltersDrawer());
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { closeFiltersDrawer(); } });
   if (isDesktop()) { ensureMap(); } else { root.classList.add('view-lista'); }
   window.addEventListener('resize', () => {
     if (isDesktop()) {

@@ -20,6 +20,7 @@
 
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/dashboard-custodia.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -28,19 +29,14 @@
 
     <!-- Protección + módulo -->
     <script defer src="../../js/guard.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/dashboard/dashboard-custodia.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Registro de Custodia</span>
-                <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
-            </div>
-        </header>
+        <div id="app-header" data-page-title="Registro de Custodia"></div>
 
         <main class="mdl-layout__content">
             <section class="wrap">

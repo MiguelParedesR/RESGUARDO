@@ -1,10 +1,10 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Accesos — Monitoreo de Resguardos</title>
+    <title>Accesos â€” Monitoreo de Resguardos</title>
     <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
 
     <!-- MDL -->
@@ -16,6 +16,7 @@
 
     <!-- App styles -->
     <link rel="stylesheet" href="../../css/login/login.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
     <link rel="manifest" href="/manifest.json" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org;" />
 
@@ -23,20 +24,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js"></script>
 
-    <!-- Lógica del login -->
+    <!-- LÃ³gica del login -->
     <script defer src="../../js/login/login.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Accesos</span>
-                <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="../index.html">Inicio</a>
-            </div>
-        </header>
+        <div id="app-header" data-page-title="Accesos"></div>
 
         <main class="mdl-layout__content">
             <section class="login-wrap">
@@ -85,7 +81,7 @@
                                         </div>
                                         <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="custodia-pass-field">
                                             <input class="mdl-textfield__input" id="custodia-pass" type="password" placeholder="DDMMEMP" required />
-                                            <label class="mdl-textfield__label" for="custodia-pass">Clave dinámica</label>
+                                            <label class="mdl-textfield__label" for="custodia-pass">Clave dinÃ¡mica</label>
                                         </div>
                                         <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="custodia-login">
                                             <span class="btn-label">INGRESAR</span>
@@ -129,4 +125,6 @@
 </body>
 
 </html>
+
+
 
