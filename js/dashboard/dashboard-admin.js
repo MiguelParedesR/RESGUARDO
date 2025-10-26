@@ -303,6 +303,8 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     // Mobile UX: keep Servicios + Filtros visible; do not switch views
     focusMarker(s); showDetails(s);
     if (!isDesktop()) {
+      // Asegura que el mapa sea visible en móvil quitando vistas exclusivas
+      try { document.body.classList.remove('view-lista', 'view-filtros'); } catch (e) {}
       try { filtersInlineHost?.classList.remove('open'); btnFiltrosMobile?.setAttribute('aria-expanded','false'); } catch (e) {}
       try { document.querySelector('.map-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
     }
