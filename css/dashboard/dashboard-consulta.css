@@ -371,6 +371,7 @@ z-index: 700;
   .sidebar { display: none !important; }
   .fab { display: none !important; }
   .scrim { display: none !important; }
+  .header-logout { display: none !important; }
 }
 .mdl-button:focus-visible,
 .mobile-clear-btn:focus-visible,
@@ -380,8 +381,16 @@ z-index: 700;
 /* Center mobile controls inside header on small screens */
 @media (max-width: 599px) {
   .mdl-layout__header-row { flex-wrap: wrap; }
-  .mobile-controls { display: flex; justify-content: center; width: 100%; padding: 6px 0; }
+  .mobile-controls { display: flex; justify-content: center; width: 100%; padding: 6px 0 8px; gap: 10px; }
   .mobile-select { min-width: 58vw; }
+}
+
+/* Mobile typography and spacing tweaks */
+@media (max-width: 599px) {
+  .cliente-header { padding: 8px 12px 6px; }
+  .cliente-title { font-size: 22px; letter-spacing: 0.2px; }
+  .cliente-subtitle { font-size: 12px; }
+  .placa-card { border-radius: 12px; }
 }
 .is-consulta .mdl-layout__content { height: 100vh; overflow: hidden; }
 /* Consulta overrides: fixed sidebar + fluid content */
