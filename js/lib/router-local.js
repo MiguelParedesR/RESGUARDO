@@ -18,6 +18,14 @@
     if (ls) cfg.osrmBase = ls;
     if (window.ROUTER_OSRM_BASE) cfg.osrmBase = String(window.ROUTER_OSRM_BASE);
   } catch {}
+  // Si estamos en un host no local pero la base apunta a 127/localhost (por override previo),
+  // evitamos intentar esa URL para no generar ERR_CONNECTION_REFUSED visibles en consola.
+  try {
+    const isLocalBase = /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(cfg.osrmBase);
+    if (!isLocalHost && isLocalBase) {
+      cfg.osrmBase = defaultOSRM;
+    }
+  } catch {}
 
   async function routeOSRM(from, to) {
     const build = (base) => `${base}/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
@@ -30,11 +38,16 @@
       return coords.map(([lon, lat]) => [lat, lon]);
     } catch (e) {
       // Fallback to public OSRM if local blocked by CSP o falla
-      if (cfg.osrmBase.indexOf('127.0.0.1') >= 0 || cfg.osrmBase.indexOf('localhost') >= 0) {
+      if (/localhost|127\.0\.0\.1/.test(cfg.osrmBase)) {
         const r2 = await fetch(build(defaultOSRM));
         if (!r2.ok) throw e;
         const j2 = await r2.json();
         const coords2 = j2?.routes?.[0]?.geometry?.coordinates || [];
+        // Persistimos el fallback para próximas llamadas (silenciar errores futuros)
+        try {
+          cfg.osrmBase = defaultOSRM;
+          if (localStorage.getItem('router.osrmBase')) localStorage.removeItem('router.osrmBase');
+        } catch {}
         return coords2.map(([lon, lat]) => [lat, lon]);
       }
       throw e;
