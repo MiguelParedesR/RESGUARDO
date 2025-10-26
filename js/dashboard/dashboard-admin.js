@@ -217,17 +217,24 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
       const texto = fTexto.value.trim().toUpperCase();
       if (texto) { data = (data || []).filter(s => (s.placa || '').toUpperCase().includes(texto) || (s.cliente?.nombre || '').toUpperCase().includes(texto)); }
       const enriched = await Promise.all((data || []).map(async s => {
-        try {
-          const { data: ping, error: pingErr } = await window.sb
+        // Obtiene el último ping; maneja variantes de columna (servicio_id vs servicio_uuid)
+        async function fetchLast(col) {
+          return await window.sb
             .from('ubicacion')
             .select('id,lat,lng,created_at')
-            .eq('servicio_id', s.id)
-            .order('id', { ascending: false })
+            .eq(col, s.id)
+            .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (pingErr) {
-            console.warn('[admin] ubicacion query error', pingErr);
+        }
+        try {
+          let ping = null; let err = null;
+          const r1 = await fetchLast('servicio_id');
+          ping = r1.data; err = r1.error;
+          if (err || !ping) {
+            try { const r2 = await fetchLast('servicio_uuid'); if (r2.data) ping = r2.data; } catch {}
           }
+          if (err) console.warn('[admin] ubicacion query error', err);
           return { ...s, lastPing: ping || null };
         } catch (e) {
           console.warn('[admin] ubicacion query exception', e);
@@ -346,6 +353,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
+
 
 
 
