@@ -1,2 +1,200 @@
-});
-  setInterval(loadServices, 30000); loadServices();
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seguimiento de Custodia</title>
+    <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
+
+    <!-- MDL -->
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org http://127.0.0.1:5000 http://127.0.0.1:8989;" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="../../css/dashboard/mapa-resguardo.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
+
+    <!-- Supabase (CDN) ANTES de config.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="../../config.js"></script>
+
+    <!-- Protección + Lógica -->
+    <script defer src="../../js/lib/router-local.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
+    <script defer src="../../js/mapa.js"></script>
+    <script defer src="../../js/pwa.js"></script>
+</head>
+
+<body class="mdl-base">
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <div id="app-header" data-page-title="Seguimiento de Custodia"></div>
+
+        <main class="mdl-layout__content">
+            <section class="page">
+                <div class="topbar">
+                    <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                        disabled>
+                        Servicio Finalizado
+                    </button>
+                    <div class="metrics">
+                        <span><strong>Distancia:</strong> <span id="distancia-label">–</span></span>
+                    </div>
+                </div>
+
+                <div class="layout-track">
+                    <aside id="custodios-sidebar" class="cust-sidebar">
+                        <div class="cust-head">
+                          <h3>Custodios</h3>
+                          <button id="custodios-add" class="add-btn" title="Agregar">+</button>
+                        </div>
+                        <div id="custodios-list" class="cust-list"></div>
+                    </aside>
+                    <div class="map-wrap with-sidebar">
+                    <div id="map-track"></div>
+                    <div class="panel show">
+                        <p><strong>Destino:</strong> <span id="destino-texto">Cargando…</span></p>
+                        <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
+                    </div>
+                    </div>
+                </div>
+            </section>
+
+            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
+                <div class="mdl-snackbar__text"></div>
+                <button class="mdl-snackbar__action" type="button"></button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const servicioId = sessionStorage.getItem('servicio_id_actual');
+            const destinoEl = document.getElementById('destino-texto');
+            const estadoEl = document.getElementById('estado-texto');
+
+            if (!servicioId || !window.sb) { destinoEl.textContent = '—'; estadoEl.textContent = '—'; return; }
+
+            try {
+                const { data, error } = await window.sb
+                    .from('servicio')
+                    .select('destino_texto, estado')
+                    .eq('id', servicioId)
+                    .single();
+
+                if (error) throw error;
+
+                destinoEl.textContent = data?.destino_texto || '—';
+                estadoEl.textContent = data?.estado || 'EN CURSO';
+                estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
+            } catch (err) {
+                console.error('[mapa-resguardo] error', err);
+                destinoEl.textContent = '—';
+                estadoEl.textContent = '—';
+            }
+        });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const servicioId = sessionStorage.getItem('servicio_id_actual');
+      if (!servicioId || !window.sb) return;
+      try {
+        const listEl = document.getElementById('custodios-list');
+        const { data: custodios, error } = await window.sb
+          .from('servicio_custodio')
+          .select('id, nombre_custodio, created_at, selfie(id)')
+          .eq('servicio_id', servicioId)
+          .order('id');
+        if (error) throw error;
+        listEl.innerHTML = '';
+        (custodios||[]).forEach(c => {
+          const row = document.createElement('div'); row.className = 'cust-row';
+          const nm = document.createElement('span'); nm.className='cust-name'; nm.textContent = c.nombre_custodio || '(Sin nombre)';
+          const btn = document.createElement('button'); btn.className='edit-btn'; btn.title='Editar'; btn.innerHTML='<i class="material-icons">edit</i>';
+          btn.addEventListener('click', () => openEdit(c));
+          row.appendChild(nm); row.appendChild(btn); listEl.appendChild(row);
+        });
+      } catch (e) { console.error('[sidebar custodios]', e); }
+
+      let mediaStream = null, selfieDataUrl = null;
+      function stopCam() { try { if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop()); } catch{} mediaStream=null; }
+      function openEdit(c) {
+        selfieDataUrl = null;
+        const modal = document.createElement('div'); modal.className = 'edit-modal';
+        modal.innerHTML = `
+        <div class="inner">
+          <h4>Editar custodio</h4>
+          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre_custodio||''}">
+            <span class="mdl-textfield__label">Nombre</span>
+          </label>
+          <div class="cam">
+            <div class="cam-actions">
+              <button id="em-start" class="mdl-button mdl-js-button">Iniciar cámara</button>
+              <button id="em-shot" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
+              <button id="em-reset" class="mdl-button mdl-js-button" disabled>Repetir</button>
+            </div>
+            <p id="em-status" class="hint"></p>
+            <video id="em-video" playsinline autoplay muted></video>
+            <canvas id="em-canvas" style="display:none"></canvas>
+            <img id="em-preview" alt="Selfie" />
+          </div>
+          <div class="row-actions">
+            <button id="em-save" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
+            <button id="em-cancel" class="mdl-button mdl-js-button">Cancelar</button>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        const emNombre = modal.querySelector('#em-nombre');
+        const emStart = modal.querySelector('#em-start');
+        const emShot = modal.querySelector('#em-shot');
+        const emReset = modal.querySelector('#em-reset');
+        const emStatus = modal.querySelector('#em-status');
+        const emVideo = modal.querySelector('#em-video');
+        const emCanvas = modal.querySelector('#em-canvas');
+        const emPreview = modal.querySelector('#em-preview');
+        const emSave = modal.querySelector('#em-save');
+        const emCancel = modal.querySelector('#em-cancel');
+
+        emStart.addEventListener('click', async () => {
+          try { emStart.disabled = true; emStatus.textContent = 'Solicitando permisos...';
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
+            emVideo.srcObject = mediaStream; emVideo.style.display='block'; emPreview.style.display='none'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Cámara lista';
+          } catch { emStatus.textContent='No se pudo acceder a la cámara'; emStart.disabled=false; }
+        });
+        emShot.addEventListener('click', () => {
+          if (!mediaStream) return;
+          const w = emVideo.videoWidth||640, h=emVideo.videoHeight||480;
+          emCanvas.width=w; emCanvas.height=h; const ctx=emCanvas.getContext('2d'); ctx.drawImage(emVideo,0,0,w,h);
+          selfieDataUrl = emCanvas.toDataURL('image/jpeg',0.85); emPreview.src=selfieDataUrl; emPreview.style.display='block'; emVideo.style.display='none'; emShot.disabled=true; emReset.disabled=false; emStatus.textContent='Selfie capturada';
+        });
+        emReset.addEventListener('click', () => { if (!mediaStream) return; selfieDataUrl=null; emPreview.style.display='none'; emVideo.style.display='block'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Listo para otra'; });
+
+        async function saveAndClose() {
+          const nombre = (emNombre.value||'').trim(); if (!nombre) { alert('Ingrese nombre'); return; }
+          try {
+            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre }).eq('id', c.id);
+            if (errN) throw errN;
+            if (selfieDataUrl) {
+              const base64 = selfieDataUrl.split(',')[1];
+              const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: c.id, p_mime_type: 'image/jpeg', p_base64: base64 });
+              if (errS) throw errS;
+            }
+            document.body.removeChild(modal); stopCam(); location.reload();
+          } catch (e) { console.error(e); alert('Error al guardar'); }
+        }
+        emSave.addEventListener('click', saveAndClose);
+        emCancel.addEventListener('click', () => { document.body.removeChild(modal); stopCam(); });
+      }
+    });
+    </script>
+</body>
+
+</html>

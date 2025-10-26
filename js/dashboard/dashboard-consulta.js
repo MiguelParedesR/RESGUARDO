@@ -1,4 +1,4 @@
-// dashboard-consulta.js — Consulta por Cliente → Placas → Servicios → Custodios + Selfies
+﻿// dashboard-consulta.js â€” Consulta por Cliente â†’ Placas â†’ Servicios â†’ Custodios + Selfies
 
 document.addEventListener('DOMContentLoaded', () => {
     const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
         catch { alert(message); }
     };
 
-    // Anti-exfiltración básica (disuasiva)
+    // Anti-exfiltraciÃ³n bÃ¡sica (disuasiva)
     const antiOverlay = document.getElementById('anti-capture-overlay');
     document.addEventListener('contextmenu', (e) => {
         if (e.target.closest('.sensitive')) { e.preventDefault(); showMsg('Zona protegida'); }
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!window.sb) {
         console.error('[consulta] Supabase no inicializado (config.js)');
-        showMsg('Error de inicialización');
+        showMsg('Error de inicializaciÃ³n');
         return;
     }
 
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         group.innerHTML = `
       <header class="cliente-header">
         <h3 class="cliente-title">${h(selectedText)}</h3>
-        <div class="cliente-subtitle">${servicios.length} servicio(s) · ${totalPlacas} placa(s)</div>
+        <div class="cliente-subtitle">${servicios.length} servicio(s) Â· ${totalPlacas} placa(s)</div>
       </header>
       <div class="placas-grid" id="cliente-cards"></div>
     `;
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             header.innerHTML = `
         <div class="placa-title">
           <span class="chip">${placa}</span>
-          <div class="placa-meta">${h((clienteSeleccionado && clienteSeleccionado.nombre) || '')} — ${ultima.tipo || ''}</div>
+          <div class="placa-meta">${h((clienteSeleccionado && clienteSeleccionado.nombre) || '')} â€” ${ultima.tipo || ''}</div>
         </div>
         <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Expandir">
           <i class="material-icons expand-icon">expand_more</i>
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.innerHTML = `
       <div class="mdl-card__title">
-        <h2 class="mdl-card__title-text">Servicio #${svc.id}</h2>
+        <h2 class="mdl-card__title-text">${(svc.placa||'').toUpperCase()} â€“ ${(clienteSeleccionado?.nombre||'').toUpperCase()} (${svc.tipo||''})</h2>
       </div>
       <div class="mdl-card__supporting-text servicio-body">
         <div class="servicio-info">
@@ -404,3 +404,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start
     cargarClientes();
 });
+    // Realtime: servicio INSERT/UPDATE → refrescar grilla del cliente seleccionado
+    const debounce = (fn, ms=150) => { let t=0; return ()=>{ clearTimeout(t); t=setTimeout(fn,ms); }; };
+    const scheduleClienteRefresh = debounce(async () => {
+        if (clienteSeleccionado && clienteSeleccionado.id) {
+            try { await cargarServiciosPorCliente(clienteSeleccionado.id); } catch {}
+        }
+    }, 200);
+    (function setupRealtime(){
+        try {
+            const ch = window.sb?.channel?.('rt-consulta-servicio');
+            if (!ch) return;
+            ch.on('postgres_changes', { event: '*', schema: 'public', table: 'servicio' }, (payload)=>{
+                const row = payload.new || payload.old || {};
+                if (clienteSeleccionado && row.cliente_id === clienteSeleccionado.id) scheduleClienteRefresh();
+            }).subscribe();
+            window.addEventListener('beforeunload', ()=>{ try { window.sb.removeChannel(ch); } catch {} });
+        } catch {}
+    })();

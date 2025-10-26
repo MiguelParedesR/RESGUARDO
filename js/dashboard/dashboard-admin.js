@@ -152,6 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-reset').addEventListener('click', () => { fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; selectedId = null; loadServices(); if (isDesktop()) { closeFiltersDrawer(); } else { filtersInlineHost?.classList.remove('open'); } });
 
   // UI refs
+  // Tapping header title resets selection (mobile UX)
+  const serviciosTitle = document.querySelector(".sidebar-head .lbl");
+  serviciosTitle?.addEventListener("click", () => {
+    if (selectedId) { selectedId = null; filtersInlineHost?.classList.remove("open"); btnFiltrosMobile?.setAttribute("aria-expanded","false"); loadServices(); }
+  });
   const listado = document.getElementById('listado');
   const countLabel = document.getElementById('count-label');
   const mapTitle = document.getElementById('map-title');
@@ -185,10 +190,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   }
   relocateFilters();
 
-  function toggleInlineFilters() {
-    if (!filtersInlineHost) return;
-    filtersInlineHost.classList.toggle('open');
-  }
+  function toggleInlineFilters() { if (!filtersInlineHost) return; const willOpen = !filtersInlineHost.classList.contains('open'); filtersInlineHost.classList.toggle('open'); btnFiltrosMobile?.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); }
 
   // Utilidades
   const POLL_MS = 30000; const STALE_MIN = 5; const beeped = new Set();
@@ -254,23 +256,28 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     }
   }
 
+  function formatTitle(s) {
+    const placa = (s.placa || '—').toString().toUpperCase();
+    const cliente = (s.cliente?.nombre || '—').toString().toUpperCase();
+    const tipo = s.tipo ? s.tipo : '—';
+    return `${placa} – ${cliente} (${tipo})`;
+  }
+
   function renderList(services) {
     listado.innerHTML = ''; countLabel.textContent = services.length;
     if (!services.length) { listado.innerHTML = '<div class="card">Sin resultados.</div>'; return; }
     services.forEach(s => {
-      const card = document.createElement('div'); card.className = 'card'; if (s.id === selectedId) card.classList.add('active');
+      const card = document.createElement('div'); card.className = 'card'; card.dataset.sid = s.id; if (s.id === selectedId) card.classList.add('active');
       let pingLabel = '-', pingClass = 'ping-ok', alertNow = false;
       if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); pingLabel = `${mins} min`; if (mins >= STALE_MIN && s.estado === 'ACTIVO') { pingClass = 'ping-warn'; alertNow = true; } }
       else if (s.estado === 'ACTIVO') { pingLabel = 'sin datos'; pingClass = 'ping-warn'; alertNow = true; }
       if (alertNow) { if (!beeped.has(s.id)) { beep(); beeped.add(s.id); } } else { beeped.delete(s.id); }
       const tagClass = s.estado === 'FINALIZADO' ? 't-final' : (pingClass === 'ping-warn' ? 't-alerta' : 't-activo');
       card.innerHTML = `
-        <div class="title"><div><strong>#${s.id}</strong> - ${h(s.placa || '-')}</div><span class="tag ${tagClass}">${h(s.estado)}</span></div>
-        <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-')}</span></div>
-        <div><strong>Cliente:</strong> ${h(s.cliente?.nombre || '-')}</div>
+        <div class="title"><div><strong>${h(formatTitle(s))}</strong></div><span class="tag ${tagClass}">${h(s.estado)}</span></div>
+        <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-') }</span></div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || '-')}</div>
         <div class="${pingClass}"><strong>Último ping:</strong> ${pingLabel}</div>
-        <div class="meta">Creado: ${fmtDT(s.created_at)}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${s.id}">Ver en mapa</button>
           <button class="btn btn-accent" data-act="fin" data-id="${s.id}" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar</button>
@@ -287,7 +294,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
 
   function selectService(s) {
     selectedId = s.id; for (const el of listado.querySelectorAll('.card')) el.classList.remove('active');
-    const me = [...listado.children].find(el => el.innerText.includes(`#${s.id}`)); me?.classList.add('active');
+    const me = listado.querySelector(`.card[data-sid="${s.id}"]`); me?.classList.add('active');
     if (!isDesktop()) showPanel('filtros');
     focusMarker(s); showDetails(s);
   }
@@ -299,7 +306,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
-    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
+    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `${h(formatTitle(s))}`; const popup = `<strong>${h(formatTitle(s))}</strong><br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
     if (bounds.length) { if (window.__adminFollow !== false) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
@@ -311,8 +318,8 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     const p = s.lastPing;
     if (!p?.lat || !p?.lng) return;
-    const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`;
-    const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`;
+    const label = `${h(formatTitle(s))}`;
+    const popup = `<strong>${h(formatTitle(s))}</strong><br>Destino: ${h(s.destino_texto || '-')}`;
     let m = markers.get(s.id);
     if (!m) {
       m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer);
@@ -350,9 +357,36 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     }
     try { m.openPopup(); } catch (e) {}
   }
-  function showDetails(s) { mapTitle.textContent = `Servicio #${s.id} - ${s.empresa}`; if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); metricPing.textContent = `${mins} min`; metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok'; } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '-'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; } metricEstado.textContent = s.estado; details.innerHTML = `<div><strong>Empresa:</strong> ${s.empresa}</div><div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div><div><strong>Placa:</strong> ${s.placa || '-'}</div><div><strong>Tipo:</strong> ${s.tipo || '-'}</div><div><strong>Destino:</strong> ${s.destino_texto || '-'}</div><div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>`; document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); }); }
+  function showDetails(s) { mapTitle.textContent = formatTitle(s); if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); metricPing.textContent = `${mins} min`; metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok'; } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '-'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; } metricEstado.textContent = s.estado; details.innerHTML = `<div><strong>Empresa:</strong> ${s.empresa}</div><div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div><div><strong>Placa:</strong> ${s.placa || '-'}</div><div><strong>Tipo:</strong> ${s.tipo || '-'}</div><div><strong>Destino:</strong> ${s.destino_texto || '-'}</div><div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>`; document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); }); }
   async function finalizarServicio(id) { const ok = confirm(`Finalizar el servicio #${id}?`); if (!ok) return; try { const { error } = await window.sb.from('servicio').update({ estado: 'FINALIZADO' }).eq('id', id); if (error) throw error; showMsg('Servicio finalizado'); await loadServices(); } catch (e) { console.error(e); showMsg('No se pudo finalizar el servicio'); } }
 
-  // Auto refresh
-  setInterval(loadServices, 30000); loadServices();
+  // Realtime: subscribe to servicio INSERT/UPDATE and ubicacion INSERT, with debounce
+  function debounce(fn, ms) { let t = 0; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  const scheduleRefresh = debounce(() => { try { loadServices(); } catch (e) {} }, 150);
+  let rtServicio = null, rtUbicacion = null;
+  function setupRealtime() {
+    if (!window.sb?.channel) { // fallback polling
+      setInterval(loadServices, 30000);
+      loadServices();
+      return;
+    }
+    try {
+      rtServicio = window.sb.channel('rt-servicio-admin')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'servicio' }, () => scheduleRefresh())
+        .subscribe();
+    } catch (e) { setInterval(loadServices, 30000); }
+    try {
+      rtUbicacion = window.sb.channel('rt-ubicacion-admin')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ubicacion' }, () => scheduleRefresh())
+        .subscribe();
+    } catch (e) {}
+    window.addEventListener('beforeunload', () => {
+      try { if (rtServicio) window.sb.removeChannel(rtServicio); } catch (e) {}
+      try { if (rtUbicacion) window.sb.removeChannel(rtUbicacion); } catch (e) {}
+    });
+    loadServices();
+  }
+  setupRealtime();
 });
+
+

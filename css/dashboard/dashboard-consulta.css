@@ -392,6 +392,13 @@ z-index: 700;
   .cliente-subtitle { font-size: 12px; }
   .placa-card { border-radius: 12px; }
 }
+
+/* Force visible, scrollable content on mobile */
+@media (max-width: 599px) {
+  .is-consulta .mdl-layout__content { height: auto !important; overflow: auto !important; }
+  .is-consulta .layout-consulta { padding-left: 0 !important; }
+  .dashboard { height: auto !important; min-height: calc(100vh - var(--header-h)); overflow: visible; }
+}
 .is-consulta .mdl-layout__content { height: 100vh; overflow: hidden; }
 /* Consulta overrides: fixed sidebar + fluid content */
 .is-consulta .layout-consulta { position: relative; padding-left: var(--sidebar-w); }

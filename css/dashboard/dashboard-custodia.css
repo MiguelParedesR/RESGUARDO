@@ -211,3 +211,21 @@
 
 .custodio-block .camera-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .custodio-block .cam-estado { font-size: 12px; color: #607d8b; }
+
+/* -------- Mini modal (servicio activo por placa) -------- */
+.mini-modal { position: fixed; inset:0; background: rgba(0,0,0,.25); display:none; align-items:center; justify-content:center; z-index: 5000; }
+.mini-modal.show { display:flex; animation: fadeIn .12s ease-out; }
+.mini-card { width: min(520px, 92vw); background:#fff; border-radius:12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); transform: translateY(12px); opacity: 0; animation: popIn .16s ease-out forwards; }
+.mini-head { padding: 12px 14px; border-bottom: 1px solid #eceff5; }
+.mini-head h4 { margin: 0; font-size: 16px; }
+.mini-body { padding: 12px 14px; }
+.mini-actions { padding: 10px 14px 14px; display:flex; gap:8px; flex-wrap: wrap; justify-content:flex-end; }
+.mini-list { margin-top: 6px; display:grid; gap:6px; }
+.mini-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border:1px solid #edf0f7; border-radius:8px; background:#fafbfd; }
+.chip { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+.chip.kind { background:#e3f2fd; color:#1976d2; }
+.chip.ok { background:#e8f5e9; color:#2e7d32; }
+.chip.pend { background:#ffebee; color:#c62828; }
+
+@keyframes popIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

@@ -80,11 +80,17 @@
   height: calc(100vh - 64px);
   overflow:auto;
 }
+.cust-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
 .cust-sidebar h3 { margin: 6px 0 10px; font-size: 16px; }
+.add-btn { width:36px; height:36px; border-radius:10px; border:1px solid #e3e6ed; background:#fff; cursor:pointer; font-weight:700; }
 .cust-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 6px; border:1px solid #edf0f7; border-radius:8px; margin-bottom:8px; background:#fafbfd; }
 .cust-name { font-size: 13px; font-weight: 600; color:#37474f; }
 .edit-btn { background:#fff; border:1px solid #e3e6ed; border-radius:8px; padding:4px 8px; cursor:pointer; }
 .edit-btn .material-icons { font-size:18px; }
+.chip { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+.chip.kind { background:#e3f2fd; color:#1976d2; }
+.chip.ok { background:#e8f5e9; color:#2e7d32; }
+.chip.pend { background:#ffebee; color:#c62828; }
 
 @media (min-width: 980px) {
   .cust-sidebar { display:block; }
@@ -100,6 +106,15 @@
 .edit-modal .cam-actions { display:flex; gap:8px; flex-wrap:wrap; }
 .edit-modal .hint { font-size:12px; color:#607d8b; }
 .edit-modal .row-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
+
+/* Mini add form */
+.add-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
+.add-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:10px; padding:14px; }
+.add-modal .cam { display:grid; gap:8px; }
+.add-modal video { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; }
+.add-modal img { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; object-fit:cover; }
+.add-modal .cam-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.add-modal .row-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
 
 /* --- Panel flotante --- */
 .panel {

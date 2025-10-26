@@ -859,3 +859,19 @@ body.view-filtros .sidebar { display: none !important; }
 /* Compact header actions in Servicios */
 .sidebar-head .head-actions { display: flex; align-items: center; gap: 8px; }
 .sidebar-head .btn-filtros-mobile { display: none; }
+/* --- Mobile inline filters & header controls --- */
+.filters-inline { display: none; }
+.filters-inline.open { display: block; }
+.sidebar-head .head-actions { display: flex; align-items: center; gap: 8px; }
+.sidebar-head .btn-filtros-mobile { display: none; }
+@media (max-width: 860px) {
+  .map-head .map-metrics #btn-filtros { display: none !important; }
+  .sidebar-head .btn-filtros-mobile { display: inline-flex; padding: 6px 10px; border-radius: 8px; }
+  .filters-inline .filters-drawer {
+    position: static; inset: auto; width: auto; max-width: none; height: auto;
+    transform: none; box-shadow: none; border: 1px solid var(--stroke); border-left: none; border-radius: 12px; padding: 12px;
+  }
+  .filters-inline .drawer-close { display: none !important; }
+}
+/* Avoid horizontal overflow inside cards */
+.sidebar-body .card { overflow-wrap: anywhere; }

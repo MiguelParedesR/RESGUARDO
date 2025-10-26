@@ -92,6 +92,26 @@
                 </form>
             </section>
 
+            <!-- Modal Servicio Activo (placa) -->
+            <section id="modal-servicio-activo" class="mini-modal" aria-hidden="true">
+                <div class="mini-card">
+                    <div class="mini-head">
+                        <h4>Placa ya registrada</h4>
+                    </div>
+                    <div class="mini-body">
+                        <p><strong>Cliente:</strong> <span id="mact-cliente">-</span></p>
+                        <p><strong>Destino:</strong> <span id="mact-destino">-</span></p>
+                        <div id="mact-custodios" class="mini-list"></div>
+                    </div>
+                    <div class="mini-actions">
+                        <button id="mact-join" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Unirme / Completar</button>
+                        <button id="mact-ver" class="mdl-button mdl-js-button">Ver servicio</button>
+                        <button id="mact-nuevo" class="mdl-button mdl-js-button">Nuevo</button>
+                        <button id="mact-cancel" class="mdl-button mdl-js-button">Cancelar</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- Modal MAPA -->
             <section id="modal-mapa" class="modal-backdrop">
                 <div class="modal-card mdl-card mdl-shadow--4dp">
@@ -122,4 +142,3 @@
 </body>
 
 </html>
-
