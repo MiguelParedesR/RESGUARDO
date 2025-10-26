@@ -44,6 +44,7 @@
                         disabled>
                         Servicio Finalizado
                     </button>
+                    <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
                     <div class="metrics">
                         <span><strong>Distancia:</strong> <span id="distancia-label">–</span></span>
                     </div>
@@ -125,6 +126,88 @@
 
       let mediaStream = null, selfieDataUrl = null;
       function stopCam() { try { if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop()); } catch{} mediaStream=null; }
+      // Agregar custodio
+      function openAdd() {
+        selfieDataUrl = null;
+        const modal = document.createElement('div'); modal.className = 'add-modal';
+        modal.innerHTML = `
+        <div class="inner">
+          <h4>Agregar custodio</h4>
+          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <input class="mdl-textfield__input" type="text" id="am-nombre" placeholder="Nombre del custodio">
+            <span class="mdl-textfield__label">Nombre</span>
+          </label>
+          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <select class="mdl-textfield__input" id="am-tipo">
+              <option value="Simple">Cabina</option>
+              <option value="Tipo A">Vehículo</option>
+            </select>
+            <span class="mdl-textfield__label">Tipo de custodia</span>
+          </label>
+          <div class="cam">
+            <div class="cam-actions">
+              <button id="am-start" class="mdl-button mdl-js-button">Iniciar cámara</button>
+              <button id="am-shot" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
+              <button id="am-reset" class="mdl-button mdl-js-button" disabled>Repetir</button>
+            </div>
+            <p id="am-status" class="hint"></p>
+            <video id="am-video" playsinline autoplay muted></video>
+            <canvas id="am-canvas" style="display:none"></canvas>
+            <img id="am-preview" alt="Selfie" />
+          </div>
+          <div class="row-actions">
+            <button id="am-save" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
+            <button id="am-cancel" class="mdl-button mdl-js-button">Cancelar</button>
+          </div>
+        </div>`;
+        document.body.appendChild(modal);
+        const amNombre = modal.querySelector('#am-nombre');
+        const amTipo = modal.querySelector('#am-tipo');
+        const amStart = modal.querySelector('#am-start');
+        const amShot = modal.querySelector('#am-shot');
+        const amReset = modal.querySelector('#am-reset');
+        const amStatus = modal.querySelector('#am-status');
+        const amVideo = modal.querySelector('#am-video');
+        const amCanvas = modal.querySelector('#am-canvas');
+        const amPreview = modal.querySelector('#am-preview');
+        const amSave = modal.querySelector('#am-save');
+        const amCancel = modal.querySelector('#am-cancel');
+
+        amStart.addEventListener('click', async () => {
+          try { amStart.disabled = true; amStatus.textContent = 'Solicitando permisos...';
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
+            amVideo.srcObject = mediaStream; amVideo.style.display='block'; amPreview.style.display='none'; amShot.disabled=false; amReset.disabled=true; amStatus.textContent='Cámara lista';
+          } catch { amStatus.textContent='No se pudo acceder a la cámara'; amStart.disabled=false; }
+        });
+        amShot.addEventListener('click', () => {
+          if (!mediaStream) return;
+          const w = amVideo.videoWidth||640, h=amVideo.videoHeight||480;
+          amCanvas.width=w; amCanvas.height=h; const ctx=amCanvas.getContext('2d'); ctx.drawImage(amVideo,0,0,w,h);
+          selfieDataUrl = amCanvas.toDataURL('image/jpeg',0.85); amPreview.src=selfieDataUrl; amPreview.style.display='block'; amVideo.style.display='none'; amShot.disabled=true; amReset.disabled=false; amStatus.textContent='Selfie capturada';
+        });
+        amReset.addEventListener('click', () => { if (!mediaStream) return; selfieDataUrl=null; amPreview.style.display='none'; amVideo.style.display='block'; amShot.disabled=false; amReset.disabled=true; amStatus.textContent='Listo para otra'; });
+
+        async function saveAndClose() {
+          const nombre = (amNombre.value||'').trim(); if (!nombre) { alert('Ingrese un nombre'); return; }
+          const tipo = amTipo.value || 'Simple';
+          try {
+            const { data: cId, error: errC } = await window.sb.rpc('agregar_custodio', { p_servicio_id: servicioId, p_nombre: nombre, p_tipo_custodia: tipo });
+            if (errC) throw errC;
+            if (selfieDataUrl) {
+              const base64 = selfieDataUrl.split(',')[1];
+              const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 });
+              if (errS) throw errS;
+            }
+            document.body.removeChild(modal); stopCam(); location.reload();
+          } catch (e) { console.error(e); alert('Error al agregar custodio'); }
+        }
+        amSave.addEventListener('click', saveAndClose);
+        amCancel.addEventListener('click', () => { document.body.removeChild(modal); stopCam(); });
+      }
+
+      // Botones: sidebar y móvil
+      try { document.getElementById('custodios-add')?.addEventListener('click', openAdd); } catch {}
+      try { document.getElementById('btn-custodias-mobile')?.addEventListener('click', openAdd); } catch {}
       function openEdit(c) {
         selfieDataUrl = null;
         const modal = document.createElement('div'); modal.className = 'edit-modal';

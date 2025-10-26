@@ -176,8 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (error) throw error; return (data && data[0]) || null;
   }
-  async function getCustodios(servicioId) { const { data, error } = await window.sb.from('servicio_custodio').select('id, nombre, selfie_url, tipo_custodia').eq('servicio_id', servicioId); if (error) throw error; return data || []; }
-  function isCompleto(c) { return Boolean((c?.nombre || '').trim()) && Boolean(c?.selfie_url); }
+  async function getCustodios(servicioId) { const { data, error } = await window.sb.from('servicio_custodio').select('id, nombre_custodio, tipo_custodia, selfie(id)').eq('servicio_id', servicioId); if (error) throw error; return data || []; }
+  function isCompleto(c) { const nombreOk = Boolean((c?.nombre_custodio || '').trim()); const tieneSelfie = Array.isArray(c?.selfie) ? c.selfie.length > 0 : false; return nombreOk && tieneSelfie; }
   function kindFromTipoCustodia(t) { return (t === 'Tipo A') ? 'vehiculo' : 'cabina'; }
 
   async function detectServicioActivo(placaUpper, showModal) {
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mactList.innerHTML = '';
     (activeCustodios||[]).forEach(c => {
       const row = document.createElement('div'); row.className = 'mini-item';
-      const nm = document.createElement('span'); nm.textContent = (c.nombre || '(Sin nombre)');
+      const nm = document.createElement('span'); nm.textContent = (c.nombre_custodio || '(Sin nombre)');
       const right = document.createElement('span');
       const chipKind = document.createElement('span'); chipKind.className = 'chip kind'; chipKind.textContent = (c.tipo_custodia === 'Tipo A') ? 'Vehículo' : 'Cabina';
       const chipState = document.createElement('span'); chipState.className = 'chip ' + (isCompleto(c) ? 'ok' : 'pend'); chipState.textContent = isCompleto(c) ? 'Completo' : 'Pendiente';
@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         for (const a of actions) {
           if (a.mode === 'update') {
-            const { error: e1 } = await window.sb.from('servicio_custodio').update({ nombre: a.nombre }).eq('id', a.id); if (e1) throw e1;
+            const { error: e1 } = await window.sb.from('servicio_custodio').update({ nombre_custodio: a.nombre }).eq('id', a.id); if (e1) throw e1;
             const base64 = a.selfie.split(',')[1]; const { error: e2 } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: a.id, p_mime_type: 'image/jpeg', p_base64: base64 }); if (e2) throw e2;
           } else {
             const tipo_custodia = mapKindToTipo(a.k);
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       for (const a of actions) {
         if (a.mode === 'update') {
-          const { error: e1 } = await window.sb.from('servicio_custodio').update({ nombre: a.nombre }).eq('id', a.id); if (e1) throw e1;
+          const { error: e1 } = await window.sb.from('servicio_custodio').update({ nombre_custodio: a.nombre }).eq('id', a.id); if (e1) throw e1;
           const base64 = a.selfie.split(',')[1]; const { error: e2 } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: a.id, p_mime_type: 'image/jpeg', p_base64: base64 }); if (e2) throw e2;
         } else {
           const tipo_custodia = tipoForKind(a.k);

@@ -295,7 +295,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   function selectService(s) {
     selectedId = s.id; for (const el of listado.querySelectorAll('.card')) el.classList.remove('active');
     const me = listado.querySelector(`.card[data-sid="${s.id}"]`); me?.classList.add('active');
-    if (!isDesktop()) showPanel('filtros');
+    // Mobile UX: keep Servicios + Filtros visible; do not switch views
     focusMarker(s); showDetails(s);
   }
 
