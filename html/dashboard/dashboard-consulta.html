@@ -31,7 +31,7 @@
     <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base">
+<body class="mdl-base is-consulta">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <header class="mdl-layout__header">
             <div class="mdl-layout__header-row">
@@ -40,12 +40,17 @@
                 </button>
                 <span class="mdl-layout-title">Consulta de Custodias</span>
                 <div class="mdl-layout-spacer"></div>
+                <div class="header-search" role="search">
+                    <i class="material-icons" aria-hidden="true">search</i>
+                    <input id="search-clientes-mobile" type="search" list="clientes-datalist" placeholder="Buscar cliente..." aria-label="Buscar cliente" />
+                    <datalist id="clientes-datalist"></datalist>
+                </div>
                 <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>
         </header>
 
         <main class="mdl-layout__content">
-            <section class="page">
+            <section class="page page--fluid">
                 <div class="layout-consulta">
                     <aside id="sidebar" class="sidebar" aria-label="Lista de clientes">
                         <div class="sidebar-inner">
@@ -99,4 +104,3 @@
 </body>
 
 </html>
-

@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar');
     const scrim = document.getElementById('scrim');
     const searchClientes = document.getElementById('search-clientes');
-    const listaClientes = document.getElementById('lista-clientes');
+    const listaClientes = document.getElementById('lista-clientes');\n  const searchClientesMobile = document.getElementById('search-clientes-mobile');\n  const datalistClientes = document.getElementById('clientes-datalist');
     const fotosModal = document.getElementById('fotos-modal');
     const fotosGrid = document.getElementById('fotos-grid');
 
@@ -97,6 +97,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function filterClientes(q) {
         q = (q || '').toLowerCase().trim();
         if (!q) return renderSidebar(clientesCache);
+      // build datalist for mobile
+      if (datalistClientes) {
+        datalistClientes.innerHTML = '';
+        for (const c of clientesCache) {
+          const o = document.createElement('option');
+          o.value = c.nombre;
+          datalistClientes.appendChild(o);
+        }
+      }
         renderSidebar(clientesCache.filter(c => (c.nombre || '').toLowerCase().includes(q)));
     }
 
@@ -109,6 +118,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) throw error;
             clientesCache = data || [];
             renderSidebar(clientesCache);
+      // build datalist for mobile
+      if (datalistClientes) {
+        datalistClientes.innerHTML = '';
+        for (const c of clientesCache) {
+          const o = document.createElement('option');
+          o.value = c.nombre;
+          datalistClientes.appendChild(o);
+        }
+      }
         } catch (e) {
             console.error(e);
             showMsg('No se pudieron cargar los clientes');
@@ -316,7 +334,20 @@ document.addEventListener('DOMContentLoaded', () => {
     scrim && scrim.addEventListener('click', closeSidebar);
     searchClientes && searchClientes.addEventListener('input', () => filterClientes(searchClientes.value));
 
-    // Modal fotos
+      // Mobile header search
+  if (searchClientesMobile) {
+    const trigger = async () => {
+      const name = (searchClientesMobile.value || '').trim().toLowerCase();
+      const found = clientesCache.find(c => (c.nombre || '').toLowerCase() === name);
+      if (found) {
+        clienteSeleccionado = found;
+        placasContainer.innerHTML = '';
+        await cargarServiciosPorCliente(found.id);
+      }
+    };
+    searchClientesMobile.addEventListener('change', trigger);
+    searchClientesMobile.addEventListener('keydown', (e) => { if (e.key === 'Enter') trigger(); });
+  }// Modal fotos
     function showFotosCustodia(items) {
         if (!fotosModal || !fotosGrid) return;
         fotosGrid.innerHTML = '';
@@ -346,7 +377,16 @@ document.addEventListener('DOMContentLoaded', () => {
         clienteSeleccionado = null;
         placasContainer.innerHTML = '';
         listaClientes && listaClientes.querySelectorAll('li').forEach(li => li.classList.remove('is-active'));
-        if (searchClientes) { searchClientes.value = ''; renderSidebar(clientesCache); }
+        if (searchClientes) { searchClientes.value = ''; renderSidebar(clientesCache);
+      // build datalist for mobile
+      if (datalistClientes) {
+        datalistClientes.innerHTML = '';
+        for (const c of clientesCache) {
+          const o = document.createElement('option');
+          o.value = c.nombre;
+          datalistClientes.appendChild(o);
+        }
+      } }
     });
 
     // Start
