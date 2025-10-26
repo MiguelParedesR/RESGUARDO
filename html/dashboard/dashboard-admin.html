@@ -54,8 +54,12 @@
                     <aside class="sidebar">
                         <div class="sidebar-head">
                             <div class="lbl" style="font-size:14px;font-weight:800;color:#37474f;">Servicios</div>
-                            <span class="lbl" id="count-label">0</span>
+                            <div class="head-actions">
+                                <button id="btn-filtros-mobile" class="btn btn-ghost btn-filtros-mobile" title="Filtros" aria-controls="filters-drawer" aria-expanded="false"><i class="material-icons">tune</i> Filtros</button>
+                                <span class="lbl" id="count-label">0</span>
+                            </div>
                         </div>
+                        <div class="filters-inline" id="filters-inline"></div>
                         <div id="listado" class="sidebar-body">
                             <div class="card">Cargandoâ€¦</div>
                         </div>
@@ -133,6 +137,7 @@
 </body>
 
 </html>
+
 
 
 

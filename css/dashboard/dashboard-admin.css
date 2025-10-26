@@ -346,6 +346,7 @@ body.view-lista .sidebar {
     gap: 10px;
 
     flex: 1 1 auto;
+    max-height: calc(100% - 52px);
 }
 
 
@@ -855,3 +856,6 @@ body.view-filtros .sidebar { display: none !important; }
 .filters-drawer .row-actions { margin-top: 2px; }
 /* Map label tweaks for readability */
 .leaflet-tooltip { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 8px; }
+/* Compact header actions in Servicios */
+.sidebar-head .head-actions { display: flex; align-items: center; gap: 8px; }
+.sidebar-head .btn-filtros-mobile { display: none; }

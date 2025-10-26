@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const DASHBOARD_URL = '/html/dashboard/custodia-registros.html';
     // Ruteo local (OSRM/GraphHopper en 127.0.0.1). Requiere js/lib/router-local.js
     let routeLayer = null, poiLayer = null, lastRouteSig = '';
-    function beep() { try { const ctx = new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); g.gain.value=0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+0.01); o.start(); setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.15); o.stop(ctx.currentTime+0.2); },160); } catch {} }
+    function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch { } }
 
     // Haversine (m)
     function distanciaM(lat1, lon1, lat2, lon2) {
@@ -94,21 +94,44 @@ document.addEventListener('DOMContentLoaded', () => {
             maxZoom: 19, attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        window.__autoFollow = true; map.on("dragstart", ()=>{ window.__autoFollow=false; showFollowControl(true); }); map.on("zoomstart", ()=>{ window.__autoFollow=false; showFollowControl(true); });
+        window.__autoFollow = true; map.on("dragstart", () => { window.__autoFollow = false; showFollowControl(true); }); map.on("zoomstart", () => { window.__autoFollow = false; showFollowControl(true); });
         if (destino) {
-            const pinDest = L.divIcon({ className: 'pin-dest', html: 'ðŸ“Œ', iconSize: [24,24], iconAnchor: [12,24] });
+            const pinDest = L.divIcon({
+                className: 'pin-dest',
+                html: '📌',
+                iconSize: [24, 24],
+                iconAnchor: [12, 24]
+            });
             markerDestino = L.marker([destino.lat, destino.lng], { title: 'Destino', icon: pinDest }).addTo(map);
-            try { markerDestino.setIcon(L.divIcon({ className: 'pin-dest', html: '&#128204;', iconSize: [24,24], iconAnchor: [12,24] })); } catch {}
-            \n            try { markerDestino.setIcon(L.icon({ iconUrl: '/assets/icons/pin-destination.svg', iconRetinaUrl: '/assets/icons/pin-destination.svg', iconSize: [30,30], iconAnchor: [15,28], popupAnchor: [0,-28] })); } catch {}
+            try {
+                markerDestino.setIcon(L.divIcon({
+                    className: 'pin-dest',
+                    html: '&#128204;',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24]
+                }));
+            } catch { }
+
+            try {
+                markerDestino.setIcon(L.icon({
+                    iconUrl: '/assets/icons/pin-destination.svg',
+                    iconRetinaUrl: '/assets/icons/pin-destination.svg',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 28],
+                    popupAnchor: [0, -28]
+                }));
+            } catch { }
+
             map.setView([destino.lat, destino.lng], 14);
         } else {
             map.setView([-12.0464, -77.0428], 12); // Lima
         }
+
         poiLayer = L.layerGroup().addTo(map);
         routeLayer = L.layerGroup().addTo(map);
 
         iniciarTracking();
-        // Ruta inicial y refresco periÃ³dico
+        // Ruta inicial y refresco periódico
         setTimeout(updateRouteFromMarkers, 2000);
         setInterval(updateRouteFromMarkers, 10000);
     }
@@ -124,18 +147,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.trackingCommon?.routeLocal) latlngs = await window.trackingCommon.routeLocal([p.lat, p.lng], [destino.lat, destino.lng]);
             else if (window.routerLocal?.route) latlngs = await window.routerLocal.route([p.lat, p.lng], [destino.lat, destino.lng]);
             if (!Array.isArray(latlngs)) latlngs = [];
-            try { routeLayer.clearLayers(); } catch {}
-            try { poiLayer.clearLayers(); } catch {}
+            try { routeLayer.clearLayers(); } catch { }
+            try { poiLayer.clearLayers(); } catch { }
             L.circleMarker([p.lat, p.lng], { radius: 8, color: '#1976d2', weight: 2, fillColor: '#1976d2', fillOpacity: 0.85 }).addTo(poiLayer).bindTooltip('Partida/Actual');
             L.circleMarker([destino.lat, destino.lng], { radius: 9, color: '#e91e63', weight: 2, fillColor: '#e91e63', fillOpacity: 0.9 }).addTo(poiLayer).bindTooltip('Destino');
             if (latlngs.length) {
                 L.polyline(latlngs, { color: '#1e88e5', weight: 5, opacity: 0.95 }).addTo(routeLayer);
-                const sig = String(latlngs[0]) + '|' + String(latlngs[latlngs.length-1]) + '|' + latlngs.length;
+                const sig = String(latlngs[0]) + '|' + String(latlngs[latlngs.length - 1]) + '|' + latlngs.length;
                 if (sig !== lastRouteSig) { lastRouteSig = sig; beep(); }
             } else {
                 L.polyline([[p.lat, p.lng], [destino.lat, destino.lng]], { color: '#455a64', weight: 3, opacity: 0.85, dashArray: '6,4' }).addTo(routeLayer);
             }
-        } catch {}
+        } catch { }
     }
 
     function iniciarTracking() {
@@ -144,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const pinUser = L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24,24], iconAnchor: [12,24] });
+        const pinUser = L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24, 24], iconAnchor: [12, 24] });
         const watchId = navigator.geolocation.watchPosition(
             pos => onPos(pos.coords.latitude, pos.coords.longitude, pinUser),
             err => {
@@ -171,18 +194,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!markerYo) {
             markerYo = L.marker([lat, lng], { title: 'UbicaciÃ³n actual' }).addTo(map);
             markerYo.bindPopup('Ubicaci\u00f3n actual');
-            try { if (!markerYo.options.icon) { markerYo.setIcon(L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24,24], iconAnchor: [12,24] })); } } catch {}
+            try { if (!markerYo.options.icon) { markerYo.setIcon(L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24, 24], iconAnchor: [12, 24] })); } } catch { }
             if (!destino) map.setView([lat, lng], 14);
         } else {
             markerYo.setLatLng([lat, lng]);
         }
         try {
             if (!markerYo.options || !markerYo.options.icon) {
-                markerYo.setIcon(L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24,24], iconAnchor: [12,24] }));
+                markerYo.setIcon(L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24, 24], iconAnchor: [12, 24] }));
             }
-        } catch {}
-        
-        try { markerYo.setIcon(L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [32,32], iconAnchor: [16,28], popupAnchor: [0,-28] })); } catch {}
+        } catch { }
+
+        try { markerYo.setIcon(L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [32, 32], iconAnchor: [16, 28], popupAnchor: [0, -28] })); } catch { }
         // Distancia al destino
         if (destino) {
             const d = Math.round(distanciaM(lat, lng, destino.lat, destino.lng));
@@ -193,13 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fit/follow: encuadre inicial y seguimiento suave
         try {
             if (destino && markerYo && !window.__fitOnce) {
-                const b = L.latLngBounds([ markerYo.getLatLng(), [destino.lat, destino.lng] ]);
-                map.fitBounds(b, { padding: [40,40], maxZoom: 16 });
+                const b = L.latLngBounds([markerYo.getLatLng(), [destino.lat, destino.lng]]);
+                map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
                 window.__fitOnce = true;
             } else if (markerYo && window.__autoFollow !== false) {
                 map.panTo(markerYo.getLatLng(), { animate: true });
             }
-        } catch {}
+        } catch { }
         // Enviar a Supabase cada 30s
         const now = Date.now();
         if (now - lastSent > SEND_EVERY_MS) {
@@ -271,19 +294,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Follow toggle control button on map container
 function showFollowControl(show) {
-  try {
-    const mapEl = document.getElementById('map-track');
-    if (!mapEl) return;
-    let btn = document.getElementById('follow-toggle');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'follow-toggle';
-      btn.className = 'mdl-button mdl-js-button mdl-button--raised';
-      btn.textContent = 'Seguir';
-      btn.style.position = 'absolute'; btn.style.right = '12px'; btn.style.top = '12px'; btn.style.zIndex = 5003;
-      mapEl.parentElement.appendChild(btn);
-      btn.addEventListener('click', () => { window.__autoFollow = true; showFollowControl(false); });
-    }
-    btn.style.display = show ? 'inline-flex' : 'none';
-  } catch {}
+    try {
+        const mapEl = document.getElementById('map-track');
+        if (!mapEl) return;
+        let btn = document.getElementById('follow-toggle');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'follow-toggle';
+            btn.className = 'mdl-button mdl-js-button mdl-button--raised';
+            btn.textContent = 'Seguir';
+            btn.style.position = 'absolute'; btn.style.right = '12px'; btn.style.top = '12px'; btn.style.zIndex = 5003;
+            mapEl.parentElement.appendChild(btn);
+            btn.addEventListener('click', () => { window.__autoFollow = true; showFollowControl(false); });
+        }
+        btn.style.display = show ? 'inline-flex' : 'none';
+    } catch { }
 }

@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
-  let map; const markers = new Map(); let selectedId = null;
+  let map; const markers = new Map(); let selectedId = null; let overviewLayer = null, focusLayer = null, routeLayerFocus = null;
 
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
@@ -25,9 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const mapPanel = document.querySelector('.map-panel');
   const btnFiltros = document.getElementById('btn-filtros');
+  const btnFiltrosMobile = document.getElementById('btn-filtros-mobile');
   const filtersDrawer = document.getElementById('filters-drawer');
   const drawerCloseBtn = document.querySelector('.drawer-close');
   const mapOverlay = document.querySelector('.map-overlay');
+  const filtersInlineHost = document.getElementById('filters-inline');
 
   function openFiltersDrawer() {
     if (!filtersDrawer || !mapPanel) return;
@@ -51,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filtersDrawer.addEventListener('transitionend', onEnd);
   }
   btnFiltros?.addEventListener('click', (e) => { e.preventDefault(); openFiltersDrawer(); });
+  btnFiltrosMobile?.addEventListener('click', (e) => { e.preventDefault(); toggleInlineFilters(); });
   drawerCloseBtn?.addEventListener('click', () => closeFiltersDrawer());
   mapOverlay?.addEventListener('click', () => closeFiltersDrawer());
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { closeFiltersDrawer(); } });
@@ -60,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
       root.classList.remove('view-lista', 'view-filtros');
       ensureMap();
       ensureSidebarResizer();
+      relocateFilters();
       requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } });
     }
   });
@@ -144,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fEstado = document.getElementById('f-estado');
   const fEmpresa = document.getElementById('f-empresa');
   const fTexto = document.getElementById('f-texto');
-  document.getElementById('btn-aplicar').addEventListener('click', () => { loadServices(); });
-  document.getElementById('btn-reset').addEventListener('click', () => { fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; loadServices(); });
+  document.getElementById('btn-aplicar').addEventListener('click', () => { selectedId = null; loadServices(); if (isDesktop()) { closeFiltersDrawer(); } else { filtersInlineHost?.classList.remove('open'); } });
+  document.getElementById('btn-reset').addEventListener('click', () => { fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; selectedId = null; loadServices(); if (isDesktop()) { closeFiltersDrawer(); } else { filtersInlineHost?.classList.remove('open'); } });
 
   // UI refs
   const listado = document.getElementById('listado');
@@ -158,12 +162,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // Mapa
   function initMap() {
     map = L.map('map-admin');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
     map.setView([-12.0464, -77.0428], 12);
-    map.on('dragstart', ()=>{ window.__adminFollow=false; });
+overviewLayer = L.layerGroup().addTo(map);
+focusLayer = L.layerGroup().addTo(map);
+routeLayerFocus = L.layerGroup().addTo(map);
+map.on('dragstart', ()=>{ window.__adminFollow=false; });
     map.on('zoomstart', ()=>{ window.__adminFollow=false; });
   }
   function ensureMap() { if (!map) { initMap(); } }
+
+  // Relocate filters between drawer (desktop) and inline (mobile)
+  function relocateFilters() {
+    if (!filtersDrawer) return;
+    if (isDesktop()) {
+      if (filtersDrawer.parentElement !== mapPanel) mapPanel.insertBefore(filtersDrawer, mapPanel.querySelector('#map-admin'));
+      filtersInlineHost?.classList.remove('open');
+    } else {
+      if (filtersInlineHost && filtersDrawer.parentElement !== filtersInlineHost) filtersInlineHost.appendChild(filtersDrawer);
+      filtersInlineHost?.classList.remove('open');
+    }
+  }
+  relocateFilters();
+
+  function toggleInlineFilters() {
+    if (!filtersInlineHost) return;
+    filtersInlineHost.classList.toggle('open');
+  }
 
   // Utilidades
   const POLL_MS = 30000; const STALE_MIN = 5; const beeped = new Set();
@@ -261,11 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateMarkers(activos) {
     // sugerencia: este mÃ©todo comparte responsabilidades (gestiÃ³n markers + layout bounds).
     // Conviene extraer markers a un gestor y dejar solo layout aquÃ­ o moverlo a tracking-common.
-    ensureMap();
-    if (!map) return;
+    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch {} try { focusLayer?.clearLayers(); } catch {} try { routeLayerFocus?.clearLayers(); } catch {}
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
-    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
+    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
     if (bounds.length) { if (window.__adminFollow !== false) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
@@ -274,15 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
   async function focusMarker(s) {
     // sugerencia: extraer esta funciÃ³n a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
     // para reutilizar en la vista de resguardo sin duplicar.
-    ensureMap();
-    if (!map) return;
+    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch {} try { focusLayer?.clearLayers(); } catch {} try { routeLayerFocus?.clearLayers(); } catch {}
     const p = s.lastPing;
     if (!p?.lat || !p?.lng) return;
     const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`;
     const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`;
     let m = markers.get(s.id);
     if (!m) {
-      m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(map);
+      m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer);
       m.bindPopup(popup);
       markers.set(s.id, m);
     } else {
@@ -290,27 +313,25 @@ document.addEventListener('DOMContentLoaded', () => {
       m.setPopupContent(popup);
     }
     // Limpia capa anterior y dibuja ruta/POIs
-    try { if (selectionLayer) selectionLayer.remove(); } catch {}
-    selectionLayer = L.layerGroup().addTo(map);
     const start = [p.lat, p.lng];
     const hasDestino = (s.destino_lat != null && s.destino_lng != null);
     L.marker(start, { icon: ICON.custodia, title: 'Partida/Actual', zIndexOffset: 200 })
       .bindTooltip('Partida/Actual')
-      .addTo(selectionLayer);
+      .addTo(focusLayer);
     if (hasDestino) {
       const dest = [s.destino_lat, s.destino_lng];
       L.marker(dest, { icon: ICON.destino, title: 'Destino', zIndexOffset: 120 })
         .bindTooltip('Destino')
-        .addTo(selectionLayer);
+        .addTo(focusLayer);
       const route = await fetchRoute(start, dest);
       if (route && route.length) {
-        L.polyline(route, { color: '#1e88e5', weight: 4, opacity: 0.95 }).addTo(selectionLayer);
+        L.polyline(route, { color: '#1e88e5', weight: 4, opacity: 0.95 }).addTo(routeLayerFocus);
         const sig = String(route[0]) + '|' + String(route[route.length-1]) + '|' + route.length;
         if (sig !== lastRouteSig) { lastRouteSig = sig; beep(); }
         const b = L.latLngBounds(route);
         map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
       } else {
-        L.polyline([start, dest], { color: '#455a64', weight: 3, opacity: 0.85, dashArray: '6,4' }).addTo(selectionLayer);
+        L.polyline([start, dest], { color: '#455a64', weight: 3, opacity: 0.85, dashArray: '6,4' }).addTo(routeLayerFocus);
         const b = L.latLngBounds([start, dest]);
         map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
       }
@@ -325,6 +346,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
+
+
+
+
+
+
+
+
+
+
 
 
 
