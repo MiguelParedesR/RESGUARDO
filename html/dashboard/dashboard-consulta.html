@@ -40,10 +40,14 @@
                 </button>
                 <span class="mdl-layout-title">Consulta de Custodias</span>
                 <div class="mdl-layout-spacer"></div>
-                <div class="header-search" role="search">
-                    <i class="material-icons" aria-hidden="true">search</i>
-                    <input id="search-clientes-mobile" type="search" list="clientes-datalist" placeholder="Buscar cliente..." aria-label="Buscar cliente" />
-                    <datalist id="clientes-datalist"></datalist>
+                <div class="mobile-controls" aria-label="Selección de cliente (móvil)">
+                    <select id="select-clientes-mobile" class="mobile-select" aria-label="Seleccione cliente">
+                        <option value="">Seleccione cliente</option>
+                    </select>
+                    <button id="btn-mobile-clear" class="mobile-clear-btn" aria-label="Borrar selección">
+                        <i class="material-icons" aria-hidden="true">clear</i>
+                        <span>Limpiar</span>
+                    </button>
                 </div>
                 <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
             </div>

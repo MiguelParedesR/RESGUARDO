@@ -359,8 +359,19 @@ z-index: 700;
 .header-search { display: none; align-items: center; gap: 8px; }
 .header-search input { border: 1px solid #d9dfeb; border-radius: var(--radius-sm); padding: 6px 10px; font: inherit; width: 52vw; max-width: 360px; }
 .header-search input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(63,81,181,.15); }
-@media (max-width: 599px) { .header-search { display: flex; } }
-@media (max-width: 599px) { .sidebar { display: none !important; } }
+/* Mobile header controls (select + clear) */
+.mobile-controls { display: none; align-items: center; gap: 10px; }
+.mobile-select { border: 1px solid #d9dfeb; border-radius: 999px; padding: 6px 12px; font: inherit; background: #fff; }
+.mobile-select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(63,81,181,.15); }
+.mobile-clear-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d9dfeb; background: #fff; color: var(--ink-500); border-radius: 999px; padding: 6px 12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.mobile-clear-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,.1); border-color: #cfd6e6; }
+@media (max-width: 599px) {
+  .mobile-controls { display: inline-flex; }
+  #toggle-sidebar { display: none !important; }
+  .sidebar { display: none !important; }
+  .fab { display: none !important; }
+  .scrim { display: none !important; }
+}
 .is-consulta .mdl-layout__content { height: 100vh; overflow: hidden; }
 /* Consulta overrides: fixed sidebar + fluid content */
 .is-consulta .layout-consulta { position: relative; padding-left: var(--sidebar-w); }
