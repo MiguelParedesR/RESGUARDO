@@ -52,7 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar');
     const scrim = document.getElementById('scrim');
     const searchClientes = document.getElementById('search-clientes');
-    const listaClientes = document.getElementById('lista-clientes');\n  const searchClientesMobile = document.getElementById('search-clientes-mobile');\n  const datalistClientes = document.getElementById('clientes-datalist');
+    const listaClientes = document.getElementById('lista-clientes');
+    const searchClientesMobile = document.getElementById('search-clientes-mobile');
+    const datalistClientes = document.getElementById('clientes-datalist');
     const fotosModal = document.getElementById('fotos-modal');
     const fotosGrid = document.getElementById('fotos-grid');
 
@@ -392,4 +394,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start
     cargarClientes();
 });
-
