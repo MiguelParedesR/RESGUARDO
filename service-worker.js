@@ -1,6 +1,6 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.0.38";
+const VERSION = "v1.0.40";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -9,25 +9,38 @@ const CORE_ASSETS = [
     "/",
     "/config.js",
     "/js/guard.js",
+    "/js/lib/app-header.js",
+    "/js/lib/tracking-common.js",
+    "/js/lib/tracking-store.js",
+    "/js/lib/router-local.js",
 
     "/html/login/login.html",
     "/html/dashboard/dashboard-custodia.html",
+    "/html/dashboard/custodia-registros.html",
     "/html/dashboard/dashboard-admin.html",
     "/html/dashboard/dashboard-consulta.html",
     "/html/dashboard/mapa-resguardo.html",
+    "/html/partials/app-header.html",
 
     "/css/login/login.css",
     "/css/dashboard/dashboard-custodia.css",
+    "/css/dashboard/custodia-registros.css",
     "/css/dashboard/dashboard-admin.css",
     "/css/dashboard/dashboard-consulta.css",
     "/css/dashboard/mapa-resguardo.css",
 
     "/js/login/login.js",
     "/js/dashboard/dashboard-custodia.js",
+    "/js/dashboard/custodia-registros.js",
     "/js/dashboard/dashboard-admin.js",
     "/js/dashboard/dashboard-consulta.js",
     "/js/mapa.js",
     "/js/pwa.js",
+
+    "/assets/icon-192.svg",
+    "/assets/icon-512.svg",
+    "/assets/icons/custodia-current.svg",
+    "/assets/icons/pin-destination.svg",
 ];
 
 const OFFLINE_HTML = `

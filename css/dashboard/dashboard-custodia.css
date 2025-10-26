@@ -167,3 +167,47 @@
     border-radius: 6px;
     padding: 8px 10px;
 }
+
+/* -------- Custodios dinámicos -------- */
+.custodios-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+@media (min-width: 780px) {
+    .custodios-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.custodio-block {
+    border: 1px solid #e3e6ed;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fafbfd;
+}
+
+.custodio-block h3 {
+    margin: 4px 0 10px;
+    font-size: 16px;
+}
+
+.custodio-block .camera-area {
+    margin-top: 8px;
+}
+
+.custodio-block video,
+.custodio-block img {
+    width: 100%;
+    max-height: 260px;
+    background: #e9eef6;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.custodio-block img { display: none; }
+.custodio-block video { display: none; }
+
+.custodio-block .camera-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.custodio-block .cam-estado { font-size: 12px; color: #607d8b; }

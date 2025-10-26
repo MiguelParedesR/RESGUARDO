@@ -57,71 +57,36 @@
                             </div>
 
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                <input class="mdl-textfield__input" id="cantidad" type="number" min="1" max="10"
-                                    required>
-                                <label class="mdl-textfield__label" for="cantidad">Cantidad de custodios</label>
-                            </div>
-
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                <textarea class="mdl-textfield__input" id="nombres" rows="3" placeholder="Uno por línea"
-                                    required></textarea>
-                                <label class="mdl-textfield__label" for="nombres">Nombres de custodios</label>
-                            </div>
-
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <input class="mdl-textfield__input" id="cliente" type="text" required>
                                 <label class="mdl-textfield__label" for="cliente">Cliente (carga)</label>
                             </div>
 
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                <input class="mdl-textfield__input" id="placa" type="text" placeholder="Ej: AUP767"
-                                    required>
+                                <input class="mdl-textfield__input" id="placa" type="text" placeholder="Ej: AUP767" required>
                                 <label class="mdl-textfield__label" for="placa">Placa de unidad</label>
                             </div>
 
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label destino-wrapper">
-                                <input class="mdl-textfield__input" id="destino" type="text"
-                                    placeholder="Dirección destino" required autocomplete="off">
+                                <input class="mdl-textfield__input" id="destino" type="text" placeholder="Dirección destino" required autocomplete="off">
                                 <label class="mdl-textfield__label" for="destino">Dirección destino</label>
                                 <ul id="destino-suggestions" class="suggestions"></ul>
                             </div>
 
                             <div class="row-inline">
-                                <button type="button" id="btn-abrir-mapa"
-                                    class="mdl-button mdl-js-button mdl-button--raised">Buscar en el mapa</button>
-                                <span id="direccion-estado" class="hint">Empieza a escribir para ver sugerencias o usa
-                                    “Buscar en el mapa”.</span>
+                                <button type="button" id="btn-abrir-mapa" class="mdl-button mdl-js-button mdl-button--raised">Buscar en el mapa</button>
+                                <span id="direccion-estado" class="hint">Empieza a escribir para ver sugerencias o usa Buscar en el mapa.</span>
                             </div>
                         </div>
+                        <div class="col"></div>
+                    </div>
 
-                        <div class="col">
-                            <div class="section-title">
-                                <i class="material-icons">photo_camera</i> Selfie del resguardo
-                            </div>
-
-                            <div class="camera-area">
-                                <video id="cam-video" autoplay playsinline muted></video>
-                                <img id="selfie-preview" alt="Selfie" style="display:none" />
-                                <canvas id="cam-canvas" style="display:none"></canvas>
-
-                                <div class="camera-actions">
-                                    <button type="button" id="btn-iniciar-cam" class="mdl-button mdl-js-button">Iniciar
-                                        cámara</button>
-                                    <button type="button" id="btn-tomar-foto"
-                                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                        disabled>Tomar selfie</button>
-                                    <button type="button" id="btn-repetir-foto" class="mdl-button mdl-js-button"
-                                        disabled>Repetir</button>
-                                </div>
-                                <div id="cam-estado" class="hint"></div>
-                            </div>
-                        </div>
+                    <div class="mdl-card__supporting-text">
+                        <h3 class="section-title"><i class="material-icons">group</i> Custodios</h3>
+                        <div id="custodios-container" class="custodios-grid"></div>
                     </div>
 
                     <div class="mdl-card__actions actions">
-                        <button type="submit" id="btn-guardar"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar
-                            registro</button>
+                        <button type="submit" id="btn-guardar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar registro</button>
                         <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">Limpiar</button>
                     </div>
                 </form>
@@ -135,18 +100,14 @@
                     </div>
                     <div class="mdl-card__supporting-text">
                         <div class="map-search">
-                            <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input"
-                                placeholder="Buscar dirección...">
-                            <button type="button" id="map-search-btn"
-                                class="mdl-button mdl-js-button mdl-button--raised">Buscar</button>
+                            <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input" placeholder="Buscar dirección...">
+                            <button type="button" id="map-search-btn" class="mdl-button mdl-js-button mdl-button--raised">Buscar</button>
                         </div>
                         <div id="map-container"></div>
-                        <p class="hint">Haz clic en el mapa para seleccionar el destino. Se intentará obtener la
-                            dirección (reverse geocoding).</p>
+                        <p class="hint">Haz clic en el mapa para seleccionar el destino. Se intentará obtener la dirección (reverse geocoding).</p>
                     </div>
                     <div class="mdl-card__actions">
-                        <button type="button" id="map-aceptar"
-                            class="mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
+                        <button type="button" id="map-aceptar" class="mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
                         <button type="button" id="map-cerrar" class="mdl-button mdl-js-button">Cerrar</button>
                     </div>
                 </div>
@@ -161,3 +122,4 @@
 </body>
 
 </html>
+

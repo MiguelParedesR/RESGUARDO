@@ -30,7 +30,7 @@
     // Actions
     const btnHome = document.getElementById('app-header-home');
     const btnLogout = document.getElementById('app-header-logout');
-    btnHome?.setAttribute('href', '/index.html');
+    btnHome?.setAttribute('href', '/html/index.html');
     btnLogout?.addEventListener('click', (e) => {
       e.preventDefault();
       try { if (window.guard?.logout) { window.guard.logout(); return; } } catch {}

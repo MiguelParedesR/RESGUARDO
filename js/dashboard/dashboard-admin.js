@@ -220,7 +220,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
         try {
           const { data: ping, error: pingErr } = await window.sb
             .from('ubicacion')
-            .select('id,lat,lng')
+            .select('id,lat,lng,created_at')
             .eq('servicio_id', s.id)
             .order('id', { ascending: false })
             .limit(1)
