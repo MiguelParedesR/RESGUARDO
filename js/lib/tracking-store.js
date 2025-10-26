@@ -1,5 +1,5 @@
-// tracking-store.js
-// Sugerencia: capa de suscripción a datos (Supabase realtime + fallback polling)
+﻿// tracking-store.js
+// Sugerencia: capa de suscripciÃ³n a datos (Supabase realtime + fallback polling)
 // para que dashboard-admin (autoridad) y la vista de resguardo compartan el mismo flujo.
 
 (function () {
@@ -12,9 +12,9 @@
       try {
         const { data, error } = await sb
           .from('ubicacion')
-          .select('id,lat,lng,created_at')
+          .select('id,lat,lng,captured_at')
           .eq('servicio_id', servicioId)
-          .order('id', { ascending: false })
+          .order('captured_at', { ascending: false })
           .limit(1)
           .maybeSingle();
         if (!error && data) {
@@ -43,7 +43,7 @@
         .subscribe();
     } catch {}
 
-    // Fallback a polling, útil offline o sin Realtime
+    // Fallback a polling, Ãºtil offline o sin Realtime
     const timer = setInterval(() => { if (!stopped) fetchLast(); }, pollMs);
     fetchLast();
 
@@ -56,4 +56,5 @@
 
   window.trackingStore = { createServicioStore };
 })();
+
 

@@ -1,8 +1,8 @@
-﻿// Dashboard Admin â€” limpio y estable (Lista + Filtros/Mapa)
+﻿// Dashboard Admin — limpio y estable (Lista + Filtros/Mapa)
 document.addEventListener('DOMContentLoaded', () => {
   const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
   const snackbar = document.getElementById('app-snackbar');
-  const showMsg = (message) => { try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); } };
+  const showMsg = (message) => { try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch (e) { alert(message); } };
   // Custom map icons (local, CSP-safe)
   const ICON = {
     custodia: L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [30,30], iconAnchor: [15,28], popupAnchor: [0,-28] }),
@@ -17,11 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
   const rootEl = document.documentElement;
   function showPanel(name) {
-    if (isDesktop()) { ensureMap(); requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } }); return; }
+    if (isDesktop()) { ensureMap(); requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch (e) {} }); return; }
     const filtros = name === 'filtros';
     root.classList.toggle('view-filtros', filtros);
     root.classList.toggle('view-lista', !filtros);
-    setTimeout(() => { try { map?.invalidateSize?.(); } catch { } }, 60);
+    setTimeout(() => { try { map?.invalidateSize?.(); } catch (e) {} }, 60);
   }
   const mapPanel = document.querySelector('.map-panel');
   const btnFiltros = document.getElementById('btn-filtros');
@@ -38,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     filtersDrawer?.setAttribute('aria-hidden', 'false');
     if (mapOverlay) mapOverlay.hidden = false;
     // invalidate after transition
-    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch {} }, 260);
-    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
+    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch (e) {} }, 260);
+    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch (e) {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
     filtersDrawer.addEventListener('transitionend', onEnd);
   }
   function closeFiltersDrawer() {
@@ -48,8 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFiltros?.setAttribute('aria-expanded', 'false');
     filtersDrawer?.setAttribute('aria-hidden', 'true');
     if (mapOverlay) mapOverlay.hidden = true;
-    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch {} }, 260);
-    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
+    const t = setTimeout(() => { try { map?.invalidateSize?.(); } catch (e) {} }, 260);
+    const onEnd = (e) => { if (e.propertyName === 'transform') { try { map?.invalidateSize?.(); } catch (e) {} clearTimeout(t); filtersDrawer.removeEventListener('transitionend', onEnd); } };
     filtersDrawer.addEventListener('transitionend', onEnd);
   }
   btnFiltros?.addEventListener('click', (e) => { e.preventDefault(); openFiltersDrawer(); });
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ensureMap();
       ensureSidebarResizer();
       relocateFilters();
-      requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch { } });
+      requestAnimationFrame(() => { try { map?.invalidateSize?.(); } catch (e) {} });
     }
   });
 
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function setSidebarWidth(px) {
     const v = clamp(Math.round(px), SIDEBAR_MIN, SIDEBAR_MAX);
     rootEl.style.setProperty('--sidebar-w', v + 'px');
-    try { localStorage.setItem(SIDEBAR_KEY, String(v)); } catch {}
+    try { localStorage.setItem(SIDEBAR_KEY, String(v)); } catch (e) {}
   }
   (function initSidebarWidthFromStorage(){
     try {
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isNaN(saved) && saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) {
         rootEl.style.setProperty('--sidebar-w', saved + 'px');
       }
-    } catch {}
+    } catch (e) {}
   })();
   function ensureSidebarResizer() {
     if (!isDesktop()) return; // only desktop
@@ -192,17 +192,17 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
 
   // Utilidades
   const POLL_MS = 30000; const STALE_MIN = 5; const beeped = new Set();
-  const fmtDT = (iso) => { try { return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(new Date(iso)); } catch { return iso || ''; } };
+  const fmtDT = (iso) => { try { return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(new Date(iso)); } catch (e) { return iso || ''; } };
   const minDiff = (a, b) => Math.round((a - b) / 60000);
   function normPing(row) {
     if (!row) return null;
     const lat = row.lat ?? row.latitude ?? row.latitud ?? row.y ?? null;
     const lng = row.lng ?? row.longitude ?? row.longitud ?? row.x ?? null;
-    const created_at = row.created_at ?? row.fecha ?? row.ts ?? row.updated_at ?? null;
+    const created_at = row.captured_at ?? row.created_at ?? row.fecha ?? row.ts ?? row.updated_at ?? null;
     if (lat == null || lng == null) return null;
     return { lat, lng, created_at };
   }
-  function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch { } }
+  function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch (e) {} }
   async function fetchRoute(from, to) {
     try {
       // sugerencia: mover a tracking-common.routeLocal y eliminar duplicado
@@ -225,22 +225,15 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
       const texto = fTexto.value.trim().toUpperCase();
       if (texto) { data = (data || []).filter(s => (s.placa || '').toUpperCase().includes(texto) || (s.cliente?.nombre || '').toUpperCase().includes(texto)); }
       const enriched = await Promise.all((data || []).map(async s => {
-        // Obtiene el último ping; maneja variantes de columna (servicio_id vs servicio_uuid)
-        async function fetchLast(col) {
-          return await window.sb
-            .from('ubicacion')
-            .select('*')
-            .eq(col, s.id)
-            .order('id', { ascending: false }).limit(1).maybeSingle();
-        }
         try {
-          let ping = null; let err = null;
-          const preferUuid = typeof s.id === 'string' && s.id.includes('-'); const r1 = await fetchLast(preferUuid ? 'servicio_uuid' : 'servicio_id');
-          ping = r1.data; err = r1.error;
-          if (err || !ping) {
-            try { const r2 = await fetchLast(preferUuid ? 'servicio_id' : 'servicio_uuid'); if (r2.data) ping = r2.data; } catch {}
-          }
-          if (err) console.warn('[admin] ubicacion query error', err);
+          const { data: ping, error: pingErr } = await window.sb
+.from('ubicacion')
+            .select('lat,lng,captured_at')
+            .eq('servicio_id', s.id)
+            .order('captured_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (pingErr) { console.warn('[admin] ubicacion query error', pingErr); }
           return { ...s, lastPing: ping || null };
         } catch (e) {
           console.warn('[admin] ubicacion query exception', e);
@@ -253,8 +246,13 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
       // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
       if (selectedId) {
         const cur = enrichedNorm.find(x => x.id === selectedId);
-        if (cur) { showDetails(cur); try { await focusMarker(cur); } catch {} }
+        if (cur) { showDetails(cur); try { await focusMarker(cur); } catch (e) {} }
       }
+    } catch (e) {
+      console.error(e);
+      showMsg('No se pudieron cargar los servicios');
+    }
+  }
 
   function renderList(services) {
     listado.innerHTML = ''; countLabel.textContent = services.length;
@@ -271,7 +269,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
         <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-')}</span></div>
         <div><strong>Cliente:</strong> ${h(s.cliente?.nombre || '-')}</div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || '-')}</div>
-        <div class="${pingClass}"><strong>Ãšltimo ping:</strong> ${pingLabel}</div>
+        <div class="${pingClass}"><strong>Último ping:</strong> ${pingLabel}</div>
         <div class="meta">Creado: ${fmtDT(s.created_at)}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${s.id}">Ver en mapa</button>
@@ -296,9 +294,9 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
 
   // Markers + fitBounds
   function updateMarkers(activos) {
-    // sugerencia: este mÃ©todo comparte responsabilidades (gestiÃ³n markers + layout bounds).
-    // Conviene extraer markers a un gestor y dejar solo layout aquÃ­ o moverlo a tracking-common.
-    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch {} try { focusLayer?.clearLayers(); } catch {} try { routeLayerFocus?.clearLayers(); } catch {}
+    // sugerencia: este método comparte responsabilidades (gestión markers + layout bounds).
+    // Conviene extraer markers a un gestor y dejar solo layout aquí o moverlo a tracking-common.
+    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
     activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(focusLayer); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
@@ -308,9 +306,9 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   let selectionLayer = null;
   let lastRouteSig = '';
   async function focusMarker(s) {
-    // sugerencia: extraer esta funciÃ³n a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
+    // sugerencia: extraer esta función a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
     // para reutilizar en la vista de resguardo sin duplicar.
-    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch {} try { focusLayer?.clearLayers(); } catch {} try { routeLayerFocus?.clearLayers(); } catch {}
+    ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     const p = s.lastPing;
     if (!p?.lat || !p?.lng) return;
     const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`;
@@ -350,7 +348,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     } else {
       map.setView(m.getLatLng(), 15);
     }
-    try { m.openPopup(); } catch {}
+    try { m.openPopup(); } catch (e) {}
   }
   function showDetails(s) { mapTitle.textContent = `Servicio #${s.id} - ${s.empresa}`; if (s.lastPing?.created_at) { const mins = minDiff(new Date(), new Date(s.lastPing.created_at)); metricPing.textContent = `${mins} min`; metricPing.className = mins >= STALE_MIN && s.estado === 'ACTIVO' ? 'ping-warn' : 'ping-ok'; } else { metricPing.textContent = s.estado === 'ACTIVO' ? 'sin datos' : '-'; metricPing.className = s.estado === 'ACTIVO' ? 'ping-warn' : ''; } metricEstado.textContent = s.estado; details.innerHTML = `<div><strong>Empresa:</strong> ${s.empresa}</div><div><strong>Cliente:</strong> ${s.cliente?.nombre || '-'}</div><div><strong>Placa:</strong> ${s.placa || '-'}</div><div><strong>Tipo:</strong> ${s.tipo || '-'}</div><div><strong>Destino:</strong> ${s.destino_texto || '-'}</div><div><strong>Creado:</strong> ${fmtDT(s.created_at)}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar servicio</button></div>`; document.getElementById('btn-finalizar')?.addEventListener('click', async () => { await finalizarServicio(s.id); }); }
   async function finalizarServicio(id) { const ok = confirm(`Finalizar el servicio #${id}?`); if (!ok) return; try { const { error } = await window.sb.from('servicio').update({ estado: 'FINALIZADO' }).eq('id', id); if (error) throw error; showMsg('Servicio finalizado'); await loadServices(); } catch (e) { console.error(e); showMsg('No se pudo finalizar el servicio'); } }
@@ -358,25 +356,3 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
