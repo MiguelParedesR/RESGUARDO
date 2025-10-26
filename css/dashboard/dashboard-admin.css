@@ -853,3 +853,5 @@ body.view-filtros .sidebar { display: none !important; }
 .input, .select { min-height: 40px; }
 .btn { min-height: 40px; }
 .filters-drawer .row-actions { margin-top: 2px; }
+/* Map label tweaks for readability */
+.leaflet-tooltip { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 8px; }

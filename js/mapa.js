@@ -94,11 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
             maxZoom: 19, attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
+        window.__autoFollow = true; map.on("dragstart", ()=>{ window.__autoFollow=false; showFollowControl(true); }); map.on("zoomstart", ()=>{ window.__autoFollow=false; showFollowControl(true); });
         if (destino) {
             const pinDest = L.divIcon({ className: 'pin-dest', html: 'ðŸ“Œ', iconSize: [24,24], iconAnchor: [12,24] });
             markerDestino = L.marker([destino.lat, destino.lng], { title: 'Destino', icon: pinDest }).addTo(map);
             try { markerDestino.setIcon(L.divIcon({ className: 'pin-dest', html: '&#128204;', iconSize: [24,24], iconAnchor: [12,24] })); } catch {}
-            markerDestino.bindPopup(destino.texto || 'Destino');
+            \n            try { markerDestino.setIcon(L.icon({ iconUrl: '/assets/icons/pin-destination.svg', iconRetinaUrl: '/assets/icons/pin-destination.svg', iconSize: [30,30], iconAnchor: [15,28], popupAnchor: [0,-28] })); } catch {}
             map.setView([destino.lat, destino.lng], 14);
         } else {
             map.setView([-12.0464, -77.0428], 12); // Lima
@@ -181,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch {}
         
+        try { markerYo.setIcon(L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [32,32], iconAnchor: [16,28], popupAnchor: [0,-28] })); } catch {}
         // Distancia al destino
         if (destino) {
             const d = Math.round(distanciaM(lat, lng, destino.lat, destino.lng));
@@ -188,6 +190,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnFinalizar) btnFinalizar.disabled = d > ARRIVE_M; // habilita si estÃ¡ a <= 50 m
         }
 
+        // Fit/follow: encuadre inicial y seguimiento suave
+        try {
+            if (destino && markerYo && !window.__fitOnce) {
+                const b = L.latLngBounds([ markerYo.getLatLng(), [destino.lat, destino.lng] ]);
+                map.fitBounds(b, { padding: [40,40], maxZoom: 16 });
+                window.__fitOnce = true;
+            } else if (markerYo && window.__autoFollow !== false) {
+                map.panTo(markerYo.getLatLng(), { animate: true });
+            }
+        } catch {}
         // Enviar a Supabase cada 30s
         const now = Date.now();
         if (now - lastSent > SEND_EVERY_MS) {
@@ -255,3 +267,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+
+// Follow toggle control button on map container
+function showFollowControl(show) {
+  try {
+    const mapEl = document.getElementById('map-track');
+    if (!mapEl) return;
+    let btn = document.getElementById('follow-toggle');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'follow-toggle';
+      btn.className = 'mdl-button mdl-js-button mdl-button--raised';
+      btn.textContent = 'Seguir';
+      btn.style.position = 'absolute'; btn.style.right = '12px'; btn.style.top = '12px'; btn.style.zIndex = 5003;
+      mapEl.parentElement.appendChild(btn);
+      btn.addEventListener('click', () => { window.__autoFollow = true; showFollowControl(false); });
+    }
+    btn.style.display = show ? 'inline-flex' : 'none';
+  } catch {}
+}

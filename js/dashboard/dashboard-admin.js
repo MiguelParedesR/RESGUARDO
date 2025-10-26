@@ -1,8 +1,13 @@
-// Dashboard Admin — limpio y estable (Lista + Filtros/Mapa)
+﻿// Dashboard Admin â€” limpio y estable (Lista + Filtros/Mapa)
 document.addEventListener('DOMContentLoaded', () => {
   const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
   const snackbar = document.getElementById('app-snackbar');
   const showMsg = (message) => { try { snackbar?.MaterialSnackbar?.showSnackbar({ message }); } catch { alert(message); } };
+  // Custom map icons (local, CSP-safe)
+  const ICON = {
+    custodia: L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [30,30], iconAnchor: [15,28], popupAnchor: [0,-28] }),
+    destino: L.icon({ iconUrl: '/assets/icons/pin-destination.svg', iconRetinaUrl: '/assets/icons/pin-destination.svg', iconSize: [28,28], iconAnchor: [14,26], popupAnchor: [0,-26] })
+  };
 
   // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
   let map; const markers = new Map(); let selectedId = null;
@@ -155,6 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
     map = L.map('map-admin');
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     map.setView([-12.0464, -77.0428], 12);
+    map.on('dragstart', ()=>{ window.__adminFollow=false; });
+    map.on('zoomstart', ()=>{ window.__adminFollow=false; });
   }
   function ensureMap() { if (!map) { initMap(); } }
 
@@ -227,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-')}</span></div>
         <div><strong>Cliente:</strong> ${h(s.cliente?.nombre || '-')}</div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || '-')}</div>
-        <div class="${pingClass}"><strong>Último ping:</strong> ${pingLabel}</div>
+        <div class="${pingClass}"><strong>Ãšltimo ping:</strong> ${pingLabel}</div>
         <div class="meta">Creado: ${fmtDT(s.created_at)}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${s.id}">Ver en mapa</button>
@@ -252,20 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Markers + fitBounds
   function updateMarkers(activos) {
-    // sugerencia: este método comparte responsabilidades (gestión markers + layout bounds).
-    // Conviene extraer markers a un gestor y dejar solo layout aquí o moverlo a tracking-common.
+    // sugerencia: este mÃ©todo comparte responsabilidades (gestiÃ³n markers + layout bounds).
+    // Conviene extraer markers a un gestor y dejar solo layout aquÃ­ o moverlo a tracking-common.
     ensureMap();
     if (!map) return;
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
-    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
-    if (bounds.length) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } else { map.setView([-12.0464, -77.0428], 12); }
+    activos.forEach(s => { const p = s.lastPing; if (!p?.lat || !p?.lng) return; const label = `#${s.id} - ${h(s.placa || '')} - ${h(s.cliente?.nombre || '')}`; const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`; if (!markers.has(s.id)) { const m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(map); m.bindPopup(popup); markers.set(s.id, m); } else { const m = markers.get(s.id); m.setLatLng([p.lat, p.lng]); m.setPopupContent(popup); } bounds.push([p.lat, p.lng]); });
+    if (bounds.length) { if (window.__adminFollow !== false) { const b = L.latLngBounds(bounds); map.fitBounds(b, { padding: [40, 40], maxZoom: 16 }); } } else { map.setView([-12.0464, -77.0428], 12); }
   }
 
   let selectionLayer = null;
   let lastRouteSig = '';
   async function focusMarker(s) {
-    // sugerencia: extraer esta función a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
+    // sugerencia: extraer esta funciÃ³n a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
     // para reutilizar en la vista de resguardo sin duplicar.
     ensureMap();
     if (!map) return;
@@ -275,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const popup = `<strong>Servicio #${s.id}</strong><br>${h(s.empresa)} - ${h(s.cliente?.nombre || '')}<br>${h(s.placa || '')}<br>Destino: ${h(s.destino_texto || '-')}`;
     let m = markers.get(s.id);
     if (!m) {
-      m = L.marker([p.lat, p.lng], { title: label }).addTo(map);
+      m = L.marker([p.lat, p.lng], { title: label, icon: ICON.custodia, zIndexOffset: 200 }).addTo(map);
       m.bindPopup(popup);
       markers.set(s.id, m);
     } else {
@@ -287,14 +294,12 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionLayer = L.layerGroup().addTo(map);
     const start = [p.lat, p.lng];
     const hasDestino = (s.destino_lat != null && s.destino_lng != null);
-    const pinUser = L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24,24], iconAnchor: [12,24] });
-    L.marker(start, { icon: pinUser, title: 'Partida/Actual' })
+    L.marker(start, { icon: ICON.custodia, title: 'Partida/Actual', zIndexOffset: 200 })
       .bindTooltip('Partida/Actual')
       .addTo(selectionLayer);
     if (hasDestino) {
       const dest = [s.destino_lat, s.destino_lng];
-      const pinDest = L.divIcon({ className: 'pin-dest', html: '&#128204;', iconSize: [24,24], iconAnchor: [12,24] });
-      L.marker(dest, { icon: pinDest, title: 'Destino' })
+      L.marker(dest, { icon: ICON.destino, title: 'Destino', zIndexOffset: 120 })
         .bindTooltip('Destino')
         .addTo(selectionLayer);
       const route = await fetchRoute(start, dest);
@@ -320,3 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
+
+
+
+
+

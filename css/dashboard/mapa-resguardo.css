@@ -192,3 +192,5 @@
         width: 100%;
     }
 }
+/* Map labels readability */
+.leaflet-tooltip { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 8px; }
