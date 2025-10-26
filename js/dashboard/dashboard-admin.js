@@ -194,6 +194,14 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   const POLL_MS = 30000; const STALE_MIN = 5; const beeped = new Set();
   const fmtDT = (iso) => { try { return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }).format(new Date(iso)); } catch { return iso || ''; } };
   const minDiff = (a, b) => Math.round((a - b) / 60000);
+  function normPing(row) {
+    if (!row) return null;
+    const lat = row.lat ?? row.latitude ?? row.latitud ?? row.y ?? null;
+    const lng = row.lng ?? row.longitude ?? row.longitud ?? row.x ?? null;
+    const created_at = row.created_at ?? row.fecha ?? row.ts ?? row.updated_at ?? null;
+    if (lat == null || lng == null) return null;
+    return { lat, lng, created_at };
+  }
   function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch { } }
   async function fetchRoute(from, to) {
     try {
@@ -210,7 +218,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     try {
       const q = window.sb.from('servicio')
         .select('id,empresa,placa,estado,tipo,created_at,destino_texto,destino_lat,destino_lng,cliente:cliente_id(nombre)')
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
       if (fEstado.value !== 'TODOS') q.eq('estado', fEstado.value);
       if (fEmpresa.value !== 'TODAS') q.eq('empresa', fEmpresa.value);
       let { data, error } = await q; if (error) throw error;
@@ -221,18 +229,16 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
         async function fetchLast(col) {
           return await window.sb
             .from('ubicacion')
-            .select('id,lat,lng,created_at')
+            .select('*')
             .eq(col, s.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .order('id', { ascending: false }).limit(1).maybeSingle();
         }
         try {
           let ping = null; let err = null;
-          const r1 = await fetchLast('servicio_id');
+          const preferUuid = typeof s.id === 'string' && s.id.includes('-'); const r1 = await fetchLast(preferUuid ? 'servicio_uuid' : 'servicio_id');
           ping = r1.data; err = r1.error;
           if (err || !ping) {
-            try { const r2 = await fetchLast('servicio_uuid'); if (r2.data) ping = r2.data; } catch {}
+            try { const r2 = await fetchLast(preferUuid ? 'servicio_id' : 'servicio_uuid'); if (r2.data) ping = r2.data; } catch {}
           }
           if (err) console.warn('[admin] ubicacion query error', err);
           return { ...s, lastPing: ping || null };
@@ -241,15 +247,14 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
           return { ...s, lastPing: null };
         }
       }));
-      renderList(enriched);
-      updateMarkers(enriched.filter(x => x.estado === 'ACTIVO'));
-      // Mantener seguimiento centrado en el admin: si hay seleccionado, actualiza detalles y ruta
+      const enrichedNorm = (enriched||[]).map(s => ({ ...s, lastPing: normPing(s.lastPing) }));
+      renderList(enrichedNorm);
+      updateMarkers(enrichedNorm.filter(x => x.estado === 'ACTIVO'));
+      // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
       if (selectedId) {
-        const cur = enriched.find(x => x.id === selectedId);
+        const cur = enrichedNorm.find(x => x.id === selectedId);
         if (cur) { showDetails(cur); try { await focusMarker(cur); } catch {} }
       }
-    } catch (e) { console.error(e); showMsg('No se pudieron cargar servicios'); }
-  }
 
   function renderList(services) {
     listado.innerHTML = ''; countLabel.textContent = services.length;
@@ -353,6 +358,12 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   // Auto refresh
   setInterval(loadServices, 30000); loadServices();
 });
+
+
+
+
+
+
 
 
 
