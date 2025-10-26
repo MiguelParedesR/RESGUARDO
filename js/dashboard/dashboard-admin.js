@@ -30,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const drawerCloseBtn = document.querySelector('.drawer-close');
   const mapOverlay = document.querySelector('.map-overlay');
   const filtersInlineHost = document.getElementById('filters-inline');
+  const btnVerTodos = document.getElementById("btn-ver-todos");
+  btnVerTodos?.addEventListener("click", () => {
+    try { selectedId = null; filtersInlineHost?.classList.remove("open"); btnFiltrosMobile?.setAttribute("aria-expanded","false"); } catch (e) {}
+    loadServices();
+  });
 
   function openFiltersDrawer() {
     if (!filtersDrawer || !mapPanel) return;
@@ -297,6 +302,10 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     const me = listado.querySelector(`.card[data-sid="${s.id}"]`); me?.classList.add('active');
     // Mobile UX: keep Servicios + Filtros visible; do not switch views
     focusMarker(s); showDetails(s);
+    if (!isDesktop()) {
+      try { filtersInlineHost?.classList.remove('open'); btnFiltrosMobile?.setAttribute('aria-expanded','false'); } catch (e) {}
+      try { document.querySelector('.map-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    }
   }
 
   // Markers + fitBounds
@@ -388,5 +397,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   }
   setupRealtime();
 });
+
+
 
 
