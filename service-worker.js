@@ -1,6 +1,6 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.0.53";
+const VERSION = "v1.1.1";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -36,6 +36,8 @@ const CORE_ASSETS = [
     "/js/dashboard/dashboard-consulta.js",
     "/js/mapa.js",
     "/js/pwa.js",
+    "/modules/alarma/alarma.js",
+    "/modules/alarma/alarma.css",
 
     "/assets/icon-192.svg",
     "/assets/icon-512.svg",
@@ -198,5 +200,93 @@ async function trimCache(cacheName, maxItems) {
         const excess = keys.length - maxItems;
         for (let i = 0; i < excess; i++) await cache.delete(keys[i]);
     } catch { }
+}
+
+self.addEventListener("push", (event) => {
+    if (!event) return;
+    const payload = parsePushData(event.data);
+    if (!payload) return;
+    event.waitUntil(
+        (async () => {
+            try {
+                await self.registration.showNotification(payload.title, payload.options);
+            } catch (err) {
+                console.warn("[sw] showNotification falló", err);
+            }
+            await broadcastAlarma({ kind: "push", event: payload.type, payload: payload.options.data });
+        })()
+    );
+});
+
+self.addEventListener("notificationclick", (event) => {
+    const data = event.notification?.data || {};
+    const action = event.action || "open";
+    event.notification?.close();
+    const targetUrl = data.url || "/";
+    event.waitUntil(
+        (async () => {
+            const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+            const origin = self.location.origin;
+            const normalized = new URL(targetUrl, origin).href;
+            let match = allClients.find((client) => client.url === normalized);
+            if (!match) {
+                match = allClients.find((client) => client.url.startsWith(normalized));
+            }
+            if (match) {
+                await match.focus();
+            } else {
+                match = await self.clients.openWindow(normalized);
+            }
+            if (match) {
+                match.postMessage({ channel: "alarma", kind: "notificationclick", action, payload: data });
+            }
+            if (action === "silence") {
+                await broadcastAlarma({ kind: "notification-action", action: "silence", payload: data });
+            }
+        })()
+    );
+});
+
+self.addEventListener("pushsubscriptionchange", () => {
+    broadcastAlarma({ kind: "pushsubscriptionchange" });
+});
+
+function parsePushData(data) {
+    if (!data) return null;
+    try {
+        const raw = data.json();
+        const type = raw.type || raw.data?.type || null;
+        const options = {
+            body: raw.body || "",
+            icon: raw.icon || "/assets/icon-192.svg",
+            badge: raw.badge || raw.icon || "/assets/icon-192.svg",
+            requireInteraction: raw.requireInteraction !== false,
+            renotify: raw.renotify ?? true,
+            vibrate: raw.vibrate || [220, 120, 220],
+            tag: raw.tag || `alarma-${type || "alerta"}`,
+            actions: raw.actions || [],
+            data: {
+                ...(raw.data || {}),
+                url: raw.data?.url || raw.url || "/",
+                type
+            }
+        };
+        const title = raw.title || "Alerta";
+        return { title, options, type };
+    } catch (err) {
+        console.warn("[sw] push payload inválido", err);
+        return null;
+    }
+}
+
+async function broadcastAlarma(message) {
+    try {
+        const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const client of clientsList) {
+            client.postMessage({ channel: "alarma", ...message });
+        }
+    } catch (err) {
+        console.warn("[sw] no se pudo enviar mensaje a clientes", err);
+    }
 }
 // End of service-worker.js

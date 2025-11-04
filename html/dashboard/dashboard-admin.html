@@ -29,6 +29,7 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/dashboard-admin.css" />
     <link rel="stylesheet" href="../../css/partials/app-header.css" />
+    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -36,6 +37,7 @@
 
     <!-- ProtecciÃ³n y lÃ³gica -->
     <script defer src="../../js/guard.js"></script>
+    <script defer src="../../modules/alarma/alarma.js"></script>
     <script defer src="../../js/lib/router-local.js"></script>
     <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/dashboard/dashboard-admin.js"></script>
@@ -76,6 +78,7 @@
                             <div class="map-metrics">
                                 <span><strong>Ping:</strong> <span id="metric-ping">â€”</span></span>
                                 <span><strong>Estado:</strong> <span id="metric-estado">â€”</span></span>
+                                <button id="btn-alarma-push-admin" class="btn btn-ghost" title="Activar notificaciones de alarma"><i class="material-icons">notifications_active</i> Alertas</button>
                                 <button id="btn-filtros" class="btn btn-ghost" aria-controls="filters-drawer" aria-expanded="false" title="Mostrar filtros"><i class="material-icons">tune</i> Filtros</button>
                             </div>
                         </div>
@@ -141,6 +144,8 @@
 </body>
 
 </html>
+
+
 
 
 

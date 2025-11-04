@@ -21,6 +21,7 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/dashboard-custodia.css" />
     <link rel="stylesheet" href="../../css/partials/app-header.css" />
+    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -29,6 +30,7 @@
 
     <!-- Protección + módulo -->
     <script defer src="../../js/guard.js"></script>
+    <script defer src="../../modules/alarma/alarma.js"></script>
     <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/dashboard/dashboard-custodia.js"></script>
     <script defer src="../../js/pwa.js"></script>
@@ -43,6 +45,9 @@
                 <form id="form-custodia" class="mdl-card mdl-shadow--3dp card">
                     <div class="mdl-card__title">
                         <h2 class="mdl-card__title-text">Datos del servicio</h2>
+                        <button type="button" id="btn-alarma-push-custodia" class="mdl-button mdl-js-button mdl-button--accent" title="Recibir notificaciones de alarma">
+                            Activar alertas
+                        </button>
                     </div>
 
                     <div class="mdl-card__supporting-text grid">

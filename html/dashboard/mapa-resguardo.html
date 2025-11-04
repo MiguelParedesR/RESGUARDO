@@ -24,12 +24,14 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/mapa-resguardo.css" />
     <link rel="stylesheet" href="../../css/partials/app-header.css" />
+    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js"></script>
 
     <!-- Protección + Lógica -->
+    <script defer src="../../modules/alarma/alarma.js"></script>
     <script defer src="../../js/lib/router-local.js"></script>
     <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/mapa.js"></script>
@@ -42,6 +44,10 @@
 
         <main class="mdl-layout__content">
             <section class="page">
+                <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="Botón de pánico" aria-label="Botón de pánico">
+                    <span class="alarma-panic-btn__icon">⚠</span>
+                    <span class="alarma-panic-btn__label">Botón de pánico</span>
+                </button>
                 <div class="topbar">
                     <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
                         disabled>

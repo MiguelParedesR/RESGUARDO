@@ -1,4 +1,4 @@
-// dashboard-custodia.js — Registro por custodio (bloques) + Autocomplete + Mapa + Selfie por bloque
+﻿// dashboard-custodia.js — Registro por custodio (bloques) + Autocomplete + Mapa + Selfie por bloque
 
 document.addEventListener('DOMContentLoaded', () => {
   const snackbar = document.getElementById('app-snackbar');
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const destinoEl = document.getElementById('destino');
   const sugList = document.getElementById('destino-suggestions');
   const btnAbrirMapa = document.getElementById('btn-abrir-mapa');
+  const btnAlarmaPush = document.getElementById('btn-alarma-push-custodia');
   const direccionEstado = document.getElementById('direccion-estado');
   const custContainer = document.getElementById('custodios-container');
   // Modal servicio activo
@@ -39,6 +40,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const mapCerrar = document.getElementById('map-cerrar');
   const mapContainerId = 'map-container';
 
+  const hasAlarma = typeof window.Alarma === 'object';
+  if (hasAlarma) {
+    try { window.Alarma.initCustodia(); } catch (err) { console.warn('[alarma] initCustodia error', err); }
+    try {
+      window.Alarma.subscribe((evt) => {
+        if (evt?.type === 'emit' && evt.status === 'queued') {
+          showMsg('Evento de alarma en cola. Se enviará al reconectar.');
+        }
+      });
+    } catch (err) { console.warn('[alarma] subscribe error', err); }
+  }
+  if (btnAlarmaPush) {
+    btnAlarmaPush.addEventListener('click', async () => {
+      if (!hasAlarma) { showMsg('Módulo de alarma no disponible'); return; }
+      btnAlarmaPush.disabled = true;
+      const original = btnAlarmaPush.textContent;
+      btnAlarmaPush.textContent = 'Activando...';
+      try {
+        await window.Alarma.registerPush('custodia', empresa, { origen: 'dashboard-custodia' });
+        btnAlarmaPush.textContent = 'Alertas activas';
+        btnAlarmaPush.classList.add('is-armed');
+        showMsg('Alertas activadas correctamente.');
+      } catch (err) {
+        console.warn('[alarma] registerPush', err);
+        showMsg('No se pudo activar push. Intenta de nuevo.');
+        btnAlarmaPush.disabled = false;
+        btnAlarmaPush.textContent = original;
+      }
+    });
+  }
+
   // Estado global
   let destinoCoords = null; // {lat,lng}
   let map = null, mapMarker = null, mapReady = false;
@@ -53,7 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Geo temprana
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+      (pos) => {
+        userLat = pos.coords.latitude; userLng = pos.coords.longitude;
+        try { if (hasAlarma && window.Alarma?.setLocation) window.Alarma.setLocation(userLat, userLng, { accuracy: pos.coords.accuracy }); } catch (err) { console.warn('[alarma] setLocation', err); }
+      },
       () => {},
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
     );
@@ -131,6 +166,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function emitirInicioServicio(servicioId, detalle) {
+    if (!hasAlarma || !window.Alarma?.emit) return;
+    try {
+      await window.Alarma.emit('start', {
+        servicio_id: servicioId,
+        empresa,
+        cliente: detalle?.cliente || null,
+        placa: detalle?.placa || null,
+        tipo: detalle?.tipo || null,
+        lat: userLat,
+        lng: userLng,
+        timestamp: new Date().toISOString(),
+        meta: { destino: detalle?.destino || null, origen: 'dashboard-custodia' }
+      });
+    } catch (err) {
+      console.warn('[alarma] emit start', err);
+    }
+  }
+
   tipoEl.addEventListener('change', () => { currentTipo = tipoEl.value; renderCustodios(); });
   currentTipo = tipoEl.value; renderCustodios();
 
@@ -151,12 +205,50 @@ document.addEventListener('DOMContentLoaded', () => {
   destinoEl.addEventListener('keydown', (e) => { const items = Array.from(sugList.querySelectorAll('li')); if (!items.length) return; if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = (acIndex + 1) % items.length; items.forEach((li, i) => li.classList.toggle('active', i === acIndex)); } else if (e.key === 'ArrowUp') { e.preventDefault(); acIndex = (acIndex - 1 + items.length) % items.length; items.forEach((li, i) => li.classList.toggle('active', i === acIndex)); } else if (e.key === 'Enter') { if (acIndex >= 0) { e.preventDefault(); selectSuggestion(items[acIndex]); } } else if (e.key === 'Escape') { clearSuggestions(); } });
 
   // ===== Modal MAPA (Leaflet + reverse) =====
-  function openModal() { modalMapa.classList.add('open'); if (navigator.geolocation && (userLat == null || userLng == null)) { navigator.geolocation.getCurrentPosition((pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; }, () => {}, { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }); } setTimeout(() => { initMapIfNeeded(); try { map.invalidateSize(); } catch {} mapSearchInput.focus(); }, 150); }
+  function openModal() {
+    modalMapa.classList.add('open');
+    if (navigator.geolocation && (userLat == null || userLng == null)) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userLat = pos.coords.latitude; userLng = pos.coords.longitude;
+          try { if (hasAlarma && window.Alarma?.setLocation) window.Alarma.setLocation(userLat, userLng, { accuracy: pos.coords.accuracy }); } catch (err) { console.warn('[alarma] setLocation', err); }
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+      );
+    }
+    setTimeout(() => {
+      initMapIfNeeded();
+      try { map.invalidateSize(); } catch {}
+      mapSearchInput.focus();
+    }, 150);
+  }
   function closeModal() { modalMapa.classList.remove('open'); }
   btnAbrirMapa.addEventListener('click', openModal);
   mapCerrar.addEventListener('click', closeModal);
   mapAceptar.addEventListener('click', () => { if (!destinoCoords) { showMsg('Selecciona un punto en el mapa o busca una dirección.'); return; } closeModal(); });
-  function initMapIfNeeded() { if (mapReady) { setTimeout(() => map.invalidateSize(), 50); return; } map = L.map(mapContainerId); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map); const setDefault = () => map.setView([-12.0464, -77.0428], 12); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((pos) => map.setView([pos.coords.latitude, pos.coords.longitude], 14), () => setDefault()); } else { setDefault(); } map.on('click', async (e) => { setMarker(e.latlng); await reverseGeocode(e.latlng.lat, e.latlng.lng); }); mapReady = true; setTimeout(() => map.invalidateSize(), 150); }
+    function initMapIfNeeded() {
+      if (mapReady) { setTimeout(() => map.invalidateSize(), 50); return; }
+      map = L.map(mapContainerId);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      const setDefault = () => map.setView([-12.0464, -77.0428], 12);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = [pos.coords.latitude, pos.coords.longitude];
+            map.setView(coords, 14);
+            userLat = coords[0]; userLng = coords[1];
+            try { if (hasAlarma && window.Alarma?.setLocation) window.Alarma.setLocation(userLat, userLng, { accuracy: pos.coords.accuracy }); } catch (err) { console.warn('[alarma] setLocation', err); }
+          },
+          () => setDefault()
+        );
+      } else {
+        setDefault();
+      }
+      map.on('click', async (e) => { setMarker(e.latlng); await reverseGeocode(e.latlng.lat, e.latlng.lng); });
+      mapReady = true;
+      setTimeout(() => map.invalidateSize(), 150);
+    }
   function setMarker(latlng) { destinoCoords = { lat: latlng.lat, lng: latlng.lng }; if (!mapMarker) { mapMarker = L.marker(latlng, { draggable: true }).addTo(map); mapMarker.on('dragend', async () => { const p = mapMarker.getLatLng(); destinoCoords = { lat: p.lat, lng: p.lng }; await reverseGeocode(p.lat, p.lng); }); } else { mapMarker.setLatLng(latlng); } }
   async function reverseGeocode(lat, lng) { if (!locKey) { direccionEstado.textContent = 'Configura LOCATIONIQ_KEY en config.js'; direccionEstado.style.color = '#ff6f00'; return; } try { const url = `https://us1.locationiq.com/v1/reverse?key=${encodeURIComponent(locKey)}&lat=${lat}&lon=${lng}&format=json&accept-language=es`; const res = await fetch(url); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); const label = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`; destinoEl.value = label; direccionEstado.textContent = 'Dirección establecida desde el mapa.'; direccionEstado.style.color = '#2e7d32'; } catch (e) { console.error(e); destinoEl.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; direccionEstado.textContent = 'No se pudo obtener dirección, se usará coordenada.'; direccionEstado.style.color = '#ff6f00'; } }
   mapSearchBtn.addEventListener('click', async () => { const q = mapSearchInput.value.trim(); if (!q) return; const items = await fetchAutocomplete(q); if (items && items[0]) { const lat = parseFloat(items[0].lat), lng = parseFloat(items[0].lon); map.setView([lat, lng], 16); setMarker({ lat, lng }); destinoEl.value = items[0].display_name || q; destinoCoords = { lat, lng }; direccionEstado.textContent = 'Dirección establecida desde búsqueda en mapa.'; direccionEstado.style.color = '#2e7d32'; } else { showMsg('Sin resultados en Perú para esa búsqueda.'); } });
@@ -264,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const base64 = b.selfieDataUrl.split(',')[1]; const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 });
         if (errS) { console.error(errS); return showMsg('Error al guardar selfie'); }
       }
+      await emitirInicioServicio(servicio_id, { cliente, placa, tipo: tGlobal, destino: destinoTexto });
       showMsg('Servicio registrado en Supabase ✅'); sessionStorage.setItem('servicio_id_actual', servicio_id); location.href = '/html/dashboard/mapa-resguardo.html';
     } catch (err) { console.error(err); showMsg('Error en el registro'); }
   });
@@ -308,3 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { console.error(e); showMsg('Error al completar'); }
   });
 });
+
+
+

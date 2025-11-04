@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mis servicios – Custodia</title>
+    <title>Mis servicios - Custodia</title>
     <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
 
     <!-- MDL -->
@@ -17,48 +17,57 @@
 
     <!-- Estilos -->
     <link rel="stylesheet" href="../../css/dashboard/custodia-registros.css" />
+    <link rel="stylesheet" href="../../css/partials/app-header.css" />
+    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
     <!-- Supabase (CDN) ANTES de config.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js"></script>
 
-    <!-- Protección y lógica -->
+    <!-- Proteccion y logica -->
     <script defer src="../../js/guard.js"></script>
+    <script defer src="../../modules/alarma/alarma.js"></script>
+    <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/dashboard/custodia-registros.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Mis servicios</span>
-                <div class="mdl-layout-spacer"></div>
-                <a class="mdl-button mdl-js-button" href="./dashboard-custodia.html">+ Nuevo servicio</a>
-                <a class="mdl-button mdl-js-button" href="#" onclick="guard.logout();return false;">Salir</a>
-            </div>
-        </header>
+        <div id="app-header" data-page-title="Mis servicios"></div>
 
         <main class="mdl-layout__content">
-            <section class="page">
+            <section class="page page--custodia">
                 <div class="topbar">
-                    <h2>Mis servicios</h2>
-                    <div class="spacer"></div>
-                    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                    <div class="titles">
+                        <h1>Mis servicios</h1>
+                        <p class="subtitle">Selecciona un cliente para visualizar sus placas y completar los registros
+                            pendientes.</p>
+                    </div>
+                    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent topbar__cta"
                         onclick="location.href='/html/dashboard/dashboard-custodia.html'">+ Nuevo servicio</button>
                 </div>
 
-                <div class="filters">
-                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                        <input class="mdl-textfield__input" type="text" id="search-text" autocomplete="off">
-                        <label class="mdl-textfield__label" for="search-text">Buscar por placa o cliente</label>
+                <div class="controls" role="region" aria-label="Seleccionar cliente">
+                    <label for="cliente-select" class="controls__label">Cliente</label>
+                    <div class="controls__field">
+                        <select id="cliente-select" class="controls__select" aria-label="Seleccione un cliente">
+                            <option value="">Seleccione cliente</option>
+                        </select>
+                        <button id="cliente-clear" class="mdl-button mdl-js-button mdl-button--icon controls__clear"
+                            type="button" aria-label="Limpiar seleccion">
+                            <i class="material-icons" aria-hidden="true">clear</i>
+                        </button>
                     </div>
                 </div>
 
-                <div id="cards-custodia" class="cards-grid"></div>
+                <div id="cards-placeholder" class="cards-placeholder">Selecciona un cliente para visualizar los servicios
+                    disponibles.</div>
+
+                <div id="cards-custodia" class="cards-grid" aria-live="polite"></div>
 
                 <!-- Drawer derecho para completar registro -->
-                <aside id="drawer-edicion" class="drawer">
+                <aside id="drawer-edicion" class="drawer" aria-hidden="true">
                     <div class="drawer-header">
                         <h3>Completar registro</h3>
                         <button id="drawer-close" class="icon-btn" title="Cerrar">
@@ -66,7 +75,8 @@
                         </button>
                     </div>
                     <div class="drawer-body">
-                        <div id="incompletos-list" class="incompletos-list"></div>
+                        <div id="incompletos-list" class="incompletos-list" role="tablist"
+                            aria-label="Custodios pendientes"></div>
                         <form id="form-edicion" class="edit-form">
                             <input type="hidden" id="custodio-id" />
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
@@ -74,20 +84,27 @@
                                 <label class="mdl-textfield__label" for="nombre-custodio">Nombre del custodio</label>
                             </div>
 
-                            <div class="camara">
+                            <div class="camara" aria-label="Captura de selfie">
                                 <div class="cam-controls">
-                                    <button id="btn-iniciar-cam" type="button" class="mdl-button mdl-js-button">Iniciar cámara</button>
-                                    <button id="btn-tomar-foto" type="button" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
-                                    <button id="btn-repetir-foto" type="button" class="mdl-button mdl-js-button" disabled>Repetir</button>
+                                    <button id="btn-iniciar-cam" type="button"
+                                        class="mdl-button mdl-js-button">Iniciar camara</button>
+                                    <button id="btn-tomar-foto" type="button" class="mdl-button mdl-js-button"
+                                        disabled>Tomar selfie</button>
+                                    <button id="btn-repetir-foto" type="button" class="mdl-button mdl-js-button"
+                                        disabled>Repetir</button>
                                 </div>
-                                <p id="cam-estado" class="cam-estado"></p>
-                                <video id="cam-video" playsinline autoplay muted></video>
-                                <canvas id="cam-canvas" style="display:none"></canvas>
-                                <img id="selfie-preview" alt="Selfie" />
+                                <p id="cam-estado" class="cam-estado" aria-live="polite"></p>
+                                <div class="cam-media">
+                                    <video id="cam-video" playsinline autoplay muted></video>
+                                    <canvas id="cam-canvas"></canvas>
+                                    <img id="selfie-preview" alt="Selfie capturada" />
+                                </div>
                             </div>
 
                             <div class="actions">
-                                <button id="btn-guardar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" type="submit">Guardar</button>
+                                <button id="btn-guardar"
+                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
+                                    type="submit">Guardar</button>
                             </div>
                         </form>
                     </div>
@@ -105,4 +122,3 @@
 </body>
 
 </html>
-
