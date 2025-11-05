@@ -54,6 +54,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    function distanciaM(lat1, lng1, lat2, lng2) {
+        const R = 6371000; // metros
+        const toRad = Math.PI / 180;
+        const dLat = (lat2 - lat1) * toRad;
+        const dLng = (lng2 - lng1) * toRad;
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
     async function cargarServicio() {
         try {
             const { data, error } = await window.sb
