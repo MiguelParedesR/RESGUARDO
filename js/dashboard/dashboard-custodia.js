@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hasAlarma = typeof window.Alarma === 'object';
   const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+  let pushRegisteredAuto = false;
   if (hasAlarma) {
     try { window.Alarma.initCustodia(); } catch (err) { console.warn('[alarma] initCustodia error', err); }
     try {
@@ -53,30 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) { console.warn('[alarma] subscribe error', err); }
   }
   if (btnAlarmaPush) {
-    if (!hasPushKey) {
-      btnAlarmaPush.disabled = true;
-      btnAlarmaPush.title = 'Configura APP_CONFIG.WEB_PUSH_PUBLIC_KEY para habilitar push';
-    }
-    btnAlarmaPush.addEventListener('click', async () => {
-      if (!hasAlarma) { showMsg('Módulo de alarma no disponible'); return; }
-      if (!hasPushKey) { showMsg('Clave VAPID no configurada. Comunícate con soporte.'); return; }
-      btnAlarmaPush.disabled = true;
-      const original = btnAlarmaPush.textContent;
-      btnAlarmaPush.textContent = 'Activando...';
-      try {
-        await window.Alarma.registerPush('custodia', empresa, { origen: 'dashboard-custodia' });
-        btnAlarmaPush.textContent = 'Alertas activas';
-        btnAlarmaPush.classList.add('is-armed');
-        showMsg('Alertas activadas correctamente.');
-      } catch (err) {
-        console.warn('[alarma] registerPush', err);
-        showMsg('No se pudo activar push. Intenta de nuevo.');
-        btnAlarmaPush.disabled = false;
-        btnAlarmaPush.textContent = original;
-      }
-    });
+    btnAlarmaPush.disabled = true;
+    btnAlarmaPush.style.display = 'none';
   }
-
   // Estado global
   let destinoCoords = null; // {lat,lng}
   let map = null, mapMarker = null, mapReady = false;
@@ -186,6 +166,15 @@ document.addEventListener('DOMContentLoaded', () => {
         timestamp: new Date().toISOString(),
         meta: { destino: detalle?.destino || null, origen: 'dashboard-custodia' }
       });
+      if (!pushRegisteredAuto && hasPushKey && typeof window.Alarma?.registerPush === 'function') {
+        try {
+          await window.Alarma.registerPush('custodia', empresa, { origen: 'dashboard-custodia', modo: 'auto', servicio_id: servicioId });
+          pushRegisteredAuto = true;
+          showMsg('Alertas activadas para este servicio.');
+        } catch (err) {
+          console.warn('[alarma] registerPush auto', err);
+        }
+      }
     } catch (err) {
       console.warn('[alarma] emit start', err);
     }

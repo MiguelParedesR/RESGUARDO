@@ -9,6 +9,30 @@ document.addEventListener('DOMContentLoaded', () => {
     destino: L.icon({ iconUrl: '/assets/icons/pin-destination.svg', iconRetinaUrl: '/assets/icons/pin-destination.svg', iconSize: [28,28], iconAnchor: [14,26], popupAnchor: [0,-26] })
   };
 
+  const hasAlarma = typeof window.Alarma === 'object';
+  const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+  let audioCtx = null;
+  let audioUnlocked = false;
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    return audioCtx;
+  }
+  function unlockAudio() {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    audioUnlocked = true;
+  }
+  const unlockOnce = () => { unlockAudio(); };
+  window.addEventListener('pointerdown', unlockOnce, { once: true });
+  window.addEventListener('keydown', unlockOnce, { once: true });
+
   // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
   let map; const markers = new Map(); let selectedId = null; let overviewLayer = null, focusLayer = null, routeLayerFocus = null;
 
@@ -31,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mapOverlay = document.querySelector('.map-overlay');
   const filtersInlineHost = document.getElementById('filters-inline');
   const btnVerTodos = document.getElementById("btn-ver-todos");
+  const btnAlarmaPush = document.getElementById('btn-alarma-push-admin');
   btnVerTodos?.addEventListener("click", () => {
     try { selectedId = null; filtersInlineHost?.classList.remove("open"); btnFiltrosMobile?.setAttribute("aria-expanded","false"); } catch (e) {}
     loadServices();
@@ -155,6 +180,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const fTexto = document.getElementById('f-texto');
   document.getElementById('btn-aplicar').addEventListener('click', () => { selectedId = null; loadServices(); if (isDesktop()) { closeFiltersDrawer(); } else { filtersInlineHost?.classList.remove('open'); } });
   document.getElementById('btn-reset').addEventListener('click', () => { fEstado.value = 'ACTIVO'; fEmpresa.value = 'TODAS'; fTexto.value = ''; selectedId = null; loadServices(); if (isDesktop()) { closeFiltersDrawer(); } else { filtersInlineHost?.classList.remove('open'); } });
+  if (btnAlarmaPush) {
+    if (!hasAlarma || !hasPushKey) {
+      btnAlarmaPush.disabled = true;
+      btnAlarmaPush.title = hasAlarma ? 'Configura APP_CONFIG.WEB_PUSH_PUBLIC_KEY para habilitar push' : 'Módulo de alarma no disponible';
+    }
+    btnAlarmaPush.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      if (!hasAlarma) { showMsg('Módulo de alarma no disponible'); return; }
+      if (!hasPushKey) { showMsg('Clave VAPID no configurada. Contacta a soporte.'); return; }
+      btnAlarmaPush.disabled = true;
+      btnAlarmaPush.classList.add('is-working');
+      try {
+        const empresaFiltro = fEmpresa?.value && fEmpresa.value !== 'TODAS' ? fEmpresa.value : null;
+        await window.Alarma.registerPush('admin', empresaFiltro, { origen: 'dashboard-admin' });
+        showMsg('Alertas activadas para administrador.');
+      } catch (err) {
+        console.warn('[alarma] registerPush admin', err);
+        showMsg('No se pudo activar push. Intenta más tarde.');
+        btnAlarmaPush.disabled = false;
+      } finally {
+        btnAlarmaPush.classList.remove('is-working');
+      }
+    });
+  }
 
   // UI refs
   // Tapping header title resets selection (mobile UX)
@@ -211,7 +260,26 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     if (lat == null || lng == null) return null;
     return { lat, lng, created_at };
   }
-  function beep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01); o.start(); setTimeout(() => { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); }, 160); } catch (e) {} }
+  function beep() {
+    if (!audioUnlocked) return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    try { ctx.resume?.(); } catch (e) {}
+    try {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.value = 0.0001;
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+      o.start();
+      setTimeout(() => {
+        try { g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15); o.stop(ctx.currentTime + 0.2); } catch (err) {}
+      }, 160);
+    } catch (err) { }
+  }
   async function fetchRoute(from, to) {
     try {
       // sugerencia: mover a tracking-common.routeLocal y eliminar duplicado
