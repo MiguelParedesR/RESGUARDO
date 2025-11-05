@@ -31,10 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let markerDestino = null;
     let destino = null;
     let lastSent = 0;
-    let panicConfirming = false;
-    let panicConfirmTimer = null;
-    let panicLabelEl = panicBtn ? panicBtn.querySelector('.alarma-panic-btn__label') : null;
-    const panicLabelDefault = panicLabelEl ? panicLabelEl.textContent : (panicBtn?.textContent || '');
 
     const SEND_EVERY_MS = 30_000;
     const ARRIVE_M = 50;
@@ -132,23 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { map.invalidateSize(); }, 250);
     }
 
-    function setPanicLabel(text) {
-        if (!panicBtn) return;
-        if (panicLabelEl) panicLabelEl.textContent = text;
-        else panicBtn.textContent = text;
-    }
-
-    function resetPanicConfirm() {
-        panicConfirming = false;
-        if (!panicBtn) return;
-        panicBtn.classList.remove('is-confirm');
-        if (panicConfirmTimer) {
-            clearTimeout(panicConfirmTimer);
-            panicConfirmTimer = null;
-        }
-        setPanicLabel(panicLabelDefault);
-    }
-
     function setupPanicButton() {
         if (!panicBtn || !hasAlarma) return;
         panicBtn.disabled = true;
@@ -157,19 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMsg('Esperando ubicacion GPS...');
                 return;
             }
-            if (!panicConfirming) {
-                panicConfirming = true;
-                panicBtn.classList.add('is-confirm');
-                setPanicLabel('Confirmar alerta');
-                try { navigator.vibrate?.([140, 80, 140]); } catch { }
-                panicConfirmTimer = setTimeout(() => resetPanicConfirm(), 4000);
-                return;
-            }
-            resetPanicConfirm();
             const coords = markerYo?.getLatLng();
             if (!coords) {
                 showMsg('Necesitamos tu ubicacion actual para enviar la alerta.');
-                panicBtn.disabled = true;
                 return;
             }
             panicBtn.disabled = true;
@@ -199,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMsg('No se pudo enviar la alerta. Se reintentara automaticamente.');
             } finally {
                 panicBtn.disabled = false;
-                resetPanicConfirm();
             }
         });
     }
@@ -245,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (panicBtn && hasAlarma) {
             panicBtn.disabled = false;
-            resetPanicConfirm();
         }
 
         if (hasAlarma && typeof window.Alarma?.setLocation === 'function') {

@@ -77,10 +77,7 @@
       lat: typeof payload.lat === 'number' ? Number(payload.lat.toFixed(6)) : null,
       lng: typeof payload.lng === 'number' ? Number(payload.lng.toFixed(6)) : null,
       direccion: clip(payload.direccion, MAX_STRING),
-      timestamp: payload.timestamp || new Date().toISOString(),
-      meta: payload.meta && typeof payload.meta === 'object'
-        ? JSON.parse(JSON.stringify(payload.meta))
-        : null
+      timestamp: payload.timestamp || new Date().toISOString()
     };
     if (payload.extra) safe.extra = payload.extra;
     return safe;
@@ -245,8 +242,7 @@
       lat: sanitized.lat,
       lng: sanitized.lng,
       direccion: sanitized.direccion,
-      timestamp: sanitized.timestamp,
-      meta: sanitized.meta
+      timestamp: sanitized.timestamp
     };
     const client = ensureSupabase();
     if (!client) {
