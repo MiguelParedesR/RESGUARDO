@@ -291,14 +291,52 @@ body {
 
 .camara {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-top: 2px;
 }
 
-.cam-controls {
+.cam-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+}
+
+.cam-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--card-stroke);
+  background: #ffffff;
+  color: var(--txt);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 37, 68, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+}
+
+.cam-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 37, 68, 0.12);
+}
+
+.cam-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cam-action i.material-icons {
+  font-size: 20px;
+  color: #3f51b5;
+}
+
+.cam-action span {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .cam-estado {
@@ -312,12 +350,17 @@ body {
   background: #f5f7fb;
   overflow: hidden;
   position: relative;
+  aspect-ratio: 4 / 3;
+  min-height: 180px;
+  width: 100%;
 }
 
 #cam-video,
 #selfie-preview {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-height: 320px;
+  height: 100%;
   background: #e9eef6;
   display: none;
   object-fit: cover;

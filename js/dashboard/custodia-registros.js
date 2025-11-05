@@ -1,4 +1,4 @@
-// js/dashboard/custodia-registros.js - Lista de servicios por empresa (rol CUSTODIA) con filtro por cliente
+﻿// js/dashboard/custodia-registros.js - GestiÃ³n de servicios para rol CUSTODIA
 
 document.addEventListener('DOMContentLoaded', () => {
   const snackbar = document.getElementById('app-snackbar');
@@ -36,18 +36,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const incompletosList = document.getElementById('incompletos-list');
   const form = document.getElementById('form-edicion');
   const nombreEl = document.getElementById('nombre-custodio');
+  const tipoCustodioEl = document.getElementById('tipo-custodio');
   const custIdEl = document.getElementById('custodio-id');
 
-  // Cámara
-  const btnIniciarCam = document.getElementById('btn-iniciar-cam');
-  const btnTomarFoto = document.getElementById('btn-tomar-foto');
-  const btnRepetir = document.getElementById('btn-repetir-foto');
+  // CÃ¡mara
+  const camStartBtn = document.querySelector('.cam-action[data-action="start"]');
+  const camCaptureBtn = document.querySelector('.cam-action[data-action="capture"]');
+  const camRetryBtn = document.querySelector('.cam-action[data-action="retry"]');
   const camVideo = document.getElementById('cam-video');
   const camCanvas = document.getElementById('cam-canvas');
   const selfiePreview = document.getElementById('selfie-preview');
   const camEstado = document.getElementById('cam-estado');
   let mediaStream = null;
   let selfieDataUrl = null;
+
+  function syncTextfield(inputEl) {
+    const wrapper = inputEl?.closest('.mdl-textfield');
+    if (!wrapper) return;
+    if (inputEl.value && String(inputEl.value).trim()) {
+      wrapper.classList.add('is-dirty');
+    } else {
+      wrapper.classList.remove('is-dirty');
+    }
+    if (window.componentHandler && wrapper.classList.contains('mdl-js-textfield')) {
+      try { componentHandler.upgradeElement(wrapper); } catch {}
+    }
+  }
+
+  syncTextfield(nombreEl);
+  syncTextfield(tipoCustodioEl);
 
   function openDrawer() {
     drawer?.classList.add('open');
@@ -59,33 +76,38 @@ document.addEventListener('DOMContentLoaded', () => {
     drawer?.classList.remove('open');
     drawer?.setAttribute('aria-hidden', 'true');
     drawerBackdrop?.classList.remove('show');
-    try { stopCamera(); } catch {}
+    resetCamera();
+    form?.reset();
+    if (tipoCustodioEl) tipoCustodioEl.selectedIndex = 0;
+    syncTextfield(nombreEl);
+    syncTextfield(tipoCustodioEl);
+    custIdEl.value = '';
   }
 
   drawerClose?.addEventListener('click', closeDrawer);
   drawerBackdrop?.addEventListener('click', closeDrawer);
 
-  btnIniciarCam?.addEventListener('click', async () => {
+  camStartBtn?.addEventListener('click', async () => {
     try {
-      btnIniciarCam.disabled = true;
+      camStartBtn.disabled = true;
       camEstado.textContent = 'Solicitando permisos...';
       mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       camVideo.srcObject = mediaStream;
       camVideo.style.display = 'block';
       selfiePreview.style.display = 'none';
-      btnTomarFoto.disabled = false;
-      btnRepetir.disabled = true;
-      camEstado.textContent = 'Cámara lista';
+      camCaptureBtn.disabled = false;
+      camRetryBtn.disabled = true;
+      camEstado.textContent = 'Camara lista';
     } catch (err) {
       console.error(err);
-      camEstado.textContent = 'No se pudo acceder a la cámara';
-      btnIniciarCam.disabled = false;
+      camEstado.textContent = 'No se pudo acceder a la camara';
+      camStartBtn.disabled = false;
     }
   });
 
-  btnTomarFoto?.addEventListener('click', () => {
+  camCaptureBtn?.addEventListener('click', () => {
     if (!mediaStream) {
-      showMsg('Inicia la cámara primero');
+      showMsg('Inicia la camara primero');
       return;
     }
     const w = camVideo.videoWidth || 640;
@@ -98,37 +120,43 @@ document.addEventListener('DOMContentLoaded', () => {
     selfiePreview.src = selfieDataUrl;
     selfiePreview.style.display = 'block';
     camVideo.style.display = 'none';
-    btnTomarFoto.disabled = true;
-    btnRepetir.disabled = false;
+    camCaptureBtn.disabled = true;
+    camRetryBtn.disabled = false;
     camEstado.textContent = 'Selfie capturada';
   });
 
-  btnRepetir?.addEventListener('click', () => {
+  camRetryBtn?.addEventListener('click', () => {
     if (!mediaStream) return;
     selfieDataUrl = null;
     selfiePreview.style.display = 'none';
     camVideo.style.display = 'block';
-    btnTomarFoto.disabled = false;
-    btnRepetir.disabled = true;
+    camCaptureBtn.disabled = false;
+    camRetryBtn.disabled = true;
     camEstado.textContent = 'Listo para tomar otra';
   });
 
-  function stopCamera() {
+  function resetCamera() {
     try {
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
     } catch {}
     mediaStream = null;
+    selfieDataUrl = null;
     camVideo.style.display = 'none';
+    selfiePreview.style.display = 'none';
+    camCaptureBtn && (camCaptureBtn.disabled = true);
+    camRetryBtn && (camRetryBtn.disabled = true);
+    camStartBtn && (camStartBtn.disabled = false);
+    camEstado.textContent = '';
   }
 
-  window.addEventListener('beforeunload', stopCamera);
+  window.addEventListener('beforeunload', resetCamera);
 
   // Estado global
   const defaultPlaceholder = 'Selecciona un cliente para visualizar los servicios disponibles.';
   let servicios = []; // [{ svc, custodios, total, completos }]
-  let clientes = []; // [{ id, nombre }]
+  let clientes = [];
   let clienteSeleccionado = '';
-  let currentRow = null; // { svc, custodios, total, completos }
+  let currentRow = null;
 
   function showPlaceholder(message) {
     if (!placeholder) return;
@@ -147,18 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnClearSelect.classList.toggle('is-disabled', disabled);
   }
 
-  const formatFecha = (iso) => {
-    try {
-      const d = new Date(iso);
-      return new Intl.DateTimeFormat('es-PE', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      }).format(d);
-    } catch {
-      return iso || '';
-    }
-  };
-
   function renderSelectOptions() {
     if (!clienteSelect) return;
     const current = clienteSeleccionado;
@@ -176,14 +192,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (current && !clientes.some(c => c.id === current)) {
       clienteSeleccionado = '';
+      clienteSelect.value = '';
     }
-    if (!clienteSeleccionado) clienteSelect.value = '';
     syncClearButton();
   }
 
   function render() {
     if (!cardsContainer) return;
     cardsContainer.innerHTML = '';
+
     if (!clienteSeleccionado) {
       if (!clientes.length) {
         showPlaceholder('No hay servicios registrados en este momento.');
@@ -221,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const clienteNombre = svc.cliente?.nombre || 'Cliente sin asignar';
       const partes = [placa, clienteNombre];
       if (svc.tipo) partes.push(svc.tipo);
-      title.textContent = partes.join(' • ');
+      title.textContent = partes.join(' â€¢ ');
       head.appendChild(title);
 
       const estado = (svc.estado || '').toUpperCase();
@@ -284,16 +301,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function formatFecha(iso) {
+    try {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat('es-PE', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(d);
+    } catch {
+      return iso || '';
+    }
+  }
+
   function isCompleto(c) {
     const nombreOk = Boolean((c?.nombre_custodio || '').trim());
     const tieneSelfie = Array.isArray(c?.selfie) ? c.selfie.length > 0 : false;
-    return nombreOk && tieneSelfie;
+    return nombreOk && tieneSelfie && Boolean((c?.tipo_custodia || '').trim());
   }
 
   async function getServicios() {
     const { data, error } = await window.sb
       .from('servicio')
-      .select('id, empresa, placa, tipo, estado, destino_texto, created_at, cliente_id, cliente:cliente_id(nombre)')
+      .select('id, empresa, placa, tipo, estado, destino_texto, origen_texto, created_at, cliente_id, cliente:cliente_id(nombre)')
       .eq('empresa', empresa)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -303,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function getCustodios(servicioId) {
     const { data, error } = await window.sb
       .from('servicio_custodio')
-      .select('id, nombre_custodio, created_at, selfie(id)')
+      .select('id, nombre_custodio, tipo_custodia, created_at, selfie(id)')
       .eq('servicio_id', servicioId);
     if (error) throw error;
     return data || [];
@@ -312,8 +341,9 @@ document.addEventListener('DOMContentLoaded', () => {
   async function cargar() {
     try {
       showPlaceholder('Cargando servicios...');
-      const base = await getServicios();
       servicios = [];
+      clientes = [];
+      const base = await getServicios();
       const mapClientes = new Map();
 
       for (const svc of base) {
@@ -339,8 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       renderSelectOptions();
       render();
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       showMsg('Error al cargar servicios');
       showPlaceholder('No fue posible cargar los servicios. Intenta nuevamente.');
     }
@@ -361,7 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'incom-item' + (idx === 0 ? ' active' : '');
-      item.textContent = c.nombre_custodio || '(Sin nombre)';
+      const tipoLabel = c.tipo_custodia || 'Sin tipo';
+      item.textContent = `${c.nombre_custodio || '(Sin nombre)'} â€¢ ${tipoLabel}`;
       item.dataset.id = c.id;
       item.addEventListener('click', () => seleccionarCustodio(c.id, item));
       incompletosList.appendChild(item);
@@ -376,33 +407,30 @@ document.addEventListener('DOMContentLoaded', () => {
     custIdEl.value = String(id);
     const c = currentRow?.custodios.find(x => x.id === id);
     nombreEl.value = c?.nombre_custodio || '';
-    if (window.componentHandler && nombreEl.parentElement) {
-      try { componentHandler.upgradeElement(nombreEl.parentElement); } catch {}
-    }
-    selfieDataUrl = null;
-    selfiePreview.style.display = 'none';
-    camVideo.style.display = 'none';
-    btnTomarFoto.disabled = true;
-    btnRepetir.disabled = true;
-    btnIniciarCam.disabled = false;
-    camEstado.textContent = '';
+    tipoCustodioEl.value = c?.tipo_custodia || '';
+    if (!tipoCustodioEl.value) tipoCustodioEl.selectedIndex = 0;
+    syncTextfield(nombreEl);
+    syncTextfield(tipoCustodioEl);
+    resetCamera();
   }
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = (custIdEl.value || '').trim();
     const nombre = (nombreEl.value || '').trim();
+    const tipo = (tipoCustodioEl.value || '').trim();
     if (!id) return showMsg('Seleccione un custodio');
     if (!nombre) return showMsg('Ingrese un nombre');
+    if (!tipo) return showMsg('Seleccione el tipo de custodia');
 
     try {
-      const { error: errName } = await window.sb
+      const { error: errUpdate } = await window.sb
         .from('servicio_custodio')
-        .update({ nombre_custodio: nombre })
+        .update({ nombre_custodio: nombre, tipo_custodia: tipo })
         .eq('id', id);
-      if (errName) {
-        console.error(errName);
-        return showMsg('Error al actualizar nombre');
+      if (errUpdate) {
+        console.error(errUpdate);
+        return showMsg('Error al guardar los datos del custodio');
       }
 
       if (selfieDataUrl) {
@@ -468,5 +496,9 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   });
 
+  nombreEl?.addEventListener('input', () => syncTextfield(nombreEl));
+  tipoCustodioEl?.addEventListener('change', () => syncTextfield(tipoCustodioEl));
+
   cargar();
 });
+

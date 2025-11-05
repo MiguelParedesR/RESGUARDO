@@ -102,22 +102,37 @@
 
 /* --- Modal de edición --- */
 .edit-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
-.edit-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:10px; padding:14px; }
-.edit-modal .cam { display:grid; gap:8px; }
-.edit-modal video { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; }
-.edit-modal img { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; object-fit:cover; }
-.edit-modal .cam-actions { display:flex; gap:8px; flex-wrap:wrap; }
-.edit-modal .hint { font-size:12px; color:#607d8b; }
-.edit-modal .row-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
+.edit-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:12px; padding:18px; box-shadow: 0 12px 28px rgba(15,37,68,0.18); }
+.edit-modal .camara { display:grid; gap:12px; margin-top:12px; }
+.edit-modal .cam-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.edit-modal .cam-action { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid #e3e6ed; background:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 3px rgba(15,37,68,0.08); transition:transform .12s ease, box-shadow .12s ease; }
+.edit-modal .cam-action:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,37,68,0.15); }
+.edit-modal .cam-action:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+.edit-modal .cam-action i.material-icons { font-size:20px; color:#3f51b5; }
+.edit-modal .cam-action span { font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+.edit-modal .cam-estado { font-size:12px; color:#607d8b; min-height:18px; }
+.edit-modal .cam-media { border:1px dashed #d6dae5; border-radius:12px; background:#f5f7fb; position:relative; overflow:hidden; aspect-ratio:4/3; min-height:200px; }
+.edit-modal video,
+.edit-modal img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#e9eef6; display:none; }
+.edit-modal canvas { display:none; }
+.edit-modal .row-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
 
 /* Mini add form */
 .add-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
-.add-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:10px; padding:14px; }
-.add-modal .cam { display:grid; gap:8px; }
-.add-modal video { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; }
-.add-modal img { width:100%; max-height:260px; background:#e9eef6; border-radius:8px; display:none; object-fit:cover; }
-.add-modal .cam-actions { display:flex; gap:8px; flex-wrap:wrap; }
-.add-modal .row-actions { display:flex; gap:8px; margin-top:8px; justify-content:flex-end; }
+.add-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:12px; padding:18px; box-shadow: 0 12px 28px rgba(15,37,68,0.18); }
+.add-modal .camara { display:grid; gap:12px; margin-top:12px; }
+.add-modal .cam-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.add-modal .cam-action { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid #e3e6ed; background:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 3px rgba(15,37,68,0.08); transition:transform .12s ease, box-shadow .12s ease; }
+.add-modal .cam-action:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,37,68,0.15); }
+.add-modal .cam-action:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+.add-modal .cam-action i.material-icons { font-size:20px; color:#3f51b5; }
+.add-modal .cam-action span { font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+.add-modal .cam-estado { font-size:12px; color:#607d8b; min-height:18px; }
+.add-modal .cam-media { border:1px dashed #d6dae5; border-radius:12px; background:#f5f7fb; position:relative; overflow:hidden; aspect-ratio:4/3; min-height:200px; }
+.add-modal video,
+.add-modal img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#e9eef6; display:none; }
+.add-modal canvas { display:none; }
+.add-modal .row-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
 
 /* --- Panel flotante --- */
 .panel {

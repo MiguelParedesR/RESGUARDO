@@ -1,117 +1,118 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Seguimiento de Custodia</title>
-    <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seguimiento de Custodia</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
 
-    <!-- MDL -->
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-    <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin />
-    <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossorigin />
-    <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
-    <link rel="manifest" href="/manifest.json" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org http://127.0.0.1:5000 http://127.0.0.1:8989;" />
+  <!-- MDL -->
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin />
+  <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossorigin />
+  <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
+  <link rel="manifest" href="/manifest.json" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org http://127.0.0.1:5000 http://127.0.0.1:8989;" />
 
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Estilos -->
-    <link rel="stylesheet" href="../../css/dashboard/mapa-resguardo.css" />
-    <link rel="stylesheet" href="../../css/partials/app-header.css" />
-    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
+  <!-- Estilos -->
+  <link rel="stylesheet" href="../../css/dashboard/mapa-resguardo.css" />
+  <link rel="stylesheet" href="../../css/partials/app-header.css" />
+  <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
-    <!-- Supabase (CDN) ANTES de config.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="../../config.js"></script>
+  <!-- Supabase (CDN) ANTES de config.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../../config.js"></script>
 
-    <!-- Protección + Lógica -->
-    <script defer src="../../modules/alarma/alarma.js"></script>
-    <script defer src="../../js/lib/router-local.js"></script>
-    <script defer src="../../js/lib/app-header.js"></script>
-    <script defer src="../../js/mapa.js"></script>
-    <script defer src="../../js/pwa.js"></script>
+  <!-- ProtecciÃ³n + LÃ³gica -->
+  <script defer src="../../modules/alarma/alarma.js"></script>
+  <script defer src="../../js/lib/router-local.js"></script>
+  <script defer src="../../js/lib/app-header.js"></script>
+  <script defer src="../../js/mapa.js"></script>
+  <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="mdl-base">
-    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <div id="app-header" data-page-title="Seguimiento de Custodia"></div>
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <div id="app-header" data-page-title="Seguimiento de Custodia"></div>
 
-        <main class="mdl-layout__content">
-            <section class="page">
-                <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="Botón de pánico" aria-label="Botón de pánico">
-                    <span class="alarma-panic-btn__icon">⚠</span>
-                    <span class="alarma-panic-btn__label">Botón de pánico</span>
-                </button>
-                <div class="topbar">
-                    <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                        disabled>
-                        Servicio Finalizado
-                    </button>
-                    <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
-                    <div class="metrics">
-                        <span><strong>Distancia:</strong> <span id="distancia-label">–</span></span>
-                    </div>
-                </div>
+    <main class="mdl-layout__content">
+      <section class="page">
+        <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="BotÃ³n de pÃ¡nico"
+          aria-label="BotÃ³n de pÃ¡nico">
+          <span class="alarma-panic-btn__icon">âš </span>
+          <span class="alarma-panic-btn__label">BotÃ³n de pÃ¡nico</span>
+        </button>
+        <div class="topbar">
+          <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
+            Servicio Finalizado
+          </button>
+          <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
+          <div class="metrics">
+            <span><strong>Distancia:</strong> <span id="distancia-label">â€“</span></span>
+          </div>
+        </div>
 
-                <div class="layout-track">
-                    <aside id="custodios-sidebar" class="cust-sidebar">
-                        <div class="cust-head">
-                          <h3>Custodios</h3>
-                          <button id="custodios-add" class="add-btn" title="Agregar">+</button>
-                        </div>
-                        <div id="custodios-list" class="cust-list"></div>
-                    </aside>
-                    <div class="map-wrap with-sidebar">
-                    <div id="map-track"></div>
-                    <div class="panel show">
-                        <p><strong>Destino:</strong> <span id="destino-texto">Cargando…</span></p>
-                        <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
-                    </div>
-                    </div>
-                </div>
-            </section>
-
-            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
-                <div class="mdl-snackbar__text"></div>
-                <button class="mdl-snackbar__action" type="button"></button>
+        <div class="layout-track">
+          <aside id="custodios-sidebar" class="cust-sidebar">
+            <div class="cust-head">
+              <h3>Custodios</h3>
+              <button id="custodios-add" class="add-btn" title="Agregar">+</button>
             </div>
-        </main>
-    </div>
+            <div id="custodios-list" class="cust-list"></div>
+          </aside>
+          <div class="map-wrap with-sidebar">
+            <div id="map-track"></div>
+            <div class="panel show">
+              <p><strong>Destino:</strong> <span id="destino-texto">Cargandoâ€¦</span></p>
+              <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const servicioId = sessionStorage.getItem('servicio_id_actual');
-            const destinoEl = document.getElementById('destino-texto');
-            const estadoEl = document.getElementById('estado-texto');
+      <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+      </div>
+    </main>
+  </div>
 
-            if (!servicioId || !window.sb) { destinoEl.textContent = '—'; estadoEl.textContent = '—'; return; }
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const servicioId = sessionStorage.getItem('servicio_id_actual');
+      const destinoEl = document.getElementById('destino-texto');
+      const estadoEl = document.getElementById('estado-texto');
 
-            try {
-                const { data, error } = await window.sb
-                    .from('servicio')
-                    .select('destino_texto, estado')
-                    .eq('id', servicioId)
-                    .single();
+      if (!servicioId || !window.sb) { destinoEl.textContent = 'â€”'; estadoEl.textContent = 'â€”'; return; }
 
-                if (error) throw error;
+      try {
+        const { data, error } = await window.sb
+          .from('servicio')
+          .select('destino_texto, estado')
+          .eq('id', servicioId)
+          .single();
 
-                destinoEl.textContent = data?.destino_texto || '—';
-                estadoEl.textContent = data?.estado || 'EN CURSO';
-                estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
-            } catch (err) {
-                console.error('[mapa-resguardo] error', err);
-                destinoEl.textContent = '—';
-                estadoEl.textContent = '—';
-            }
-        });
-    </script>
-    <script>
+        if (error) throw error;
+
+        destinoEl.textContent = data?.destino_texto || 'â€”';
+        estadoEl.textContent = data?.estado || 'EN CURSO';
+        estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
+      } catch (err) {
+        console.error('[mapa-resguardo] error', err);
+        destinoEl.textContent = 'â€”';
+        estadoEl.textContent = 'â€”';
+      }
+    });
+  </script>
+  <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const servicioId = sessionStorage.getItem('servicio_id_actual');
       if (!servicioId || !window.sb) return;
@@ -124,17 +125,32 @@
           .order('id');
         if (error) throw error;
         listEl.innerHTML = '';
-        (custodios||[]).forEach(c => {
+        (custodios || []).forEach(c => {
           const row = document.createElement('div'); row.className = 'cust-row';
-          const nm = document.createElement('span'); nm.className='cust-name'; nm.textContent = c.nombre_custodio || '(Sin nombre)';
-          const btn = document.createElement('button'); btn.className='edit-btn'; btn.title='Editar'; btn.innerHTML='<i class="material-icons">edit</i>';
+          const nm = document.createElement('span'); nm.className = 'cust-name'; nm.textContent = c.nombre_custodio || '(Sin nombre)';
+          const btn = document.createElement('button'); btn.className = 'edit-btn'; btn.title = 'Editar'; btn.innerHTML = '<i class="material-icons">edit</i>';
           btn.addEventListener('click', () => openEdit(c));
           row.appendChild(nm); row.appendChild(btn); listEl.appendChild(row);
         });
       } catch (e) { console.error('[sidebar custodios]', e); }
 
       let mediaStream = null, selfieDataUrl = null;
-      function stopCam() { try { if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop()); } catch{} mediaStream=null; }
+      function stopCam() {
+        try { if (mediaStream) mediaStream.getTracks().forEach(t => t.stop()); } catch { }
+        mediaStream = null;
+        selfieDataUrl = null;
+      }
+
+      function syncTextfield(inputEl) {
+        if (!inputEl) return;
+        const wrapper = inputEl.closest(".mdl-textfield");
+        if (!wrapper) return;
+        if (inputEl.value && String(inputEl.value).trim()) wrapper.classList.add('is-dirty');
+        else wrapper.classList.remove('is-dirty');
+        if (window.componentHandler && wrapper.classList.contains('mdl-js-textfield')) {
+          try { componentHandler.upgradeElement(wrapper); } catch { }
+        }
+      }
       // Agregar custodio
       function openAdd() {
         selfieDataUrl = null;
@@ -142,27 +158,40 @@
         modal.innerHTML = `
         <div class="inner">
           <h4>Agregar custodio</h4>
-          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
-            <input class="mdl-textfield__input" type="text" id="am-nombre" placeholder="Nombre del custodio">
-            <span class="mdl-textfield__label">Nombre</span>
-          </label>
-          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <input class="mdl-textfield__input" type="text" id="am-nombre">
+            <label class="mdl-textfield__label" for="am-nombre">Nombre del custodio</label>
+          </div>
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
             <select class="mdl-textfield__input" id="am-tipo">
-              <option value="Simple">Cabina</option>
-              <option value="Tipo A">Vehículo</option>
+              <option value="" disabled selected>Seleccione tipo</option>
+              <option value="Simple">Custodia Simple</option>
+              <option value="Tipo A">Custodia Tipo A</option>
+              <option value="Tipo B">Custodia Tipo B</option>
             </select>
-            <span class="mdl-textfield__label">Tipo de custodia</span>
-          </label>
-          <div class="cam">
+            <label class="mdl-textfield__label" for="am-tipo">Tipo de custodia</label>
+          </div>
+          <div class="camara">
             <div class="cam-actions">
-              <button id="am-start" class="mdl-button mdl-js-button">Iniciar cámara</button>
-              <button id="am-shot" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
-              <button id="am-reset" class="mdl-button mdl-js-button" disabled>Repetir</button>
+              <button type="button" class="cam-action" id="am-start" data-action="start" title="Iniciar camara">
+                <i class="material-icons" aria-hidden="true">videocam</i>
+                <span>Iniciar</span>
+              </button>
+              <button type="button" class="cam-action" id="am-shot" data-action="capture" title="Tomar selfie" disabled>
+                <i class="material-icons" aria-hidden="true">photo_camera</i>
+                <span>Capturar</span>
+              </button>
+              <button type="button" class="cam-action" id="am-reset" data-action="retry" title="Repetir selfie" disabled>
+                <i class="material-icons" aria-hidden="true">autorenew</i>
+                <span>Repetir</span>
+              </button>
             </div>
-            <p id="am-status" class="hint"></p>
-            <video id="am-video" playsinline autoplay muted></video>
-            <canvas id="am-canvas" style="display:none"></canvas>
-            <img id="am-preview" alt="Selfie" />
+            <p id="am-status" class="cam-estado" aria-live="polite"></p>
+            <div class="cam-media">
+              <video id="am-video" playsinline autoplay muted></video>
+              <canvas id="am-canvas"></canvas>
+              <img id="am-preview" alt="Selfie tomada" />
+            </div>
           </div>
           <div class="row-actions">
             <button id="am-save" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
@@ -170,6 +199,9 @@
           </div>
         </div>`;
         document.body.appendChild(modal);
+        if (window.componentHandler && typeof componentHandler.upgradeDom === 'function') {
+          try { componentHandler.upgradeDom(); } catch { }
+        }
         const amNombre = modal.querySelector('#am-nombre');
         const amTipo = modal.querySelector('#am-tipo');
         const amStart = modal.querySelector('#am-start');
@@ -182,23 +214,63 @@
         const amSave = modal.querySelector('#am-save');
         const amCancel = modal.querySelector('#am-cancel');
 
+        syncTextfield(amNombre);
+        syncTextfield(amTipo);
+        amNombre.addEventListener('input', () => syncTextfield(amNombre));
+        amTipo.addEventListener('change', () => syncTextfield(amTipo));
+
         amStart.addEventListener('click', async () => {
-          try { amStart.disabled = true; amStatus.textContent = 'Solicitando permisos...';
-            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
-            amVideo.srcObject = mediaStream; amVideo.style.display='block'; amPreview.style.display='none'; amShot.disabled=false; amReset.disabled=true; amStatus.textContent='Cámara lista';
-          } catch { amStatus.textContent='No se pudo acceder a la cámara'; amStart.disabled=false; }
+          try {
+            amStart.disabled = true;
+            amStatus.textContent = 'Solicitando permisos...';
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+            amVideo.srcObject = mediaStream;
+            amVideo.style.display = 'block';
+            amPreview.style.display = 'none';
+            amShot.disabled = false;
+            amReset.disabled = true;
+            amStatus.textContent = 'Camara lista';
+          } catch {
+            amStatus.textContent = 'No se pudo acceder a la camara';
+            amStart.disabled = false;
+          }
         });
         amShot.addEventListener('click', () => {
           if (!mediaStream) return;
-          const w = amVideo.videoWidth||640, h=amVideo.videoHeight||480;
-          amCanvas.width=w; amCanvas.height=h; const ctx=amCanvas.getContext('2d'); ctx.drawImage(amVideo,0,0,w,h);
-          selfieDataUrl = amCanvas.toDataURL('image/jpeg',0.85); amPreview.src=selfieDataUrl; amPreview.style.display='block'; amVideo.style.display='none'; amShot.disabled=true; amReset.disabled=false; amStatus.textContent='Selfie capturada';
+          const w = amVideo.videoWidth || 640;
+          const h = amVideo.videoHeight || 480;
+          amCanvas.width = w;
+          amCanvas.height = h;
+          const ctx = amCanvas.getContext('2d');
+          ctx.drawImage(amVideo, 0, 0, w, h);
+          selfieDataUrl = amCanvas.toDataURL('image/jpeg', 0.85);
+          amPreview.src = selfieDataUrl;
+          amPreview.style.display = 'block';
+          amVideo.style.display = 'none';
+          amShot.disabled = true;
+          amReset.disabled = false;
+          amStatus.textContent = 'Selfie capturada';
         });
-        amReset.addEventListener('click', () => { if (!mediaStream) return; selfieDataUrl=null; amPreview.style.display='none'; amVideo.style.display='block'; amShot.disabled=false; amReset.disabled=true; amStatus.textContent='Listo para otra'; });
+        amReset.addEventListener('click', () => {
+          if (!mediaStream) return;
+          selfieDataUrl = null;
+          amPreview.style.display = 'none';
+          amVideo.style.display = 'block';
+          amShot.disabled = false;
+          amReset.disabled = true;
+          amStatus.textContent = 'Listo para tomar otra';
+        });
+
+        function cleanup() {
+          stopCam();
+          try { document.body.removeChild(modal); } catch { }
+        }
 
         async function saveAndClose() {
-          const nombre = (amNombre.value||'').trim(); if (!nombre) { alert('Ingrese un nombre'); return; }
-          const tipo = amTipo.value || 'Simple';
+          const nombre = (amNombre.value || '').trim();
+          if (!nombre) { alert('Ingrese un nombre'); return; }
+          const tipo = (amTipo.value || '').trim();
+          if (!tipo) { alert('Seleccione el tipo de custodia'); return; }
           try {
             const { data: cId, error: errC } = await window.sb.rpc('agregar_custodio', { p_servicio_id: servicioId, p_nombre: nombre, p_tipo_custodia: tipo });
             if (errC) throw errC;
@@ -207,36 +279,55 @@
               const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 });
               if (errS) throw errS;
             }
-            document.body.removeChild(modal); stopCam(); location.reload();
+            cleanup();
+            location.reload();
           } catch (e) { console.error(e); alert('Error al agregar custodio'); }
         }
         amSave.addEventListener('click', saveAndClose);
-        amCancel.addEventListener('click', () => { document.body.removeChild(modal); stopCam(); });
-      }
-
-      // Botones: sidebar y móvil
-      try { document.getElementById('custodios-add')?.addEventListener('click', openAdd); } catch {}
-      try { document.getElementById('btn-custodias-mobile')?.addEventListener('click', openAdd); } catch {}
+        amCancel.addEventListener('click', cleanup);
+      }      // Botones: sidebar y movil
+      try { document.getElementById('custodios-add')?.addEventListener('click', openAdd); } catch { }
+      try { document.getElementById('btn-custodias-mobile')?.addEventListener('click', openAdd); } catch { }
       function openEdit(c) {
         selfieDataUrl = null;
         const modal = document.createElement('div'); modal.className = 'edit-modal';
         modal.innerHTML = `
         <div class="inner">
           <h4>Editar custodio</h4>
-          <label class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
-            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre_custodio||''}">
-            <span class="mdl-textfield__label">Nombre</span>
-          </label>
-          <div class="cam">
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <input class="mdl-textfield__input" type="text" id="em-nombre" value="${c.nombre_custodio || ''}">
+            <label class="mdl-textfield__label" for="em-nombre">Nombre del custodio</label>
+          </div>
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%">
+            <select class="mdl-textfield__input" id="em-tipo">
+              <option value="" disabled selected>Seleccione tipo</option>
+              <option value="Simple">Custodia Simple</option>
+              <option value="Tipo A">Custodia Tipo A</option>
+              <option value="Tipo B">Custodia Tipo B</option>
+            </select>
+            <label class="mdl-textfield__label" for="em-tipo">Tipo de custodia</label>
+          </div>
+          <div class="camara">
             <div class="cam-actions">
-              <button id="em-start" class="mdl-button mdl-js-button">Iniciar cámara</button>
-              <button id="em-shot" class="mdl-button mdl-js-button" disabled>Tomar selfie</button>
-              <button id="em-reset" class="mdl-button mdl-js-button" disabled>Repetir</button>
+              <button type="button" class="cam-action" id="em-start" data-action="start" title="Iniciar camara">
+                <i class="material-icons" aria-hidden="true">videocam</i>
+                <span>Iniciar</span>
+              </button>
+              <button type="button" class="cam-action" id="em-shot" data-action="capture" title="Tomar selfie" disabled>
+                <i class="material-icons" aria-hidden="true">photo_camera</i>
+                <span>Capturar</span>
+              </button>
+              <button type="button" class="cam-action" id="em-reset" data-action="retry" title="Repetir selfie" disabled>
+                <i class="material-icons" aria-hidden="true">autorenew</i>
+                <span>Repetir</span>
+              </button>
             </div>
-            <p id="em-status" class="hint"></p>
-            <video id="em-video" playsinline autoplay muted></video>
-            <canvas id="em-canvas" style="display:none"></canvas>
-            <img id="em-preview" alt="Selfie" />
+            <p id="em-status" class="cam-estado" aria-live="polite"></p>
+            <div class="cam-media">
+              <video id="em-video" playsinline autoplay muted></video>
+              <canvas id="em-canvas"></canvas>
+              <img id="em-preview" alt="Selfie tomada" />
+            </div>
           </div>
           <div class="row-actions">
             <button id="em-save" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
@@ -244,7 +335,11 @@
           </div>
         </div>`;
         document.body.appendChild(modal);
+        if (window.componentHandler && typeof componentHandler.upgradeDom === 'function') {
+          try { componentHandler.upgradeDom(); } catch { }
+        }
         const emNombre = modal.querySelector('#em-nombre');
+        const emTipo = modal.querySelector('#em-tipo');
         const emStart = modal.querySelector('#em-start');
         const emShot = modal.querySelector('#em-shot');
         const emReset = modal.querySelector('#em-reset');
@@ -255,38 +350,85 @@
         const emSave = modal.querySelector('#em-save');
         const emCancel = modal.querySelector('#em-cancel');
 
+        if (emTipo) {
+          emTipo.value = c.tipo_custodia || '';
+          if (!emTipo.value) emTipo.selectedIndex = 0;
+        }
+
+        syncTextfield(emNombre);
+        syncTextfield(emTipo);
+        emNombre.addEventListener('input', () => syncTextfield(emNombre));
+        if (emTipo) emTipo.addEventListener('change', () => syncTextfield(emTipo));
+
         emStart.addEventListener('click', async () => {
-          try { emStart.disabled = true; emStatus.textContent = 'Solicitando permisos...';
-            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
-            emVideo.srcObject = mediaStream; emVideo.style.display='block'; emPreview.style.display='none'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Cámara lista';
-          } catch { emStatus.textContent='No se pudo acceder a la cámara'; emStart.disabled=false; }
+          try {
+            emStart.disabled = true;
+            emStatus.textContent = 'Solicitando permisos...';
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+            emVideo.srcObject = mediaStream;
+            emVideo.style.display = 'block';
+            emPreview.style.display = 'none';
+            emShot.disabled = false;
+            emReset.disabled = true;
+            emStatus.textContent = 'Camara lista';
+          } catch {
+            emStatus.textContent = 'No se pudo acceder a la camara';
+            emStart.disabled = false;
+          }
         });
         emShot.addEventListener('click', () => {
           if (!mediaStream) return;
-          const w = emVideo.videoWidth||640, h=emVideo.videoHeight||480;
-          emCanvas.width=w; emCanvas.height=h; const ctx=emCanvas.getContext('2d'); ctx.drawImage(emVideo,0,0,w,h);
-          selfieDataUrl = emCanvas.toDataURL('image/jpeg',0.85); emPreview.src=selfieDataUrl; emPreview.style.display='block'; emVideo.style.display='none'; emShot.disabled=true; emReset.disabled=false; emStatus.textContent='Selfie capturada';
+          const w = emVideo.videoWidth || 640;
+          const h = emVideo.videoHeight || 480;
+          emCanvas.width = w;
+          emCanvas.height = h;
+          const ctx = emCanvas.getContext('2d');
+          ctx.drawImage(emVideo, 0, 0, w, h);
+          selfieDataUrl = emCanvas.toDataURL('image/jpeg', 0.85);
+          emPreview.src = selfieDataUrl;
+          emPreview.style.display = 'block';
+          emVideo.style.display = 'none';
+          emShot.disabled = true;
+          emReset.disabled = false;
+          emStatus.textContent = 'Selfie capturada';
         });
-        emReset.addEventListener('click', () => { if (!mediaStream) return; selfieDataUrl=null; emPreview.style.display='none'; emVideo.style.display='block'; emShot.disabled=false; emReset.disabled=true; emStatus.textContent='Listo para otra'; });
+        emReset.addEventListener('click', () => {
+          if (!mediaStream) return;
+          selfieDataUrl = null;
+          emPreview.style.display = 'none';
+          emVideo.style.display = 'block';
+          emShot.disabled = false;
+          emReset.disabled = true;
+          emStatus.textContent = 'Listo para tomar otra';
+        });
+
+        function cleanup() {
+          stopCam();
+          try { document.body.removeChild(modal); } catch { }
+        }
 
         async function saveAndClose() {
-          const nombre = (emNombre.value||'').trim(); if (!nombre) { alert('Ingrese nombre'); return; }
+          const nombre = (emNombre.value || '').trim();
+          if (!nombre) { alert('Ingrese nombre'); return; }
+          const tipo = emTipo ? (emTipo.value || '').trim() : '';
+          if (!tipo) { alert('Seleccione el tipo de custodia'); return; }
           try {
-            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre }).eq('id', c.id);
+            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre, tipo_custodia: tipo }).eq('id', c.id);
             if (errN) throw errN;
             if (selfieDataUrl) {
               const base64 = selfieDataUrl.split(',')[1];
               const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: c.id, p_mime_type: 'image/jpeg', p_base64: base64 });
               if (errS) throw errS;
             }
-            document.body.removeChild(modal); stopCam(); location.reload();
+            cleanup();
+            location.reload();
           } catch (e) { console.error(e); alert('Error al guardar'); }
         }
         emSave.addEventListener('click', saveAndClose);
-        emCancel.addEventListener('click', () => { document.body.removeChild(modal); stopCam(); });
+        emCancel.addEventListener('click', cleanup);
       }
     });
-    </script>
+  </script>
 </body>
 
 </html>
