@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mapContainerId = 'map-container';
 
   const hasAlarma = typeof window.Alarma === 'object';
+  const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
   if (hasAlarma) {
     try { window.Alarma.initCustodia(); } catch (err) { console.warn('[alarma] initCustodia error', err); }
     try {
@@ -52,8 +53,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) { console.warn('[alarma] subscribe error', err); }
   }
   if (btnAlarmaPush) {
+    if (!hasPushKey) {
+      btnAlarmaPush.disabled = true;
+      btnAlarmaPush.title = 'Configura APP_CONFIG.WEB_PUSH_PUBLIC_KEY para habilitar push';
+    }
     btnAlarmaPush.addEventListener('click', async () => {
       if (!hasAlarma) { showMsg('Módulo de alarma no disponible'); return; }
+      if (!hasPushKey) { showMsg('Clave VAPID no configurada. Comunícate con soporte.'); return; }
       btnAlarmaPush.disabled = true;
       const original = btnAlarmaPush.textContent;
       btnAlarmaPush.textContent = 'Activando...';

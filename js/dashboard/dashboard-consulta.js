@@ -368,7 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     fotosModal && fotosModal.addEventListener('click', (e) => {
         const t = e.target;
-        if (t.matches('[data-close="modal"], .modal-backdrop')) {
+        const shouldClose = t.classList.contains('modal-backdrop') || t.closest('[data-close="modal"]');
+        if (shouldClose) {
             fotosModal.setAttribute('aria-hidden', 'true');
             fotosGrid && (fotosGrid.innerHTML = '');
         }
