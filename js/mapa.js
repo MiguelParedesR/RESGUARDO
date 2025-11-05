@@ -24,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnFinalizar = document.getElementById('btn-finalizar');
     const estadoTextoEl = document.getElementById('estado-texto');   // opcional en el panel
     const destinoTextoEl = document.getElementById('destino-texto'); // opcional en el panel
+    const panicBtn = document.getElementById('alarma-panic-btn');
+    const empresaActual = (sessionStorage.getItem('auth_empresa') || '').toUpperCase();
+    const hasAlarma = typeof window.Alarma === 'object';
+    const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+    let servicioInfo = null;
+    let panicLabelEl = null;
+    let panicLabelDefault = '';
+    let panicConfirming = false;
+    let panicConfirmTimer = null;
 
     // Snackbar (MDL) con fallback a alert
     const snackbar = document.getElementById('app-snackbar');
@@ -67,12 +76,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarServicio() {
         const { data, error } = await window.sb
             .from('servicio')
-            .select('id, destino_lat, destino_lng, destino_texto, estado')
+            .select('id, empresa, placa, tipo, destino_lat, destino_lng, destino_texto, estado, cliente:cliente_id(nombre)')
             .eq('id', servicioId)
             .single();
 
         if (error) { console.error('[mapa] error servicio', error); return; }
         if (!data) { console.error('[mapa] servicio no encontrado'); return; }
+
+        servicioInfo = data;
+        if (panicBtn) panicBtn.disabled = true;
 
         if (data.destino_lat && data.destino_lng) {
             destino = { lat: data.destino_lat, lng: data.destino_lng, texto: data.destino_texto || 'Destino' };
@@ -131,10 +143,84 @@ document.addEventListener('DOMContentLoaded', () => {
         poiLayer = L.layerGroup().addTo(map);
         routeLayer = L.layerGroup().addTo(map);
 
+        setupPanicButton();
         iniciarTracking();
         // Ruta inicial y refresco periódico
         setTimeout(updateRouteFromMarkers, 2000);
         setInterval(updateRouteFromMarkers, 10000);
+    }
+
+    function setPanicLabel(text) {
+        if (!panicBtn) return;
+        if (panicLabelEl) panicLabelEl.textContent = text;
+        else panicBtn.textContent = text;
+    }
+
+    function resetPanicConfirm() {
+        panicConfirming = false;
+        if (panicBtn) {
+            panicBtn.classList.remove('is-confirm');
+            if (panicConfirmTimer) { clearTimeout(panicConfirmTimer); panicConfirmTimer = null; }
+            if (panicLabelDefault) setPanicLabel(panicLabelDefault);
+        }
+    }
+
+    function setupPanicButton() {
+        if (!panicBtn || !hasAlarma) return;
+        if (panicBtn.dataset.bound === '1') return;
+        panicBtn.dataset.bound = '1';
+        panicLabelEl = panicBtn.querySelector('.alarma-panic-btn__label');
+        panicLabelDefault = panicLabelEl ? panicLabelEl.textContent : panicBtn.textContent;
+        panicBtn.disabled = true;
+        panicBtn.addEventListener('click', async () => {
+            if (panicBtn.disabled) {
+                showMsg('Esperando ubicación GPS…');
+                return;
+            }
+            if (!panicConfirming) {
+                panicConfirming = true;
+                panicBtn.classList.add('is-confirm');
+                setPanicLabel('Confirmar alerta');
+                try { navigator.vibrate?.([140, 80, 140]); } catch { }
+                panicConfirmTimer = setTimeout(() => resetPanicConfirm(), 4000);
+                return;
+            }
+            resetPanicConfirm();
+            const coords = markerYo?.getLatLng();
+            if (!coords) {
+                showMsg('Necesitamos tu ubicación actual para enviar la alerta.');
+                panicBtn.disabled = true;
+                return;
+            }
+            panicBtn.disabled = true;
+            try { navigator.vibrate?.([260, 140, 260]); } catch { }
+            let direccion = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+            if (typeof window.Alarma?.reverseGeocode === 'function') {
+                try { direccion = await window.Alarma.reverseGeocode(coords.lat, coords.lng); } catch (err) { console.warn('[alarma] reverseGeocode', err); }
+            }
+            try {
+                await window.Alarma.emit('panic', {
+                    servicio_id: servicioId,
+                    empresa: servicioInfo?.empresa || empresaActual || null,
+                    cliente: servicioInfo?.cliente?.nombre || null,
+                    placa: servicioInfo?.placa || null,
+                    tipo: servicioInfo?.tipo || null,
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    direccion,
+                    timestamp: new Date().toISOString(),
+                    meta: { origen: 'mapa-resguardo' }
+                });
+                showMsg('Alerta de pánico enviada.');
+                try { navigator.vibrate?.([200, 120, 200, 120, 260]); } catch { }
+            } catch (err) {
+                console.error('[alarma] emit panic', err);
+                showMsg('No se pudo enviar la alerta. Se reintentará automáticamente.');
+            } finally {
+                panicBtn.disabled = false;
+                resetPanicConfirm();
+            }
+        });
     }
 
     async function updateRouteFromMarkers() {
@@ -170,14 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pinUser = L.divIcon({ className: 'pin-user', html: '&#128205;', iconSize: [24, 24], iconAnchor: [12, 24] });
         const watchId = navigator.geolocation.watchPosition(
-            pos => onPos(pos.coords.latitude, pos.coords.longitude, pinUser),
+            pos => onPos(pos.coords.latitude, pos.coords.longitude, pinUser, pos.coords),
             err => {
                 console.warn('[mapa] watchPosition error, fallback interval', err);
                 onInterval();
                 setInterval(onInterval, 30_000);
                 function onInterval() {
                     navigator.geolocation.getCurrentPosition(
-                        p => onPos(p.coords.latitude, p.coords.longitude, pinUser),
+                        p => onPos(p.coords.latitude, p.coords.longitude, pinUser, p.coords),
                         e => console.error('[mapa] getCurrentPosition error', e)
                     );
                 }
@@ -190,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function onPos(lat, lng, pinUser) {
+    async function onPos(lat, lng, pinUser, coords = null) {
         // Pintar/actualizar mi ubicaciÃ³n
         if (!markerYo) {
             markerYo = L.marker([lat, lng], { title: 'UbicaciÃ³n actual' }).addTo(map);
@@ -206,8 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch { }
 
-        try { markerYo.setIcon(L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [32, 32], iconAnchor: [16, 28], popupAnchor: [0, -28] })); } catch { }
-        // Distancia al destino
+        try { markerYo.setIcon(L.icon({ iconUrl: '/assets/icons/custodia-current.svg', iconRetinaUrl: '/assets/icons/custodia-current.svg', iconSize: [32, 32], iconAnchor: [16, 28], popupAnchor: [0, -28] })); } catch { }\r\n        if (panicBtn && hasAlarma) {\r\n            panicBtn.disabled = false;\r\n            resetPanicConfirm();\r\n        }\r\n        if (hasAlarma && typeof window.Alarma?.setLocation === 'function') {\r\n            try { window.Alarma.setLocation(lat, lng, { accuracy: coords?.accuracy ?? null }); } catch (err) { console.warn('[alarma] setLocation', err); }\r\n        }\r\n        // Distancia al destino
         if (destino) {
             const d = Math.round(distanciaM(lat, lng, destino.lat, destino.lng));
             if (distanciaLabel) distanciaLabel.textContent = `${d} m`;
