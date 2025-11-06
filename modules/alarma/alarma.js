@@ -73,7 +73,6 @@
       empresa: clip(payload.empresa, 60),
       cliente: clip(payload.cliente, 80),
       placa: clip(payload.placa, 16),
-      rol_source: payload.rol_source ? clip(payload.rol_source, 16) : null,
       lat: typeof payload.lat === 'number' ? Number(payload.lat.toFixed(6)) : null,
       lng: typeof payload.lng === 'number' ? Number(payload.lng.toFixed(6)) : null,
       direccion: clip(payload.direccion, MAX_STRING),
@@ -112,7 +111,7 @@
   function queueOffline(record) {
     state.queue.push(record);
     persistQueue();
-    showToast('Evento guardado sin conexión. Se reenviará cuando vuelva la red.');
+    showToast('Evento guardado sin conexion. Se reenviara cuando vuelva la red.');
   }
 
   async function flushQueue() {
@@ -231,14 +230,12 @@
 
   async function emit(type, payload) {
     const sanitized = sanitizePayload(type, payload);
-    sanitized.rol_source = sanitized.rol_source || state.mode;
     const record = {
       type: sanitized.type,
       servicio_id: sanitized.servicio_id,
       empresa: sanitized.empresa,
       cliente: sanitized.cliente,
       placa: sanitized.placa,
-      rol_source: sanitized.rol_source,
       lat: sanitized.lat,
       lng: sanitized.lng,
       direccion: sanitized.direccion,
