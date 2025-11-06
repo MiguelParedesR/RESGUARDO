@@ -639,7 +639,7 @@
   function startVoiceRecognition() {
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     const panel = state.admin.modalBackdrop?.querySelector('#alarma-modal-voice');
-          <div class="alarma-voice-status" id="alarma-voice-status">Escuchando "silenciar alarma"...</div>
+    const status = panel?.querySelector('#alarma-voice-status');
     const fallback = state.admin.modalBackdrop?.querySelector('#alarma-voice-manual');
     if (panel) panel.hidden = false;
     if (!Recognition) {
@@ -802,7 +802,7 @@
     const panel = document.createElement('div');
     panel.className = 'alarma-checkin';
     panel.innerHTML = `
-    if (title) title.textContent = `Confirma tu estado - Servicio ${payload?.servicio_id || ''}`;
+      <div class="alarma-checkin__title" aria-live="assertive">Confirma tu estado</div>
       <div class="alarma-checkin__desc">Responde por voz o texto para confirmar tu ubicacion actual.</div>
       <div class="alarma-checkin__options">
         <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Responder por voz</button>
