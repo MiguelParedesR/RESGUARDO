@@ -3,7 +3,7 @@
 
   const STORAGE_QUEUE = 'alarma.queue.v1';
   const STORAGE_FLAGS = 'alarma.flags.v1';
-  const STORAGE_PUSH = 'alarma.push.meta';
+  const STORAGE_PUSH = 'alarma.push.metadata';
   const CHANNEL_NAME = 'alarma-events';
   const PUSH_ENDPOINT = '/.netlify/functions/push-broadcast';
   const CHECKIN_ENDPOINT = '/.netlify/functions/push-send';
@@ -67,79 +67,90 @@
 
   function sanitizePayload(type, raw) {
     const payload = raw || {};
+    const placaSource = payload.placa != null ? String(payload.placa) : null;
+    const empresaSource = payload.empresa != null ? String(payload.empresa) : null;
+    const metadataSource = payload.metadata || payload.meta || null;
+    let metadata = metadataSource && typeof metadataSource === 'object'
+      ? JSON.parse(JSON.stringify(metadataSource))
+      : null;
+    if (payload.extra && typeof payload.extra === 'object') {
+      const extraCopy = JSON.parse(JSON.stringify(payload.extra));
+      if (metadata) metadata.extra = extraCopy;
+      else metadata = { extra: extraCopy };
+    }
     const safe = {
       type: clip(type, 32),
-      servicio_id: payload.servicio_id || null,
-      empresa: clip(payload.empresa, 60),
+      servicio_id: payload.servicio_id ?? null,
+      empresa: clip(empresaSource ? empresaSource.toUpperCase() : null, 60),
       cliente: clip(payload.cliente, 80),
-      placa: clip(payload.placa, 16),
+      placa: clip(placaSource ? placaSource.toUpperCase().replace(/\s+/g, '') : null, 16),
+      tipo: clip(payload.tipo, 32),
       lat: typeof payload.lat === 'number' ? Number(payload.lat.toFixed(6)) : null,
       lng: typeof payload.lng === 'number' ? Number(payload.lng.toFixed(6)) : null,
       direccion: clip(payload.direccion, MAX_STRING),
       timestamp: payload.timestamp || new Date().toISOString(),
-      meta: (payload.meta && typeof payload.meta === 'object') ? JSON.parse(JSON.stringify(payload.meta)) : null
+      metadata
     };
-    if (payload.extra && typeof payload.extra === 'object') {
-      safe.extra = JSON.parse(JSON.stringify(payload.extra));
-    }
+    if (!safe.metadata || !Object.keys(safe.metadata).length) delete safe.metadata;
     return safe;
   }
 
-  function buildMetaFromSanitized(sanitized) {
-    const meta = {};
-    if (sanitized.lat != null) meta.lat = sanitized.lat;
-    if (sanitized.lng != null) meta.lng = sanitized.lng;
-    if (sanitized.direccion) meta.direccion = sanitized.direccion;
-    if (sanitized.meta && typeof sanitized.meta === 'object') Object.assign(meta, sanitized.meta);
-    if (sanitized.extra && typeof sanitized.extra === 'object') {
-      meta.extra = Object.assign({}, sanitized.extra);
+  function buildMetadataFromSanitized(sanitized) {
+    const metadata = {};
+    if (sanitized.lat != null) metadata.lat = sanitized.lat;
+    if (sanitized.lng != null) metadata.lng = sanitized.lng;
+    if (sanitized.direccion) metadata.direccion = sanitized.direccion;
+    if (sanitized.metadata && typeof sanitized.metadata === 'object') {
+      Object.assign(metadata, sanitized.metadata);
     }
-    return Object.keys(meta).length ? meta : null;
+    return Object.keys(metadata).length ? metadata : null;
   }
 
   function createEventRecord(sanitized) {
-    const meta = buildMetaFromSanitized(sanitized);
+    const metadata = buildMetadataFromSanitized(sanitized);
     const record = {
       type: sanitized.type,
       servicio_id: sanitized.servicio_id ?? null,
       empresa: sanitized.empresa ?? null,
       cliente: sanitized.cliente ?? null,
       placa: sanitized.placa ?? null,
-      timestamp: sanitized.timestamp || new Date().toISOString()
+      tipo: sanitized.tipo ?? null,
+      lat: sanitized.lat ?? null,
+      lng: sanitized.lng ?? null,
+      direccion: sanitized.direccion ?? null
     };
-    if (meta) record.meta = meta;
+    if (metadata) record.metadata = metadata;
     return record;
   }
 
   function normalizeRecord(record) {
     if (!record || typeof record !== 'object') return record;
     const next = { ...record };
-    const meta = (next.meta && typeof next.meta === 'object') ? { ...next.meta } : {};
-    if (next.lat != null) { meta.lat = next.lat; delete next.lat; }
-    if (next.lng != null) { meta.lng = next.lng; delete next.lng; }
-    if (next.direccion) { meta.direccion = next.direccion; delete next.direccion; }
-    if (next.extra && typeof next.extra === 'object') {
-      meta.extra = Object.assign({}, next.extra);
-      delete next.extra;
+    if (next.meta && !next.metadata) {
+      next.metadata = next.meta;
     }
-    if (Object.keys(meta).length) next.meta = meta;
-    else delete next.meta;
-    if (!next.timestamp) next.timestamp = new Date().toISOString();
+    delete next.meta;
+    if (next.metadata && typeof next.metadata === 'object') {
+      const metadata = { ...next.metadata };
+      if (next.lat == null && metadata.lat != null) next.lat = metadata.lat;
+      if (next.lng == null && metadata.lng != null) next.lng = metadata.lng;
+      if (!next.direccion && metadata.direccion) next.direccion = metadata.direccion;
+      next.metadata = metadata;
+    }
+    delete next.timestamp;
     delete next.rol_source;
     return next;
   }
 
   function expandEventRecord(eventRecord) {
     if (!eventRecord || typeof eventRecord !== 'object') return eventRecord;
-    const meta = (eventRecord.meta && typeof eventRecord.meta === 'object') ? eventRecord.meta : {};
-    const expanded = { ...eventRecord };
-    if (expanded.lat == null && meta.lat != null) expanded.lat = meta.lat;
-    if (expanded.lng == null && meta.lng != null) expanded.lng = meta.lng;
-    if (!expanded.direccion && meta.direccion) expanded.direccion = meta.direccion;
+    const normalized = normalizeRecord(eventRecord);
+    const expanded = { ...normalized };
+    const metadata = (expanded.metadata && typeof expanded.metadata === 'object') ? expanded.metadata : {};
     if (expanded.timestamp == null) {
       expanded.timestamp = expanded.created_at || new Date().toISOString();
     }
-    expanded.meta = meta && Object.keys(meta).length ? meta : null;
+    expanded.metadata = Object.keys(metadata).length ? metadata : null;
     return expanded;
   }
 
@@ -197,7 +208,7 @@
 
   function notify(event) {
     state.subscribers.forEach((fn) => {
-      try { fn(event); } catch (err) { error('Suscriptor lanzó error', err); }
+      try { fn(event); } catch (err) { error('Suscriptor lanzo error', err); }
     });
   }
 
@@ -301,9 +312,15 @@
       return { queued: true };
     }
     try {
-      const { data, error: err } = await client.from('alarm_event').insert(record).select('*').single();
+      const dbRecord = { ...record };
+      const { data, error: err } = await client.from('alarm_event').insert(dbRecord).select('*').single();
       if (err) throw err;
       const eventData = expandEventRecord(data || {});
+      if (sanitized.timestamp) {
+        eventData.timestamp = sanitized.timestamp;
+      } else if (!eventData.timestamp) {
+        eventData.timestamp = eventData.created_at || new Date().toISOString();
+      }
       notify({ type: 'emit', status: 'sent', event: eventData, source: 'local' });
       handlePostEmit(type, eventData);
       return { data };
@@ -328,7 +345,7 @@
   async function triggerPush(type, eventRecord, options) {
     const endpoint = options && options.endpoint ? options.endpoint : PUSH_ENDPOINT;
     const expanded = expandEventRecord(eventRecord);
-    const meta = expanded.meta && typeof expanded.meta === 'object' ? expanded.meta : {};
+    const meta = expanded.metadata && typeof expanded.metadata === 'object' ? expanded.metadata : {};
     const body = {
       type,
       event: {
@@ -337,10 +354,12 @@
         empresa: expanded.empresa,
         cliente: expanded.cliente,
         placa: expanded.placa,
+        tipo: expanded.tipo || null,
         lat: expanded.lat ?? meta.lat ?? null,
         lng: expanded.lng ?? meta.lng ?? null,
         direccion: expanded.direccion ?? meta.direccion ?? null,
-        timestamp: expanded.timestamp || expanded.created_at || new Date().toISOString()
+        timestamp: expanded.timestamp || expanded.created_at || new Date().toISOString(),
+        metadata: Object.keys(meta).length ? meta : null
       }
     };
     const custom = {};
@@ -357,7 +376,7 @@
       });
       if (!res.ok) throw new Error(`Push ${endpoint} -> ${res.status}`);
     } catch (err) {
-      warn('Fetch push falló', err);
+      warn('Fetch push fallo', err);
     }
   }
 
@@ -414,10 +433,8 @@
     state.admin.lastPanic = record;
     sirenaOn({ loop: true });
     const frase = record && record.cliente
-      ? `ALERTA DE ROBO — ${record.cliente}`
+      ? `ALERTA DE ROBO - ${record.cliente}`
       : 'ALERTA DE ROBO';
-    tts(frase);
-    openPanicModal(record);
     notify({ type: 'panic', record });
   }
 
@@ -512,16 +529,16 @@
       <div class="alarma-modal__dialog" role="document">
         <div class="alarma-modal__header">
           <div>
-            <div class="alarma-modal__title">Alerta de pánico</div>
-            <div class="alarma-modal__badge" aria-live="polite">Prioridad máxima</div>
+            <div class="alarma-modal__title">Alerta de panico</div>
+            <div class="alarma-modal__badge" aria-live="polite">Prioridad maxima</div>
           </div>
           <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close">Cerrar</button>
         </div>
         <div class="alarma-modal__body" id="alarma-modal-body"></div>
         <div class="alarma-modal__voice" id="alarma-modal-voice" hidden>
-          <div class="alarma-voice-status" id="alarma-voice-status">Escuchando “silenciar alarma”...</div>
+          <div class="alarma-voice-status" id="alarma-voice-status">Escuchando "silenciar alarma"...</div>
           <div class="alarma-voice-manual" id="alarma-voice-manual" hidden>
-            <label for="alarma-voice-input">Escribe “silenciar alarma” para detener la sirena</label>
+            <label for="alarma-voice-input">Escribe "silenciar alarma" para detener la sirena</label>
             <input id="alarma-voice-input" class="alarma-modal__input" type="text" autocomplete="off" placeholder="silenciar alarma" />
             <button type="button" class="alarma-btn alarma-btn--primary" id="alarma-voice-confirm">Confirmar</button>
           </div>
@@ -535,7 +552,7 @@
     `;
     backdrop.addEventListener('click', (ev) => {
       if (ev.target === backdrop) {
-        // Mantener modal visible hasta reconocer explícitamente
+        // Mantener modal visible hasta reconocer explicitamente
       }
     });
     document.body.appendChild(backdrop);
@@ -589,7 +606,7 @@
         { label: 'Placa', value: record?.placa || '-' },
         { label: 'Servicio', value: record?.servicio_id || '-' },
         { label: 'Empresa', value: record?.empresa || '-' },
-        { label: 'Dirección', value: record?.direccion || '-' },
+        { label: 'Direccion', value: record?.direccion || '-' },
         { label: 'Hora', value: formatTime(record?.timestamp) }
       ];
       rows.forEach((row) => {
@@ -622,7 +639,7 @@
   function startVoiceRecognition() {
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     const panel = state.admin.modalBackdrop?.querySelector('#alarma-modal-voice');
-    const status = state.admin.modalBackdrop?.querySelector('#alarma-voice-status');
+          <div class="alarma-voice-status" id="alarma-voice-status">Escuchando "silenciar alarma"...</div>
     const fallback = state.admin.modalBackdrop?.querySelector('#alarma-voice-manual');
     if (panel) panel.hidden = false;
     if (!Recognition) {
@@ -645,7 +662,7 @@
       recog.interimResults = false;
       recog.maxAlternatives = 3;
       recog.onstart = () => {
-        if (status) status.textContent = 'Escuchando “silenciar alarma”...';
+        if (status) status.textContent = 'Escuchando "silenciar alarma"...';
       };
       recog.onerror = (event) => {
         warn('SpeechRecognition error', event.error);
@@ -663,12 +680,12 @@
           markPanicHandled();
           notify({ type: 'panic-ack', via: 'voice' });
         } else if (status) {
-          status.textContent = `Escuchado: “${transcript}”. Repite “Silenciar alarma”.`;
+          status.textContent = `Escuchado: "${transcript}". Repite "Silenciar alarma".`;
         }
       };
       recog.onend = () => {
         if (state.admin.voice.fallbackVisible) return;
-        // Reiniciar captura mientras la alarma esté activa
+        // Reiniciar captura mientras la alarma este activa
         if (state.admin.modalBackdrop?.classList.contains('is-open')) {
           try { recog.start(); } catch (err) { warn(err); }
         }
@@ -731,7 +748,7 @@
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       };
       const client = ensureSupabase();
-      if (!client) throw new Error('Supabase no disponible para guardar suscripción');
+      if (!client) throw new Error('Supabase no disponible para guardar suscripcion');
       const { error: err } = await client.from('push_subscription').upsert(payload, { onConflict: 'endpoint' });
       if (err) throw err;
       try { global.localStorage.setItem(STORAGE_PUSH, JSON.stringify(payload)); } catch (_) { }
@@ -785,12 +802,12 @@
     const panel = document.createElement('div');
     panel.className = 'alarma-checkin';
     panel.innerHTML = `
-      <div class="alarma-checkin__title" aria-live="assertive">Confirma tu estado</div>
-      <div class="alarma-checkin__desc">Responde por voz o texto para confirmar tu ubicación actual.</div>
+    if (title) title.textContent = `Confirma tu estado - Servicio ${payload?.servicio_id || ''}`;
+      <div class="alarma-checkin__desc">Responde por voz o texto para confirmar tu ubicacion actual.</div>
       <div class="alarma-checkin__options">
         <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Responder por voz</button>
         <div class="alarma-checkin__field">
-          <label for="alarma-checkin-input">¿Dónde te encuentras?</label>
+          <label for="alarma-checkin-input">Donde te encuentras?</label>
           <input id="alarma-checkin-input" class="alarma-checkin__input" type="text" placeholder="Ej. Antes de entrar al puerto">
         </div>
       </div>
@@ -810,8 +827,8 @@
   function populateCheckinPanel(panel, payload) {
     const desc = panel.querySelector('.alarma-checkin__desc');
     const title = panel.querySelector('.alarma-checkin__title');
-    if (title) title.textContent = `Confirma tu estado — Servicio ${payload?.servicio_id || ''}`;
-    if (desc) desc.textContent = `Cliente: ${payload?.cliente || 'N/D'} — Último check-in hace ${payload?.diff_minutes || '?'} min.`;
+    if (title) title.textContent = `Confirma tu estado - Servicio ${payload?.servicio_id || ''}`;
+    if (desc) desc.textContent = `Cliente: ${payload?.cliente || 'N/D'} - Ultimo check-in hace ${payload?.diff_minutes || '?'} min.`;
     panel.dataset.servicioId = payload?.servicio_id || '';
     panel.dataset.empresa = payload?.empresa || '';
     panel.dataset.cliente = payload?.cliente || '';
@@ -856,7 +873,7 @@
     const input = panel.querySelector('#alarma-checkin-input');
     const texto = clip((input && input.value) || '', MAX_STRING);
     if (!texto) {
-      showToast('Ingresa tu ubicación actual antes de confirmar.');
+      showToast('Ingresa tu ubicacion actual antes de confirmar.');
       return;
     }
     const last = state.custodia.lastLocation;
@@ -868,13 +885,13 @@
         cliente: panel.dataset.cliente,
         lat: last?.lat || null,
         lng: last?.lng || null,
-        meta: { respuesta: texto }
+        metadata: { respuesta: texto }
       });
       panel.classList.remove('is-open');
       showToast('Check-in confirmado. Gracias.');
     } catch (err) {
       warn('Error al registrar check-in', err);
-      showToast('No se pudo registrar. Se guardará offline.');
+      showToast('No se pudo registrar. Se guardara offline.');
     } finally {
       state.checkin.busy = false;
     }
@@ -904,3 +921,13 @@
 
   global.Alarma = api;
 })(window);
+
+
+
+
+
+
+
+
+
+

@@ -68,7 +68,7 @@ export async function handler(event) {
 
       const payload = {
         title: 'Confirma tu estado',
-        body: `Servicio ${svc.placa || ''} — ${svc.cliente?.nombre || 'Cliente'}`,
+        body: `Servicio ${svc.placa || ''} - ${svc.cliente?.nombre || "Cliente"}`,
         vibrate: [200, 120, 200, 120, 240],
         data: {
           servicio_id: svc.id,
@@ -80,7 +80,7 @@ export async function handler(event) {
         url: '/html/dashboard/mapa-resguardo.html'
       };
 
-      const result = await sendHandler({
+            const result = await sendHandler({
         httpMethod: 'POST',
         body: JSON.stringify({
           filter: { role: 'custodia', empresa: svc.empresa },
@@ -93,20 +93,18 @@ export async function handler(event) {
         throw new Error(`push-send responded ${result.statusCode}: ${result.body}`);
       }
 
-      await supabase.from('alarm_event').insert({
+            await supabase.from('alarm_event').insert({
         type: 'checkin_reminder',
         servicio_id: svc.id,
         empresa: svc.empresa,
         cliente: svc.cliente?.nombre || null,
-        placa: svc.placa || null,
-        timestamp: new Date().toISOString(),
-        meta: {
+        placa: (svc.placa || '').toUpperCase(),
+        tipo: svc.tipo || null,
+        metadata: {
           reminder_index: sentCount + 1,
           diff_minutes: diff
         }
       });
-
-      affected.push({ servicio_id: svc.id, empresa: svc.empresa, reminders_sent: sentCount + 1 });
     } catch (err) {
       console.error('[push-cron-checkin] error', err);
       failures.push({ servicio_id: svc.id, error: err.message });
@@ -123,3 +121,6 @@ export async function handler(event) {
 function minutesDiff(a, b) {
   return Math.round((a.getTime() - b.getTime()) / 60000);
 }
+
+
+

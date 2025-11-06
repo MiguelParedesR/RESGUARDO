@@ -1,4 +1,4 @@
-﻿// dashboard-custodia.js — Registro por custodio (bloques) + Autocomplete + Mapa + Selfie por bloque
+// dashboard-custodia.js - Registro por custodio (bloques) + Autocomplete + Mapa + Selfie por bloque
 
 document.addEventListener('DOMContentLoaded', () => {
   const snackbar = document.getElementById('app-snackbar');
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       window.Alarma.subscribe((evt) => {
         if (evt?.type === 'emit' && evt.status === 'queued') {
-          showMsg('Evento de alarma en cola. Se enviará al reconectar.');
+          showMsg('Evento de alarma en cola. Se enviara al reconectar.');
         }
       });
     } catch (err) { console.warn('[alarma] subscribe error', err); }
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-  // Normalización placa
+  // Normalizacion placa
   placaEl.addEventListener('input', () => { placaEl.value = placaEl.value.toUpperCase().replace(/\s+/g, ''); });
   placaEl.addEventListener('blur', async () => {
     try {
@@ -89,14 +89,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch { showMsg('Error al consultar placa'); }
   });
 
-  // Render dinámico de bloques
+  // Render dinamico de bloques
   function kindsForTipo(t) { if (t === 'Tipo B') return ['cabina', 'vehiculo']; if (t === 'Tipo A') return ['vehiculo']; return ['cabina']; }
-  function labelForKind(k) { return k === 'vehiculo' ? 'Custodia en Vehículo' : 'Custodia en Cabina'; }
+  function labelForKind(k) { return k === 'vehiculo' ? 'Custodia en VehIculo' : 'Custodia en Cabina'; }
   function tipoForKind(k) { return k === 'vehiculo' ? 'Tipo A' : 'Simple'; }
   function stopStream(ui) { try { ui.stream?.getTracks().forEach(t => t.stop()); } catch {} ui.stream = null; }
 
   function renderCustodios() {
-    // detener cámaras anteriores
+    // detener camaras anteriores
     try { custodiosUI.forEach(stopStream); } catch {}
     custodiosUI = [];
     custContainer.innerHTML = '';
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <img alt="Selfie" />
           <canvas style="display:none"></canvas>
           <div class="camera-actions">
-            <button type="button" class="btn-iniciar mdl-button mdl-js-button">Iniciar cámara</button>
+            <button type="button" class="btn-iniciar mdl-button mdl-js-button">Iniciar camara</button>
             <button type="button" class="btn-tomar mdl-button mdl-js-button" disabled>Tomar selfie</button>
             <button type="button" class="btn-repetir mdl-button mdl-js-button" disabled>Repetir</button>
           </div>
@@ -135,11 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
           btnStart.disabled = true; status.textContent = 'Solicitando permisos...';
           ui.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio:false });
           video.srcObject = ui.stream; video.style.display='block'; img.style.display='none';
-          btnShot.disabled = false; btnReset.disabled = true; status.textContent = 'Cámara lista';
-        } catch (e) { status.textContent = 'No se pudo acceder a la cámara'; btnStart.disabled = false; }
+          btnShot.disabled = false; btnReset.disabled = true; status.textContent = 'Camara lista';
+        } catch (e) { status.textContent = 'No se pudo acceder a la camara'; btnStart.disabled = false; }
       });
       btnShot.addEventListener('click', () => {
-        if (!ui.stream) { showMsg('Inicia la cámara primero'); return; }
+        if (!ui.stream) { showMsg('Inicia la camara primero'); return; }
         const w = video.videoWidth||640, h = video.videoHeight||480;
         canvas.width=w; canvas.height=h; const ctx = canvas.getContext('2d'); ctx.drawImage(video,0,0,w,h);
         ui.selfieDataUrl = canvas.toDataURL('image/jpeg',0.85);
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lat: userLat,
         lng: userLng,
         timestamp: new Date().toISOString(),
-        meta: { destino: detalle?.destino || null, origen: 'dashboard-custodia' }
+        metadata: { destino: detalle?.destino || null, origen: 'dashboard-custodia' }
       });
       if (!pushRegisteredAuto && hasPushKey && typeof window.Alarma?.registerPush === 'function') {
         try {
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
   tipoEl.addEventListener('change', () => { currentTipo = tipoEl.value; renderCustodios(); });
   currentTipo = tipoEl.value; renderCustodios();
 
-  // ===== Autocomplete (LocationIQ) PERÚ + proximidad =====
+  // ===== Autocomplete (LocationIQ) PERU + proximidad =====
   const locKey = (window.APP_CONFIG && window.APP_CONFIG.LOCATIONIQ_KEY) || null;
   const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const PERU_VIEWBOX = '-81.33,-18.35,-68.65,-0.03';
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchAutocomplete(query) { if (!locKey) { direccionEstado.textContent = 'Configura LOCATIONIQ_KEY en config.js'; direccionEstado.style.color = '#ff6f00'; return []; } try { const res = await fetch(buildAutocompleteUrl(query)); if (!res.ok) throw new Error('HTTP ' + res.status); return await res.json(); } catch (e) { console.error(e); return []; } }
   function renderSuggestions(items) { sugList.innerHTML = ''; acIndex = -1; if (!items || !items.length) { sugList.classList.remove('visible'); return; } for (const it of items) { const li = document.createElement('li'); li.textContent = it.display_name || it.address_name || it.name; li.dataset.lat = it.lat; li.dataset.lng = it.lon; li.addEventListener('click', () => selectSuggestion(li)); sugList.appendChild(li); } sugList.classList.add('visible'); }
   function clearSuggestions() { sugList.innerHTML = ''; sugList.classList.remove('visible'); acIndex = -1; }
-  function selectSuggestion(li) { destinoEl.value = li.textContent; destinoCoords = { lat: parseFloat(li.dataset.lat), lng: parseFloat(li.dataset.lng) }; direccionEstado.textContent = 'Dirección establecida por autocompletar.'; direccionEstado.style.color = '#2e7d32'; clearSuggestions(); }
+  function selectSuggestion(li) { destinoEl.value = li.textContent; destinoCoords = { lat: parseFloat(li.dataset.lat), lng: parseFloat(li.dataset.lng) }; direccionEstado.textContent = 'Direccion establecida por autocompletar.'; direccionEstado.style.color = '#2e7d32'; clearSuggestions(); }
   const onDestinoInput = debounce(async () => { const q = destinoEl.value.trim(); if (!q || q === lastQuery) { if (!q) clearSuggestions(); return; } lastQuery = q; const items = await fetchAutocomplete(q); renderSuggestions(items); }, 250);
   destinoEl.addEventListener('input', onDestinoInput);
   destinoEl.addEventListener('focus', () => { if (sugList.children.length) sugList.classList.add('visible'); });
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function closeModal() { modalMapa.classList.remove('open'); }
   btnAbrirMapa.addEventListener('click', openModal);
   mapCerrar.addEventListener('click', closeModal);
-  mapAceptar.addEventListener('click', () => { if (!destinoCoords) { showMsg('Selecciona un punto en el mapa o busca una dirección.'); return; } closeModal(); });
+  mapAceptar.addEventListener('click', () => { if (!destinoCoords) { showMsg('Selecciona un punto en el mapa o busca una direccion.'); return; } closeModal(); });
     function initMapIfNeeded() {
       if (mapReady) { setTimeout(() => map.invalidateSize(), 50); return; }
       map = L.map(mapContainerId);
@@ -245,10 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => map.invalidateSize(), 150);
     }
   function setMarker(latlng) { destinoCoords = { lat: latlng.lat, lng: latlng.lng }; if (!mapMarker) { mapMarker = L.marker(latlng, { draggable: true }).addTo(map); mapMarker.on('dragend', async () => { const p = mapMarker.getLatLng(); destinoCoords = { lat: p.lat, lng: p.lng }; await reverseGeocode(p.lat, p.lng); }); } else { mapMarker.setLatLng(latlng); } }
-  async function reverseGeocode(lat, lng) { if (!locKey) { direccionEstado.textContent = 'Configura LOCATIONIQ_KEY en config.js'; direccionEstado.style.color = '#ff6f00'; return; } try { const url = `https://us1.locationiq.com/v1/reverse?key=${encodeURIComponent(locKey)}&lat=${lat}&lon=${lng}&format=json&accept-language=es`; const res = await fetch(url); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); const label = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`; destinoEl.value = label; direccionEstado.textContent = 'Dirección establecida desde el mapa.'; direccionEstado.style.color = '#2e7d32'; } catch (e) { console.error(e); destinoEl.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; direccionEstado.textContent = 'No se pudo obtener dirección, se usará coordenada.'; direccionEstado.style.color = '#ff6f00'; } }
-  mapSearchBtn.addEventListener('click', async () => { const q = mapSearchInput.value.trim(); if (!q) return; const items = await fetchAutocomplete(q); if (items && items[0]) { const lat = parseFloat(items[0].lat), lng = parseFloat(items[0].lon); map.setView([lat, lng], 16); setMarker({ lat, lng }); destinoEl.value = items[0].display_name || q; destinoCoords = { lat, lng }; direccionEstado.textContent = 'Dirección establecida desde búsqueda en mapa.'; direccionEstado.style.color = '#2e7d32'; } else { showMsg('Sin resultados en Perú para esa búsqueda.'); } });
+  async function reverseGeocode(lat, lng) { if (!locKey) { direccionEstado.textContent = 'Configura LOCATIONIQ_KEY en config.js'; direccionEstado.style.color = '#ff6f00'; return; } try { const url = `https://us1.locationiq.com/v1/reverse?key=${encodeURIComponent(locKey)}&lat=${lat}&lon=${lng}&format=json&accept-language=es`; const res = await fetch(url); if (!res.ok) throw new Error('HTTP ' + res.status); const data = await res.json(); const label = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`; destinoEl.value = label; direccionEstado.textContent = 'Direccion establecida desde el mapa.'; direccionEstado.style.color = '#2e7d32'; } catch (e) { console.error(e); destinoEl.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; direccionEstado.textContent = 'No se pudo obtener direccion, se usara coordenada.'; direccionEstado.style.color = '#ff6f00'; } }
+  mapSearchBtn.addEventListener('click', async () => { const q = mapSearchInput.value.trim(); if (!q) return; const items = await fetchAutocomplete(q); if (items && items[0]) { const lat = parseFloat(items[0].lat), lng = parseFloat(items[0].lon); map.setView([lat, lng], 16); setMarker({ lat, lng }); destinoEl.value = items[0].display_name || q; destinoCoords = { lat, lng }; direccionEstado.textContent = 'Direccion establecida desde bUsqueda en mapa.'; direccionEstado.style.color = '#2e7d32'; } else { showMsg('Sin resultados en PerU para esa bUsqueda.'); } });
 
-  // ===== Envío: crear/unirse por placa + empresa =====
+  // ===== EnvIo: crear/unirse por placa + empresa =====
   function isPlacaOk(p) { return /^[A-Z0-9-]{5,10}$/.test(p); }
   function bloquesCompletos() { return custodiosUI.filter(b => (b.nameInput.value || '').trim() && b.selfieDataUrl); }
   function mapKindToTipo(k) { return tipoForKind(k); }
@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div'); row.className = 'mini-item';
       const nm = document.createElement('span'); nm.textContent = (c.nombre_custodio || '(Sin nombre)');
       const right = document.createElement('span');
-      const chipKind = document.createElement('span'); chipKind.className = 'chip kind'; chipKind.textContent = (c.tipo_custodia === 'Tipo A') ? 'Vehículo' : 'Cabina';
+      const chipKind = document.createElement('span'); chipKind.className = 'chip kind'; chipKind.textContent = (c.tipo_custodia === 'Tipo A') ? 'VehIculo' : 'Cabina';
       const chipState = document.createElement('span'); chipState.className = 'chip ' + (isCompleto(c) ? 'ok' : 'pend'); chipState.textContent = isCompleto(c) ? 'Completo' : 'Pendiente';
       right.appendChild(chipKind); right.appendChild(document.createTextNode(' ')); right.appendChild(chipState);
       row.appendChild(nm); row.appendChild(right); mactList.appendChild(row);
@@ -298,14 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const bloques = bloquesCompletos();
       if (!cliente) return showMsg('Ingresa el cliente');
       if (!placa || !isPlacaOk(placa)) return showMsg('Ingresa la placa (A-Z, 0-9, -)');
-      if (!destinoTexto) return showMsg('Ingresa la dirección destino');
+      if (!destinoTexto) return showMsg('Ingresa la direccion destino');
       if (!bloques.length) return showMsg('Completa al menos un custodio (nombre + selfie)');
 
       const tGlobal = tipoEl.value;
       const expectedKinds = kindsForTipo(tGlobal);
       const existing = await findActiveService(empresa, placa);
       if (existing && !forceNew) {
-        // mostrar modal y detener envío hasta que elija
+        // mostrar modal y detener envIo hasta que elija
         await detectServicioActivo(placa, true);
         return;
       }
@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
           else if (!completeKinds.has(k)) { actions.push({ mode:'create', k, nombre: b.nameInput.value.trim(), selfie: b.selfieDataUrl }); }
         }
         if (!actions.length) {
-          const ok = confirm(`La placa ya está registrada para este servicio: ${existing.cliente?.nombre || ''} – ${existing.destino_texto || ''}. Ir al mapa ahora?`);
+          const ok = confirm(`La placa ya esta registrada para este servicio: ${existing.cliente?.nombre || ''} - ${existing.destino_texto || ''}. Ir al mapa ahora?`);
           if (ok) { sessionStorage.setItem('servicio_id_actual', existing.id); location.href = '/html/dashboard/mapa-resguardo.html'; }
           return;
         }
@@ -337,13 +337,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const base64 = a.selfie.split(',')[1]; const { error: e4 } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 }); if (e4) throw e4;
           }
         }
-        showMsg('Registro de custodio completado ✅'); sessionStorage.setItem('servicio_id_actual', existing.id); location.href = '/html/dashboard/mapa-resguardo.html'; return;
+        showMsg('Registro de custodio completado ?'); sessionStorage.setItem('servicio_id_actual', existing.id); location.href = '/html/dashboard/mapa-resguardo.html'; return;
       }
 
       // Crear servicio nuevo
       const { data: servicio_id, error: errSvc } = await window.sb.rpc('crear_servicio', { p_empresa: empresa, p_cliente_nombre: cliente, p_tipo: tGlobal, p_placa: placa, p_destino_texto: destinoTexto, p_destino_lat: destinoCoords?.lat ?? null, p_destino_lng: destinoCoords?.lng ?? null });
       if (errSvc) { console.error(errSvc); return showMsg('Error al crear servicio'); }
-      if (!servicio_id) return showMsg('No se recibió ID de servicio');
+      if (!servicio_id) return showMsg('No se recibio ID de servicio');
       for (const b of bloques) {
         const tipo_custodia = tipoForKind(b.kind);
         const { data: cId, error: errC } = await window.sb.rpc('agregar_custodio', { p_servicio_id: servicio_id, p_nombre: b.nameInput.value.trim(), p_tipo_custodia: tipo_custodia });
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errS) { console.error(errS); return showMsg('Error al guardar selfie'); }
       }
       await emitirInicioServicio(servicio_id, { cliente, placa, tipo: tGlobal, destino: destinoTexto });
-      showMsg('Servicio registrado en Supabase ✅'); sessionStorage.setItem('servicio_id_actual', servicio_id); location.href = '/html/dashboard/mapa-resguardo.html';
+      showMsg('Servicio registrado en Supabase ?'); sessionStorage.setItem('servicio_id_actual', servicio_id); location.href = '/html/dashboard/mapa-resguardo.html';
     } catch (err) { console.error(err); showMsg('Error en el registro'); }
   });
 
@@ -392,10 +392,12 @@ document.addEventListener('DOMContentLoaded', () => {
           const base64 = a.selfie.split(',')[1]; const { error: e4 } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 }); if (e4) throw e4;
         }
       }
-      showMsg('Registro completado ✅'); sessionStorage.setItem('servicio_id_actual', activeSvc.id); location.href = '/html/dashboard/mapa-resguardo.html';
+      showMsg('Registro completado ?'); sessionStorage.setItem('servicio_id_actual', activeSvc.id); location.href = '/html/dashboard/mapa-resguardo.html';
     } catch (e) { console.error(e); showMsg('Error al completar'); }
   });
 });
+
+
 
 
 

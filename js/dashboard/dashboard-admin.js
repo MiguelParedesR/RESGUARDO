@@ -1,4 +1,4 @@
-﻿// Dashboard Admin — limpio y estable (Lista + Filtros/Mapa)
+// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
 document.addEventListener('DOMContentLoaded', () => {
   const h = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
   const snackbar = document.getElementById('app-snackbar');
@@ -183,11 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAlarmaPush) {
     if (!hasAlarma || !hasPushKey) {
       btnAlarmaPush.disabled = true;
-      btnAlarmaPush.title = hasAlarma ? 'Configura APP_CONFIG.WEB_PUSH_PUBLIC_KEY para habilitar push' : 'Módulo de alarma no disponible';
+      btnAlarmaPush.title = hasAlarma ? 'Configura APP_CONFIG.WEB_PUSH_PUBLIC_KEY para habilitar push' : 'Modulo de alarma no disponible';
     }
     btnAlarmaPush.addEventListener('click', async (ev) => {
       ev.preventDefault();
-      if (!hasAlarma) { showMsg('Módulo de alarma no disponible'); return; }
+      if (!hasAlarma) { showMsg('Modulo de alarma no disponible'); return; }
       if (!hasPushKey) { showMsg('Clave VAPID no configurada. Contacta a soporte.'); return; }
       btnAlarmaPush.disabled = true;
       btnAlarmaPush.classList.add('is-working');
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showMsg('Alertas activadas para administrador.');
       } catch (err) {
         console.warn('[alarma] registerPush admin', err);
-        showMsg('No se pudo activar push. Intenta más tarde.');
+        showMsg('No se pudo activar push. Intenta mas tarde.');
         btnAlarmaPush.disabled = false;
       } finally {
         btnAlarmaPush.classList.remove('is-working');
@@ -332,10 +332,10 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   }
 
   function formatTitle(s) {
-    const placa = (s.placa || '—').toString().toUpperCase();
-    const cliente = (s.cliente?.nombre || '—').toString().toUpperCase();
-    const tipo = s.tipo ? s.tipo : '—';
-    return `${placa} – ${cliente} (${tipo})`;
+    const placa = (s.placa || '-').toString().toUpperCase();
+    const cliente = (s.cliente?.nombre || '-').toString().toUpperCase();
+    const tipo = s.tipo ? s.tipo : '-';
+    return `${placa} - ${cliente} (${tipo})`;
   }
 
   function renderList(services) {
@@ -352,7 +352,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
         <div class="title"><div><strong>${h(formatTitle(s))}</strong></div><span class="tag ${tagClass}">${h(s.estado)}</span></div>
         <div class="meta"><span class="pill">${h(s.empresa)}</span><span class="pill">${h(s.tipo || '-') }</span></div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || '-')}</div>
-        <div class="${pingClass}"><strong>Último ping:</strong> ${pingLabel}</div>
+        <div class="${pingClass}"><strong>Ultimo ping:</strong> ${pingLabel}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${s.id}">Ver en mapa</button>
           <button class="btn btn-accent" data-act="fin" data-id="${s.id}" ${s.estado === 'FINALIZADO' ? 'disabled' : ''}>Finalizar</button>
@@ -373,7 +373,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
     // Mobile UX: keep Servicios + Filtros visible; do not switch views
     focusMarker(s); showDetails(s);
     if (!isDesktop()) {
-      // Asegura que el mapa sea visible en móvil quitando vistas exclusivas
+      // Asegura que el mapa sea visible en movil quitando vistas exclusivas
       try { document.body.classList.remove('view-lista', 'view-filtros'); } catch (e) {}
       try { filtersInlineHost?.classList.remove('open'); btnFiltrosMobile?.setAttribute('aria-expanded','false'); } catch (e) {}
       try { document.querySelector('.map-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
@@ -382,8 +382,8 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
 
   // Markers + fitBounds
   function updateMarkers(activos) {
-    // sugerencia: este método comparte responsabilidades (gestión markers + layout bounds).
-    // Conviene extraer markers a un gestor y dejar solo layout aquí o moverlo a tracking-common.
+    // sugerencia: este metodo comparte responsabilidades (gestion markers + layout bounds).
+    // Conviene extraer markers a un gestor y dejar solo layout aquI o moverlo a tracking-common.
     ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     for (const id of Array.from(markers.keys())) { if (!activos.find(s => s.id === id)) { markers.get(id).remove(); markers.delete(id); } }
     const bounds = [];
@@ -394,7 +394,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   let selectionLayer = null;
   let lastRouteSig = '';
   async function focusMarker(s) {
-    // sugerencia: extraer esta función a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
+    // sugerencia: extraer esta funcion a tracking-common.drawRouteWithPOIs + tracking-common.routeLocal
     // para reutilizar en la vista de resguardo sin duplicar.
     ensureMap(); if (!map) return; try { overviewLayer?.clearLayers(); } catch (e) {} try { focusLayer?.clearLayers(); } catch (e) {} try { routeLayerFocus?.clearLayers(); } catch (e) {}
     const p = s.lastPing;
@@ -469,6 +469,7 @@ map.on('dragstart', ()=>{ window.__adminFollow=false; });
   }
   setupRealtime();
 });
+
 
 
 

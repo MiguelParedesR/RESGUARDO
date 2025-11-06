@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     lng: coords.lng,
                     direccion,
                     timestamp: new Date().toISOString(),
-                    meta: { origen: 'mapa-resguardo' }
+                    metadata: { origen: 'mapa-resguardo' }
                 });
                 showMsg('Alerta de panico enviada.');
                 try { navigator.vibrate?.([200, 120, 200, 120, 260]); } catch { }
