@@ -76,10 +76,71 @@
       lat: typeof payload.lat === 'number' ? Number(payload.lat.toFixed(6)) : null,
       lng: typeof payload.lng === 'number' ? Number(payload.lng.toFixed(6)) : null,
       direccion: clip(payload.direccion, MAX_STRING),
-      timestamp: payload.timestamp || new Date().toISOString()
+      timestamp: payload.timestamp || new Date().toISOString(),
+      meta: (payload.meta && typeof payload.meta === 'object') ? JSON.parse(JSON.stringify(payload.meta)) : null
     };
-    if (payload.extra) safe.extra = payload.extra;
+    if (payload.extra && typeof payload.extra === 'object') {
+      safe.extra = JSON.parse(JSON.stringify(payload.extra));
+    }
     return safe;
+  }
+
+  function buildMetaFromSanitized(sanitized) {
+    const meta = {};
+    if (sanitized.lat != null) meta.lat = sanitized.lat;
+    if (sanitized.lng != null) meta.lng = sanitized.lng;
+    if (sanitized.direccion) meta.direccion = sanitized.direccion;
+    if (sanitized.meta && typeof sanitized.meta === 'object') Object.assign(meta, sanitized.meta);
+    if (sanitized.extra && typeof sanitized.extra === 'object') {
+      meta.extra = Object.assign({}, sanitized.extra);
+    }
+    return Object.keys(meta).length ? meta : null;
+  }
+
+  function createEventRecord(sanitized) {
+    const meta = buildMetaFromSanitized(sanitized);
+    const record = {
+      type: sanitized.type,
+      servicio_id: sanitized.servicio_id ?? null,
+      empresa: sanitized.empresa ?? null,
+      cliente: sanitized.cliente ?? null,
+      placa: sanitized.placa ?? null,
+      timestamp: sanitized.timestamp || new Date().toISOString()
+    };
+    if (meta) record.meta = meta;
+    return record;
+  }
+
+  function normalizeRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    const next = { ...record };
+    const meta = (next.meta && typeof next.meta === 'object') ? { ...next.meta } : {};
+    if (next.lat != null) { meta.lat = next.lat; delete next.lat; }
+    if (next.lng != null) { meta.lng = next.lng; delete next.lng; }
+    if (next.direccion) { meta.direccion = next.direccion; delete next.direccion; }
+    if (next.extra && typeof next.extra === 'object') {
+      meta.extra = Object.assign({}, next.extra);
+      delete next.extra;
+    }
+    if (Object.keys(meta).length) next.meta = meta;
+    else delete next.meta;
+    if (!next.timestamp) next.timestamp = new Date().toISOString();
+    delete next.rol_source;
+    return next;
+  }
+
+  function expandEventRecord(eventRecord) {
+    if (!eventRecord || typeof eventRecord !== 'object') return eventRecord;
+    const meta = (eventRecord.meta && typeof eventRecord.meta === 'object') ? eventRecord.meta : {};
+    const expanded = { ...eventRecord };
+    if (expanded.lat == null && meta.lat != null) expanded.lat = meta.lat;
+    if (expanded.lng == null && meta.lng != null) expanded.lng = meta.lng;
+    if (!expanded.direccion && meta.direccion) expanded.direccion = meta.direccion;
+    if (expanded.timestamp == null) {
+      expanded.timestamp = expanded.created_at || new Date().toISOString();
+    }
+    expanded.meta = meta && Object.keys(meta).length ? meta : null;
+    return expanded;
   }
 
   function ensureSupabase() {
@@ -109,7 +170,7 @@
   }
 
   function queueOffline(record) {
-    state.queue.push(record);
+    state.queue.push(normalizeRecord(record));
     persistQueue();
     showToast('Evento guardado sin conexion. Se reenviara cuando vuelva la red.');
   }
@@ -120,13 +181,14 @@
     if (!client) return;
     const toSend = [...state.queue];
     const remaining = [];
-    for (const record of toSend) {
+    for (const item of toSend) {
+      const record = normalizeRecord(item);
       try {
         const { error: err } = await client.from('alarm_event').insert(record);
         if (err) throw err;
       } catch (err) {
         warn('No se pudo reenviar registro en cola', err);
-        remaining.push(record);
+        remaining.push(normalizeRecord(item));
       }
     }
     state.queue = remaining;
@@ -230,17 +292,7 @@
 
   async function emit(type, payload) {
     const sanitized = sanitizePayload(type, payload);
-    const record = {
-      type: sanitized.type,
-      servicio_id: sanitized.servicio_id,
-      empresa: sanitized.empresa,
-      cliente: sanitized.cliente,
-      placa: sanitized.placa,
-      lat: sanitized.lat,
-      lng: sanitized.lng,
-      direccion: sanitized.direccion,
-      timestamp: sanitized.timestamp
-    };
+    const record = normalizeRecord(createEventRecord(sanitized));
     const client = ensureSupabase();
     if (!client) {
       warn('Supabase no inicializado: se guarda en cola local');
@@ -251,8 +303,9 @@
     try {
       const { data, error: err } = await client.from('alarm_event').insert(record).select('*').single();
       if (err) throw err;
-      notify({ type: 'emit', status: 'sent', event: data, source: 'local' });
-      handlePostEmit(type, data);
+      const eventData = expandEventRecord(data || {});
+      notify({ type: 'emit', status: 'sent', event: eventData, source: 'local' });
+      handlePostEmit(type, eventData);
       return { data };
     } catch (err) {
       error('No se pudo insertar alarm_event', err);
@@ -263,28 +316,31 @@
   }
 
   function handlePostEmit(type, eventRecord) {
+    const expanded = expandEventRecord(eventRecord);
     if (type === 'panic' || type === 'start') {
-      triggerPush(type, eventRecord).catch((err) => warn('No se pudo enviar push', err));
+      triggerPush(type, expanded).catch((err) => warn('No se pudo enviar push', err));
     }
     if (type === 'checkin_ok' || type === 'checkin_missed') {
-      triggerPush(type, eventRecord, { endpoint: CHECKIN_ENDPOINT }).catch(() => {});
+      triggerPush(type, expanded, { endpoint: CHECKIN_ENDPOINT }).catch(() => {});
     }
   }
 
   async function triggerPush(type, eventRecord, options) {
     const endpoint = options && options.endpoint ? options.endpoint : PUSH_ENDPOINT;
+    const expanded = expandEventRecord(eventRecord);
+    const meta = expanded.meta && typeof expanded.meta === 'object' ? expanded.meta : {};
     const body = {
       type,
       event: {
-        id: eventRecord.id,
-        servicio_id: eventRecord.servicio_id,
-        empresa: eventRecord.empresa,
-        cliente: eventRecord.cliente,
-        placa: eventRecord.placa,
-        lat: eventRecord.lat,
-        lng: eventRecord.lng,
-        direccion: eventRecord.direccion,
-        timestamp: eventRecord.timestamp
+        id: expanded.id,
+        servicio_id: expanded.servicio_id,
+        empresa: expanded.empresa,
+        cliente: expanded.cliente,
+        placa: expanded.placa,
+        lat: expanded.lat ?? meta.lat ?? null,
+        lng: expanded.lng ?? meta.lng ?? null,
+        direccion: expanded.direccion ?? meta.direccion ?? null,
+        timestamp: expanded.timestamp || expanded.created_at || new Date().toISOString()
       }
     };
     const custom = {};
@@ -314,7 +370,7 @@
     try {
       state.admin.channel = client.channel(CHANNEL_NAME)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alarm_event' }, (payload) => {
-          const record = payload.new;
+          const record = expandEventRecord(payload.new);
           handleIncomingEvent(record.type, record, { source: 'realtime' });
           notify({ type: 'realtime', event: record });
         })
