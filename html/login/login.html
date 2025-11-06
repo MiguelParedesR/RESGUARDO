@@ -18,7 +18,8 @@
     <link rel="stylesheet" href="../../css/login/login.css" />
     <link rel="stylesheet" href="../../css/partials/app-header.css" />
     <link rel="manifest" href="/manifest.json" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org;" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.getmdl.io https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://code.getmdl.io; img-src 'self' data: blob: https://*.tile.openstreetmap.org; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://us1.locationiq.com https://code.getmdl.io https://unpkg.com https://*.tile.openstreetmap.org https://router.project-osrm.org;" />
 
     <!-- Supabase (primero) + Config (luego) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -46,17 +47,22 @@
                         <div class="roles-accordion" id="roles-accordion">
                             <!-- ADMINISTRADOR -->
                             <div class="role-item" data-role="ADMIN">
-                                <button class="role-header" id="header-admin" aria-expanded="false" aria-controls="panel-admin">
+                                <button class="role-header" id="header-admin" aria-expanded="false"
+                                    aria-controls="panel-admin">
                                     <i class="material-icons" aria-hidden="true">settings</i>
                                     <span>Administrador</span>
                                 </button>
                                 <div class="role-content" id="panel-admin" role="region" aria-labelledby="header-admin">
                                     <form id="admin-form" class="form-grid" autocomplete="off">
-                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="admin-pass-field">
-                                            <input class="mdl-textfield__input" id="admin-pass" type="password" required />
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label"
+                                            id="admin-pass-field">
+                                            <input class="mdl-textfield__input" id="admin-pass" type="password"
+                                                required />
                                             <label class="mdl-textfield__label" for="admin-pass">Clave</label>
                                         </div>
-                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="admin-login">
+                                        <button type="submit"
+                                            class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login"
+                                            id="admin-login">
                                             <span class="btn-label">INGRESAR</span>
                                             <span class="btn-spinner" aria-hidden="true"></span>
                                         </button>
@@ -66,24 +72,32 @@
 
                             <!-- CUSTODIA -->
                             <div class="role-item" data-role="CUSTODIA">
-                                <button class="role-header" id="header-custodia" aria-expanded="false" aria-controls="panel-custodia">
+                                <button class="role-header" id="header-custodia" aria-expanded="false"
+                                    aria-controls="panel-custodia">
                                     <i class="material-icons" aria-hidden="true">handyman</i>
                                     <span>Custodia</span>
                                 </button>
-                                <div class="role-content" id="panel-custodia" role="region" aria-labelledby="header-custodia">
+                                <div class="role-content" id="panel-custodia" role="region"
+                                    aria-labelledby="header-custodia">
                                     <form id="custodia-form" class="form-grid" autocomplete="off">
-                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
+                                        <div
+                                            class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
                                             <select class="mdl-textfield__input" id="empresa" required>
                                                 <option value="ALVICEM">ALVICEM</option>
                                                 <option value="KARPAR">KARPAR</option>
                                             </select>
                                             <label class="mdl-textfield__label" for="empresa">Empresa</label>
                                         </div>
-                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="custodia-pass-field">
-                                            <input class="mdl-textfield__input" id="custodia-pass" type="password" placeholder="DDMMEMP" required />
-                                            <label class="mdl-textfield__label" for="custodia-pass">Clave dinÃ¡mica</label>
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label"
+                                            id="custodia-pass-field">
+                                            <input class="mdl-textfield__input" id="custodia-pass" type="password"
+                                                placeholder="DDMMEMP" required />
+                                            <label class="mdl-textfield__label" for="custodia-pass">Clave
+                                                dinÃ¡mica</label>
                                         </div>
-                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="custodia-login">
+                                        <button type="submit"
+                                            class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login"
+                                            id="custodia-login">
                                             <span class="btn-label">INGRESAR</span>
                                             <span class="btn-spinner" aria-hidden="true"></span>
                                         </button>
@@ -93,17 +107,23 @@
 
                             <!-- CONSULTA -->
                             <div class="role-item" data-role="CONSULTA">
-                                <button class="role-header" id="header-consulta" aria-expanded="false" aria-controls="panel-consulta">
+                                <button class="role-header" id="header-consulta" aria-expanded="false"
+                                    aria-controls="panel-consulta">
                                     <i class="material-icons" aria-hidden="true">search</i>
                                     <span>Consulta</span>
                                 </button>
-                                <div class="role-content" id="panel-consulta" role="region" aria-labelledby="header-consulta">
+                                <div class="role-content" id="panel-consulta" role="region"
+                                    aria-labelledby="header-consulta">
                                     <form id="consulta-form" class="form-grid" autocomplete="off">
-                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="consulta-pass-field">
-                                            <input class="mdl-textfield__input" id="consulta-pass" type="password" required />
+                                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label"
+                                            id="consulta-pass-field">
+                                            <input class="mdl-textfield__input" id="consulta-pass" type="password"
+                                                required />
                                             <label class="mdl-textfield__label" for="consulta-pass">Clave</label>
                                         </div>
-                                        <button type="submit" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login" id="consulta-login">
+                                        <button type="submit"
+                                            class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--accent btn-login"
+                                            id="consulta-login">
                                             <span class="btn-label">INGRESAR</span>
                                             <span class="btn-spinner" aria-hidden="true"></span>
                                         </button>
@@ -116,7 +136,8 @@
             </section>
 
             <!-- Snackbar mensajes (MDL) -->
-            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true" aria-relevant="text">
+            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
+                aria-relevant="text">
                 <div class="mdl-snackbar__text"></div>
                 <button class="mdl-snackbar__action" type="button"></button>
             </div>
@@ -125,6 +146,3 @@
 </body>
 
 </html>
-
-
-
