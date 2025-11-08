@@ -471,6 +471,17 @@
         status: res.status,
         body: responseBody,
       });
+      if (
+        res.ok &&
+        responseBody &&
+        typeof responseBody.sent === "number" &&
+        responseBody.sent === 0
+      ) {
+        console.warn("[alertas] broadcast sin destinatarios", {
+          audience,
+          payloadKeys: Object.keys((payload && payload.data) || {}),
+        });
+      }
       if (!res.ok) throw new Error(`Push ${endpoint} -> ${res.status}`);
     } catch (err) {
       warn("Fetch push fallo", err);

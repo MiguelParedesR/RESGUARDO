@@ -81,7 +81,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedId = null;
   let overviewLayer = null,
     focusLayer = null,
-    routeLayerFocus = null;
+    routeLayerFocus = null,
+    panicLayer = null;
+  let panicMarker = null;
+  let servicesCache = [];
+  let lastPanicRecord = null;
+  let panicBannerEl = null;
+  let alarmaUnsubscribe = null;
 
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
@@ -409,6 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
     overviewLayer = L.layerGroup().addTo(map);
     focusLayer = L.layerGroup().addTo(map);
     routeLayerFocus = L.layerGroup().addTo(map);
+    panicLayer = L.layerGroup().addTo(map);
     map.on("dragstart", () => {
       window.__adminFollow = false;
     });
@@ -571,6 +578,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ...s,
         lastPing: normPing(s.lastPing),
       }));
+      servicesCache = enrichedNorm;
       renderList(enrichedNorm);
       updateMarkers(enrichedNorm.filter((x) => x.estado === "ACTIVO"));
       // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
@@ -890,6 +898,179 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // --- Integracion de alertas de panico (Alarma) ---
+  function initAlarmaIntegration() {
+    if (!hasAlarma || typeof window.Alarma?.initAdmin !== "function") return;
+    try {
+      window.Alarma.initAdmin();
+      alarmaUnsubscribe = window.Alarma.subscribe(handleAlarmaEvent);
+    } catch (err) {
+      console.warn("[admin][alarma] init error", err);
+    }
+  }
+
+  function handleAlarmaEvent(evt) {
+    if (!evt) return;
+    if (evt.type === "panic") {
+      lastPanicRecord = evt.record || evt.payload || evt;
+      console.log("[admin][push] recibido panic", {
+        servicio_id: lastPanicRecord?.servicio_id,
+        cliente: lastPanicRecord?.cliente,
+        placa: lastPanicRecord?.placa,
+      });
+      showPanicBanner(lastPanicRecord);
+      focusPanicOnMap(lastPanicRecord, { forceReload: true });
+      try {
+        window.Alarma.modalPanic?.(lastPanicRecord);
+      } catch (err) {
+        console.warn("[admin][alarma] modal panic", err);
+      }
+      try {
+        navigator.vibrate?.([240, 120, 240, 140, 320]);
+      } catch (_) {}
+    } else if (evt.type === "panic-focus" && lastPanicRecord) {
+      focusPanicOnMap(lastPanicRecord, { forceReload: false });
+    } else if (evt.type === "panic-ack") {
+      dismissPanicAlert();
+    }
+  }
+
+  function formatPanicLocation(record) {
+    if (record?.direccion) return record.direccion;
+    if (record?.lat != null && record?.lng != null) {
+      return `${record.lat.toFixed(4)}, ${record.lng.toFixed(4)}`;
+    }
+    if (record?.metadata?.lat && record?.metadata?.lng) {
+      const { lat, lng } = record.metadata;
+      return `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+    }
+    return "Sin ubicacion";
+  }
+
+  function ensurePanicBanner() {
+    if (panicBannerEl) return panicBannerEl;
+    const el = document.createElement("section");
+    el.className = "panic-banner";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "assertive");
+    el.innerHTML = `
+      <div class="panic-banner__head">
+        <div>
+          <div class="panic-banner__eyebrow">ALERTA DE PANICO</div>
+          <div class="panic-banner__title js-panic-title">-</div>
+          <div class="panic-banner__meta js-panic-meta"></div>
+        </div>
+        <button type="button" class="panic-banner__close js-panic-close" aria-label="Cerrar alerta">&times;</button>
+      </div>
+      <div class="panic-banner__body">
+        <div><strong>Cliente:</strong> <span class="js-panic-cliente">-</span></div>
+        <div><strong>Placa:</strong> <span class="js-panic-placa">-</span></div>
+        <div><strong>Empresa:</strong> <span class="js-panic-empresa">-</span></div>
+        <div><strong>Ubicacion:</strong> <span class="js-panic-location">-</span></div>
+      </div>
+      <div class="panic-banner__actions">
+        <button type="button" class="btn btn-ghost js-panic-focus">Fijar en mapa</button>
+        <button type="button" class="btn btn-accent js-panic-silence">Silenciar</button>
+      </div>
+    `;
+    el.querySelector(".js-panic-focus")?.addEventListener("click", () => {
+      if (lastPanicRecord) focusPanicOnMap(lastPanicRecord, { forceReload: false });
+    });
+    el.querySelector(".js-panic-silence")?.addEventListener("click", () => {
+      try {
+        window.Alarma?.sirenaOff?.();
+      } catch (_) {}
+      hidePanicBanner();
+    });
+    el.querySelector(".js-panic-close")?.addEventListener("click", () => {
+      hidePanicBanner();
+    });
+    document.body.appendChild(el);
+    panicBannerEl = el;
+    return el;
+  }
+
+  function showPanicBanner(record) {
+    const el = ensurePanicBanner();
+    el.querySelector(".js-panic-title").textContent =
+      record?.cliente ? `ALERTA - ${record.cliente}` : "ALERTA DE PANICO";
+    el.querySelector(".js-panic-meta").textContent = fmtDT(
+      record?.timestamp || new Date().toISOString()
+    );
+    el.querySelector(".js-panic-cliente").textContent = record?.cliente || "-";
+    el.querySelector(".js-panic-placa").textContent = record?.placa || "-";
+    el.querySelector(".js-panic-empresa").textContent =
+      record?.empresa || "GENERAL";
+    el.querySelector(".js-panic-location").textContent =
+      formatPanicLocation(record);
+    el.classList.add("is-visible");
+    document.body.classList.add("panic-banner-visible");
+  }
+
+  function hidePanicBanner() {
+    if (!panicBannerEl) return;
+    panicBannerEl.classList.remove("is-visible");
+    document.body.classList.remove("panic-banner-visible");
+  }
+
+  function dismissPanicAlert() {
+    hidePanicBanner();
+    clearPanicMarker();
+    lastPanicRecord = null;
+    try {
+      window.Alarma?.closeModal?.();
+    } catch (_) {}
+  }
+
+  function focusPanicOnMap(record, options = {}) {
+    if (!record) return;
+    ensureMap();
+    const layer = ensurePanicLayer();
+    layer?.clearLayers();
+    if (record.lat != null && record.lng != null && map) {
+      panicMarker = L.circleMarker([record.lat, record.lng], {
+        radius: 16,
+        color: "#ff1744",
+        fillColor: "#ff5252",
+        fillOpacity: 0.75,
+        weight: 3,
+        className: "panic-marker",
+      }).addTo(layer);
+      map.setView([record.lat, record.lng], 15, { animate: true });
+    }
+    if (record.servicio_id) {
+      const svc = servicesCache.find((s) => s.id === record.servicio_id);
+      if (svc) {
+        selectService(svc);
+      } else if (options.forceReload) {
+        loadServices()
+          .then(() => {
+            const refreshed = servicesCache.find(
+              (s) => s.id === record.servicio_id
+            );
+            if (refreshed) selectService(refreshed);
+          })
+          .catch(() => {});
+      }
+    }
+    try {
+      mapPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (_) {}
+  }
+
+  function ensurePanicLayer() {
+    ensureMap();
+    if (!panicLayer && map) {
+      panicLayer = L.layerGroup().addTo(map);
+    }
+    return panicLayer;
+  }
+
+  function clearPanicMarker() {
+    if (panicLayer) panicLayer.clearLayers();
+    panicMarker = null;
+  }
+
   // Realtime: subscribe to servicio INSERT/UPDATE and ubicacion INSERT, with debounce
   function debounce(fn, ms) {
     let t = 0;
@@ -941,8 +1122,12 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         if (rtUbicacion) window.sb.removeChannel(rtUbicacion);
       } catch (e) {}
+      try {
+        alarmaUnsubscribe?.();
+      } catch (e) {}
     });
     loadServices();
   }
   setupRealtime();
+  initAlarmaIntegration();
 });
