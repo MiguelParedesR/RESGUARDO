@@ -494,7 +494,7 @@
         servicio_id: eventPayload.servicio_id || null,
       };
     }
-    return { roles: ["ADMIN"] };
+    return { roles: ["ADMIN"], empresa: null };
   }
 
   function buildClientNotificationPayload(pushType, eventPayload) {
