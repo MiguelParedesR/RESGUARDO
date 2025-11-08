@@ -152,10 +152,20 @@ export async function handler(event) {
     options: options && typeof options === "object" ? options : undefined,
   };
 
-  const response = await sendHandler({
-    httpMethod: "POST",
-    body: JSON.stringify(sendRequest),
-  });
+  let response;
+  try {
+    response = await sendHandler({
+      httpMethod: "POST",
+      body: JSON.stringify(sendRequest),
+    });
+  } catch (err) {
+    console.error("[push-broadcast] sendHandler failure", err);
+    return json(502, {
+      ok: false,
+      error: "push-send internal failure",
+      details: err?.message || String(err),
+    });
+  }
 
   let resultBody = {};
   try {

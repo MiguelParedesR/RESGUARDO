@@ -940,15 +940,23 @@
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapid),
       });
+      const json = sub.toJSON();
+      const keys = json?.keys || {};
+      if (!keys.p256dh || !keys.auth) {
+        throw new Error("La suscripcion push no incluye claves validas");
+      }
       const payload = {
         endpoint: sub.endpoint,
-        keys: sub.toJSON().keys,
-        role: role || state.mode,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        role: (role || state.mode || "CUSTODIA").toUpperCase(),
         empresa: empresa || null,
-        metadata: metadata || null,
+        user_label: metadata ? clip(JSON.stringify(metadata), 180) : null,
         user_agent: global.navigator.userAgent,
         platform: global.navigator.platform,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        is_active: true,
+        last_seen_at: new Date().toISOString(),
       };
       const client = ensureSupabase();
       if (!client)

@@ -50,19 +50,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return audioCtx;
   }
-  function unlockAudio() {
+  async function unlockAudio() {
     const ctx = ensureAudioCtx();
     if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+    const finalize = () => {
+      if (ctx.state === "running") {
+        audioUnlocked = true;
+        window.removeEventListener("pointerdown", unlockAudioListener);
+        window.removeEventListener("keydown", unlockAudioListener);
+      }
+    };
+    try {
+      if (ctx.state === "suspended" && ctx.resume) {
+        await ctx.resume();
+      }
+    } catch (_) {
+      // browser still blocking; keep listeners active
     }
-    audioUnlocked = true;
+    finalize();
   }
-  const unlockOnce = () => {
+  const unlockAudioListener = () => {
     unlockAudio();
   };
-  window.addEventListener("pointerdown", unlockOnce, { once: true });
-  window.addEventListener("keydown", unlockOnce, { once: true });
+  window.addEventListener("pointerdown", unlockAudioListener);
+  window.addEventListener("keydown", unlockAudioListener);
 
   // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
   let map;
@@ -111,6 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
       btnFiltrosMobile?.setAttribute("aria-expanded", "false");
     } catch (e) {}
     loadServices();
+  });
+  btnAlarmaPush?.addEventListener("click", () => {
+    unlockAudio();
   });
 
   function openFiltersDrawer() {
