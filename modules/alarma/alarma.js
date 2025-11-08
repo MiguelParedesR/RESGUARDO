@@ -488,9 +488,13 @@
 
   function resolvePushAudience(pushType, eventPayload) {
     if (pushType === "checkin") {
-      return { roles: ["CUSTODIA"], empresa: eventPayload.empresa };
+      return {
+        roles: ["CUSTODIA"],
+        empresa: eventPayload.empresa || null,
+        servicio_id: eventPayload.servicio_id || null,
+      };
     }
-    return { roles: ["ADMIN"], empresa: eventPayload.empresa };
+    return { roles: ["ADMIN"] };
   }
 
   function buildClientNotificationPayload(pushType, eventPayload) {

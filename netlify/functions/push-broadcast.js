@@ -30,7 +30,8 @@ function normaliseAudience(audience, fallbackEmpresa) {
   let roles = Array.isArray(rolesRaw) ? rolesRaw : rolesRaw ? [rolesRaw] : [];
   roles = roles.filter(Boolean).map((r) => String(r).toUpperCase());
   if (!roles.length) roles = ["ADMIN"];
-  const empresa = raw.empresa || fallbackEmpresa || null;
+  const hasEmpresa = Object.prototype.hasOwnProperty.call(raw, "empresa");
+  const empresa = hasEmpresa ? raw.empresa ?? null : fallbackEmpresa || null;
   return { roles, empresa };
 }
 
