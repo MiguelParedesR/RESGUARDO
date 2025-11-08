@@ -207,17 +207,16 @@
   async function loadServiciosForCliente(clienteId) {
     if (!clienteId) return;
     state.isLoading = true;
-    togglePlaceholder(true, "Cargando servicios...");
+    render();
     try {
       await cargarServicios(clienteId);
-      render();
     } catch (err) {
       console.error("[custodia-registros] servicios cliente", err);
       showMessage("No se pudo cargar los servicios del cliente seleccionado.");
       state.servicios = [];
-      render();
     } finally {
       state.isLoading = false;
+      render();
     }
   }
 

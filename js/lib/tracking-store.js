@@ -1,5 +1,5 @@
 ﻿// tracking-store.js
-// Sugerencia: capa de suscripciÃ³n a datos (Supabase realtime + fallback polling)
+// Sugerencia: capa de suscripción a datos (Supabase realtime + fallback polling)
 // para que dashboard-admin (autoridad) y la vista de resguardo compartan el mismo flujo.
 
 (function () {

@@ -452,6 +452,25 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      let responseText = "";
+      try {
+        responseText = await res.text();
+      } catch (_) {
+        responseText = "";
+      }
+      let responseBody = null;
+      if (responseText) {
+        try {
+          responseBody = JSON.parse(responseText);
+        } catch (_) {
+          responseBody = responseText;
+        }
+      }
+      console.log("[alertas] broadcast respuesta", {
+        endpoint,
+        status: res.status,
+        body: responseBody,
+      });
       if (!res.ok) throw new Error(`Push ${endpoint} -> ${res.status}`);
     } catch (err) {
       warn("Fetch push fallo", err);
@@ -923,6 +942,53 @@
     }, TOAST_TIMEOUT);
   }
 
+  function normalisePushRole(rawRole) {
+    const fallback = state.mode || "CUSTODIA";
+    const value = String(rawRole || fallback || "CUSTODIA")
+      .trim()
+      .toUpperCase();
+    return value === "ADMIN" || value === "CONSULTA" || value === "CUSTODIA"
+      ? value
+      : "CUSTODIA";
+  }
+
+  function buildPushSubscriptionPayload(options) {
+    const params = options || {};
+    const endpoint = String(params.endpoint || "").trim();
+    const keys = params.keys || {};
+    if (!endpoint) throw new Error("Endpoint de push faltante");
+    if (!keys.p256dh || !keys.auth)
+      throw new Error("La suscripcion push no incluye claves validas");
+
+    const empresaValue =
+      params.empresa && String(params.empresa).trim().length
+        ? params.empresa
+        : null;
+    let label = null;
+    if (typeof params.userLabel === "string" && params.userLabel.length) {
+      label = clip(params.userLabel, 180);
+    } else if (params.userLabel != null) {
+      label = clip(String(params.userLabel), 180);
+    }
+    const userAgentSource =
+      params.userAgent || global.navigator?.userAgent || null;
+
+    return {
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+      role: normalisePushRole(params.role),
+      empresa: empresaValue,
+      user_label: label,
+      user_agent: userAgentSource
+        ? clip(String(userAgentSource), 360)
+        : null,
+      is_active: true,
+      servicio_id: params.servicioId ?? null,
+      last_seen_at: new Date().toISOString(),
+    };
+  }
+
   function registerPush(role, empresa, metadata) {
     return (async () => {
       if (!("Notification" in global))
@@ -945,32 +1011,76 @@
       if (!keys.p256dh || !keys.auth) {
         throw new Error("La suscripcion push no incluye claves validas");
       }
-      const payload = {
+      let userLabel = null;
+      if (metadata != null) {
+        try {
+          if (typeof metadata === "string") userLabel = metadata;
+          else userLabel = JSON.stringify(metadata);
+        } catch (_) {
+          userLabel = String(metadata);
+        }
+      }
+      const servicioId =
+        metadata && typeof metadata === "object" ? metadata.servicio_id : null;
+      const payload = buildPushSubscriptionPayload({
+        role,
+        empresa,
         endpoint: sub.endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        role: (role || state.mode || "CUSTODIA").toUpperCase(),
-        empresa: empresa || null,
-        user_label: metadata ? clip(JSON.stringify(metadata), 180) : null,
-        user_agent: global.navigator.userAgent,
-        platform: global.navigator.platform,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        is_active: true,
-        last_seen_at: new Date().toISOString(),
-      };
+        keys,
+        userAgent: global.navigator?.userAgent || null,
+        servicioId: servicioId ?? null,
+        userLabel,
+      });
       const client = ensureSupabase();
       if (!client)
         throw new Error("Supabase no disponible para guardar suscripcion");
-      const { error: err } = await client
-        .from("push_subscription")
-        .upsert(payload, { onConflict: "endpoint" });
-      if (err) throw err;
+      let upsertData = null;
+      let upsertError = null;
+      try {
+        const { data, error } = await client
+          .from("push_subscription")
+          .upsert(payload, { onConflict: "endpoint" })
+          .select()
+          .single();
+        upsertData = data;
+        upsertError = error;
+      } catch (err) {
+        upsertError = err;
+      }
+      if (upsertError) {
+        console.error("[alertas] No se pudo registrar push", upsertError);
+        console.error("[alertas] Payload keys", Object.keys(payload || {}));
+        showToast(
+          "[alertas] No se pudo registrar notificaciones. Revisa consola."
+        );
+        throw upsertError;
+      }
+      try {
+        const { data: verifyRows, error: verifyErr } = await client
+          .from("push_subscription")
+          .select("id,is_active,last_seen_at")
+          .eq("endpoint", payload.endpoint);
+        if (verifyErr) {
+          warn("[alertas] Conteo de suscriptores fallo", verifyErr);
+        } else {
+          const activeCount = (verifyRows || []).filter(
+            (row) => row?.is_active !== false
+          ).length;
+          console.log("[alertas] push registrado OK", {
+            endpoint: clip(payload.endpoint, 200),
+            activos: activeCount,
+            registros: verifyRows?.length || 0,
+          });
+        }
+      } catch (verifyErr) {
+        warn("[alertas] No se pudo verificar el registro push", verifyErr);
+      }
       try {
         global.localStorage.setItem(STORAGE_PUSH, JSON.stringify(payload));
       } catch (_) {}
       notify({ type: "push-registered", payload });
       showToast("Notificaciones push activadas correctamente.");
-      return payload;
+      return upsertData || payload;
     })();
   }
 
