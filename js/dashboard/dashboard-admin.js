@@ -570,19 +570,54 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 160);
     } catch (err) {}
   }
+  // === BEGIN HU:HU-ROUTER-LOCAL-FALLBACK fetch-route (NO TOCAR FUERA) ===
   async function fetchRoute(from, to) {
+    console.log("[task][HU-ROUTER-LOCAL-FALLBACK] start");
+    console.assert(
+      Array.isArray(from) && Array.isArray(to),
+      "[task][HU-ROUTER-LOCAL-FALLBACK] coordenadas inválidas"
+    );
     try {
-      // sugerencia: mover a tracking-common.routeLocal y eliminar duplicado
-      if (window.trackingCommon?.routeLocal)
-        return await window.trackingCommon.routeLocal(from, to);
-      if (window.routerLocal?.route)
-        return await window.routerLocal.route(from, to);
+      let raw = null;
+      if (window.trackingCommon?.routeLocal) {
+        raw = await window.trackingCommon.routeLocal(from, to);
+      } else if (window.routerLocal?.route) {
+        raw = await window.routerLocal.route(from, to);
+      }
+      if (!raw) {
+        console.warn("[router] NoRoute raw vacío");
+        console.log("[task][HU-ROUTER-LOCAL-FALLBACK] hotfix:empty");
+        return null;
+      }
+      if (raw.code === "NoRoute") {
+        console.warn("[router] NoRoute", raw.reason || "sin motivo");
+        console.log("[task][HU-ROUTER-LOCAL-FALLBACK] hotfix:NoRoute");
+        return null;
+      }
+      const latLngs = normalizeRouteResult(raw);
+      if (latLngs && latLngs.length) {
+        console.log("[router] using ruta OK", raw?.code || "Ok");
+        console.log("[task][HU-ROUTER-LOCAL-FALLBACK] done");
+        return latLngs;
+      }
+      console.warn("[router] NoRoute sin coords");
+      console.log("[task][HU-ROUTER-LOCAL-FALLBACK] hotfix:nocoords");
       return null;
     } catch (e) {
       console.warn("[admin] local route error", e);
+      console.log("[task][HU-ROUTER-LOCAL-FALLBACK] hotfix:error");
       return null;
     }
   }
+
+  function normalizeRouteResult(result) {
+    if (!result) return null;
+    if (Array.isArray(result)) return result;
+    const coords = result?.routes?.[0]?.geometry?.coordinates;
+    if (!Array.isArray(coords) || !coords.length) return null;
+    return coords.map(([lon, lat]) => [lat, lon]);
+  }
+  // === END HU:HU-ROUTER-LOCAL-FALLBACK ===
 
   // Datos
   // === BEGIN HU:HU-MARCADORES-CUSTODIA load services (no tocar fuera) ===

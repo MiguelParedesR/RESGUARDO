@@ -1,76 +1,183 @@
-// router-local.js — Adaptador de ruteo local (OSRM/GraphHopper)
-// Objetivo: ejecutar ruteo 100% local contra instancias en 127.0.0.1
-// Soporta:
-//  - OSRM:  http://127.0.0.1:5000/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson
-//  - GraphHopper: http://127.0.0.1:8989/route?point=lat,lon&point=lat,lon&profile=car&points_encoded=false
+// router-local.js — Adaptador OSRM/GraphHopper con fallback automático
+// Archivo recreado por HU-NO-REVERSIONES para corregir errores de ruteo local
 
 (function () {
-  const defaultOSRM = "https://router.project-osrm.org";
-  const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+  const OSRM_LOCAL = "http://127.0.0.1:5000";
+  const OSRM_REMOTE = "https://router.project-osrm.org";
+  const OSRM_STORAGE_KEY = "router.osrmBase";
+  const OSRM_LOCAL_DOWN = "router.osrmLocalDown";
+  const LOCAL_FAIL_THRESHOLD = 3;
+
   const cfg = {
     provider: "osrm",
-    osrmBase: isLocalHost ? "http://127.0.0.1:5000" : defaultOSRM,
+    osrmBase: OSRM_LOCAL,
     ghBase: "http://127.0.0.1:8989",
   };
-  try {
-    const ls = localStorage.getItem("router.osrmBase");
-    if (ls) cfg.osrmBase = ls;
-    if (window.ROUTER_OSRM_BASE) cfg.osrmBase = String(window.ROUTER_OSRM_BASE);
-  } catch {}
-  // Si estamos en un host no local pero la base apunta a 127/localhost (por override previo),
-  // evitamos intentar esa URL para no generar ERR_CONNECTION_REFUSED visibles en consola.
-  try {
-    const isLocalBase =
-      /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(
-        cfg.osrmBase
-      );
-    if (!isLocalHost && isLocalBase) {
-      cfg.osrmBase = defaultOSRM;
+  let localFailStreak = 0;
+
+  // === BEGIN HU:HU-ROUTER-LOCAL-FALLBACK bootstrap (NO TOCAR FUERA) ===
+  console.log("[task][HU-ROUTER-LOCAL-FALLBACK] start");
+  console.assert(
+    typeof AbortController === "function",
+    "[task][HU-ROUTER-LOCAL-FALLBACK] AbortController no disponible"
+  );
+
+  (function resolveInitialBase() {
+    try {
+      if (window.ROUTER_OSRM_BASE) {
+        cfg.osrmBase = String(window.ROUTER_OSRM_BASE);
+        return;
+      }
+    } catch {}
+    try {
+      const stored = localStorage.getItem(OSRM_STORAGE_KEY);
+      if (stored) {
+        cfg.osrmBase = stored;
+        return;
+      }
+    } catch {}
+    const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+    if (!isLocalHost && /127\.0\.0\.1/.test(cfg.osrmBase)) {
+      cfg.osrmBase = OSRM_REMOTE;
     }
-  } catch {}
+  })();
+  // === END HU:HU-ROUTER-LOCAL-FALLBACK ===
+
+  function rememberOSRMBase(url) {
+    try {
+      localStorage.setItem(OSRM_STORAGE_KEY, url);
+    } catch {}
+    cfg.osrmBase = url;
+  }
+
+  function shouldSkipLocal() {
+    try {
+      return sessionStorage.getItem(OSRM_LOCAL_DOWN) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function markLocalDown(reason) {
+    localFailStreak += 1;
+    console.warn("[router] local failed → fallback remote", reason);
+    if (localFailStreak >= LOCAL_FAIL_THRESHOLD) {
+      try {
+        sessionStorage.setItem(OSRM_LOCAL_DOWN, "1");
+      } catch {}
+    }
+  }
+
+  function markLocalHealthy() {
+    localFailStreak = 0;
+    try {
+      sessionStorage.removeItem(OSRM_LOCAL_DOWN);
+    } catch {}
+  }
+
+  function buildNoRoute(reason) {
+    const arr = [];
+    arr.code = "NoRoute";
+    arr.routes = [];
+    arr.waypoints = [];
+    arr.reason = reason || null;
+    console.warn("[router] NoRoute", reason);
+    return arr;
+  }
+
+  function normalizeOSRMLatLngs(json) {
+    const coords = json?.routes?.[0]?.geometry?.coordinates;
+    if (!Array.isArray(coords) || !coords.length) {
+      return buildNoRoute("empty-route");
+    }
+    const line = coords.map(([lon, lat]) => [lat, lon]);
+    line.code = json?.code || "Ok";
+    line.routes = json?.routes || [];
+    line.waypoints = json?.waypoints || [];
+    return line;
+  }
+
+  function normalizeGraphHopper(json) {
+    const coords = json?.paths?.[0]?.points?.coordinates;
+    if (!Array.isArray(coords) || !coords.length) {
+      return buildNoRoute("gh-empty");
+    }
+    const line = coords.map(([lon, lat]) => [lat, lon]);
+    line.code = "Ok";
+    line.routes = json?.paths || [];
+    line.waypoints = [];
+    return line;
+  }
+
+  async function fetchWithTimeout(url, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      throw err;
+    }
+  }
 
   async function routeOSRM(from, to) {
-    const build = (base) =>
-      `${base}/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-    let url = build(cfg.osrmBase);
-    try {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error("OSRM " + r.status);
-      const j = await r.json();
-      const coords = j?.routes?.[0]?.geometry?.coordinates || [];
-      return coords.map(([lon, lat]) => [lat, lon]);
-    } catch (e) {
-      // Fallback to public OSRM if local blocked by CSP o falla
-      if (/localhost|127\.0\.0\.1/.test(cfg.osrmBase)) {
-        const r2 = await fetch(build(defaultOSRM));
-        if (!r2.ok) throw e;
-        const j2 = await r2.json();
-        const coords2 = j2?.routes?.[0]?.geometry?.coordinates || [];
-        // Persistimos el fallback para próximas llamadas (silenciar errores futuros)
-        try {
-          cfg.osrmBase = defaultOSRM;
-          if (localStorage.getItem("router.osrmBase"))
-            localStorage.removeItem("router.osrmBase");
-        } catch {}
-        return coords2.map(([lon, lat]) => [lat, lon]);
+    if (!Array.isArray(from) || !Array.isArray(to)) {
+      return buildNoRoute("coords-invalid");
+    }
+    const coordsSegment = `${from[1]},${from[0]};${to[1]},${to[0]}`;
+    const path = `/route/v1/driving/${coordsSegment}?overview=full&geometries=geojson`;
+    const skipLocal = shouldSkipLocal();
+    if (!skipLocal) {
+      try {
+        const base = cfg.osrmBase || OSRM_LOCAL;
+        const res = await fetchWithTimeout(`${base}${path}`, 1200);
+        if (!res.ok) throw new Error(`local status ${res.status}`);
+        const json = await res.json();
+        markLocalHealthy();
+        console.log("[router] local OK", base);
+        return normalizeOSRMLatLngs(json);
+      } catch (err) {
+        markLocalDown(err?.message || err);
       }
-      throw e;
+    } else {
+      console.log("[router] local saltado (flag)");
+    }
+
+    try {
+      const res = await fetchWithTimeout(`${OSRM_REMOTE}${path}`, 2500);
+      if (!res.ok) throw new Error(`remote status ${res.status}`);
+      const json = await res.json();
+      console.log("[router] remote OK", OSRM_REMOTE);
+      return normalizeOSRMLatLngs(json);
+    } catch (err) {
+      console.error("[router] remote failed", err);
+      return buildNoRoute(err?.message || "remote-error");
     }
   }
 
   async function routeGraphHopper(from, to) {
+    if (!Array.isArray(from) || !Array.isArray(to)) {
+      return buildNoRoute("coords-invalid");
+    }
     const url = `${cfg.ghBase}/route?point=${from[0]},${from[1]}&point=${to[0]},${to[1]}&profile=car&points_encoded=false`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("GraphHopper " + r.status);
-    const j = await r.json();
-    const coords = j?.paths?.[0]?.points?.coordinates || [];
-    return coords.map(([lon, lat]) => [lat, lon]);
+    try {
+      const res = await fetchWithTimeout(url, 2500);
+      if (!res.ok) throw new Error(`GraphHopper ${res.status}`);
+      const json = await res.json();
+      console.log("[router] graphhopper OK", cfg.ghBase);
+      return normalizeGraphHopper(json);
+    } catch (err) {
+      console.error("[router] graphhopper failed", err);
+      return buildNoRoute(err?.message || "graphhopper-error");
+    }
   }
 
   async function route(fromLatLng, toLatLng) {
-    if (!Array.isArray(fromLatLng) || !Array.isArray(toLatLng)) return null;
-    if (cfg.provider === "graphhopper")
+    if (cfg.provider === "graphhopper") {
       return routeGraphHopper(fromLatLng, toLatLng);
+    }
     return routeOSRM(fromLatLng, toLatLng);
   }
 
@@ -78,10 +185,12 @@
     if (p === "osrm" || p === "graphhopper") cfg.provider = p;
   }
   function setOSRMBase(u) {
-    cfg.osrmBase = String(u);
+    if (typeof u !== "string" || !u.trim()) return;
+    rememberOSRMBase(u);
   }
   function setGraphHopperBase(u) {
-    cfg.ghBase = String(u);
+    if (typeof u !== "string" || !u.trim()) return;
+    cfg.ghBase = u;
   }
 
   window.routerLocal = {
@@ -91,4 +200,5 @@
     setGraphHopperBase,
     cfg,
   };
+  console.log("[task][HU-ROUTER-LOCAL-FALLBACK] done");
 })();
