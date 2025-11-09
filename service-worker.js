@@ -1,6 +1,6 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.1.27";
+const VERSION = "v1.1.28";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
