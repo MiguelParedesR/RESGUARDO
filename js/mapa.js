@@ -44,6 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const estadoTextoEl = document.getElementById("estado-texto");
   const destinoTextoEl = document.getElementById("destino-texto");
   const panicBtn = document.getElementById("alarma-panic-btn");
+  const btnAudioOptin = document.getElementById("btn-audio-optin");
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
@@ -59,6 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
+  let alertsEnabled = false;
 
   const SEND_EVERY_MS = 30_000;
   const ARRIVE_M = 50;
@@ -77,6 +79,92 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(message);
     }
   };
+
+  setupAlarma();
+
+  function setupAlarma() {
+    if (!hasAlarma) {
+      if (btnAudioOptin) {
+        btnAudioOptin.disabled = true;
+        btnAudioOptin.textContent = "Sonido no disponible";
+      }
+      return;
+    }
+    try {
+      window.Alarma.initCustodia();
+    } catch (err) {
+      console.warn("[mapa][alarma] init error", err);
+    }
+    if (hasPushKey && typeof window.Alarma?.registerPush === "function") {
+      window.Alarma
+        .registerPush("custodia", empresaActual || null, {
+          origen: "mapa-resguardo",
+          servicio_id: servicioId,
+          servicio_custodio_id: servicioCustodioId,
+        })
+        .catch((err) => console.warn("[mapa][alarma] registerPush", err));
+    }
+    setupAudioButton();
+  }
+
+  function setupAudioButton() {
+    if (!btnAudioOptin) return;
+    if (!window.Alarma?.enableAlerts) {
+      btnAudioOptin.disabled = true;
+      btnAudioOptin.textContent = "Sonido no disponible";
+      return;
+    }
+    const perms = getAlarmaPermissions();
+    alertsEnabled = Boolean(perms.sound);
+    if (alertsEnabled) {
+      setAudioButtonActive();
+    }
+    btnAudioOptin.addEventListener("click", async () => {
+      if (alertsEnabled) {
+        showMsg("El sonido ya esta habilitado.");
+        return;
+      }
+      btnAudioOptin.disabled = true;
+      try {
+        const granted = await window.Alarma.enableAlerts({
+          sound: true,
+          haptics: true,
+        });
+        if (granted?.sound) {
+          setAudioButtonActive();
+          alertsEnabled = true;
+          showMsg("Alertas sonoras activadas.");
+          console.log("[audio] sonido habilitado");
+        } else {
+          btnAudioOptin.disabled = false;
+          showMsg("Activa sonido desde el navegador para continuar.");
+        }
+      } catch (err) {
+        console.warn("[audio] enable error", err);
+        btnAudioOptin.disabled = false;
+        showMsg("No se pudo habilitar el sonido.");
+      }
+    });
+  }
+
+  function setAudioButtonActive() {
+    if (!btnAudioOptin) return;
+    btnAudioOptin.textContent = "Sonido activo";
+    btnAudioOptin.classList.add("is-active");
+    btnAudioOptin.disabled = true;
+  }
+
+  function getAlarmaPermissions() {
+    try {
+      return window.Alarma?.getPermissions?.() || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function canUseHaptics() {
+    return Boolean(getAlarmaPermissions().haptics);
+  }
 
   function distanciaM(lat1, lng1, lat2, lng2) {
     const R = 6371000; // metros
@@ -185,9 +273,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       panicBtn.disabled = true;
-      try {
-        navigator.vibrate?.([260, 140, 260]);
-      } catch {}
+      if (canUseHaptics()) {
+        try {
+          navigator.vibrate?.([260, 140, 260]);
+        } catch {}
+      }
       let direccion = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
       if (typeof window.Alarma?.reverseGeocode === "function") {
         try {
@@ -214,9 +304,11 @@ document.addEventListener("DOMContentLoaded", () => {
           metadata: { origen: "mapa-resguardo" },
         });
         showMsg("Alerta de panico enviada.");
-        try {
-          navigator.vibrate?.([200, 120, 200, 120, 260]);
-        } catch {}
+        if (canUseHaptics()) {
+          try {
+            navigator.vibrate?.([200, 120, 200, 120, 260]);
+          } catch {}
+        }
       } catch (err) {
         console.error("[alarma] emit panic", err);
         showMsg("No se pudo enviar la alerta. Se reintentara automaticamente.");

@@ -1,6 +1,6 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.1.29";
+const VERSION = "v1.1.30";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -318,7 +318,23 @@ async function broadcastAlarma(message) {
       includeUncontrolled: true,
     });
     for (const client of clientsList) {
-      client.postMessage({ channel: "alarma", ...message });
+      const eventRecord =
+        typeof message.event === "object" && message.event !== null
+          ? message.event
+          : message.payload && typeof message.payload.event === "object"
+          ? message.payload.event
+          : null;
+      const outgoing = {
+        channel: "alarma",
+        ...message,
+        type:
+          message.type ||
+          (typeof message.event === "string" ? message.event : null) ||
+          message.payload?.type ||
+          null,
+        event: eventRecord || message.event || null,
+      };
+      client.postMessage(outgoing);
     }
   } catch (err) {
     console.warn("[sw] no se pudo enviar mensaje a clientes", err);
