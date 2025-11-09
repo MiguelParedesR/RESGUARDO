@@ -37,6 +37,65 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
   };
 
+  // === BEGIN HU:HU-FIX-PGRST203 registrar-ubicacion (NO TOCAR FUERA) ===
+  const buildRegistrarUbicacionPayload = ({
+    servicioId: servicioIdArg,
+    lat,
+    lng,
+    servicioCustodioId: scId,
+  }) => {
+    console.assert(
+      typeof servicioIdArg === "string",
+      "[task][HU-FIX-PGRST203] servicioId inválido"
+    );
+    console.assert(
+      typeof lat === "number" && typeof lng === "number",
+      "[task][HU-FIX-PGRST203] lat/lng inválidos"
+    );
+    const body = {
+      p_servicio_id: servicioIdArg,
+      p_lat: lat,
+      p_lng: lng,
+    };
+    if (scId) body.p_servicio_custodio_id = scId;
+    return body;
+  };
+
+  async function registrarUbicacionSeguro({
+    servicioId: servicioIdArg,
+    lat,
+    lng,
+    servicioCustodioId: scId,
+  }) {
+    const payload = buildRegistrarUbicacionPayload({
+      servicioId: servicioIdArg,
+      lat,
+      lng,
+      servicioCustodioId: scId,
+    });
+    console.log("[task][HU-FIX-PGRST203] start", payload);
+    try {
+      const { data, error, status } = await window.sb.rpc(
+        "registrar_ubicacion",
+        payload
+      );
+      if (error) {
+        console.error(
+          "[mapa][rpc ubicacion]",
+          status || error?.status || "error",
+          error
+        );
+        return { ok: false, error };
+      }
+      console.log("[task][HU-FIX-PGRST203] done", status || 200);
+      return { ok: true, data };
+    } catch (err) {
+      console.error("[mapa][rpc ubicacion] exception", err);
+      return { ok: false, error: err };
+    }
+  }
+  // === END HU:HU-FIX-PGRST203 ===
+
   // Referencias de UI
   const mapContainerId = "map-track";
   const distanciaLabel = document.getElementById("distancia-label");
@@ -396,23 +455,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = Date.now();
     if (now - lastSent > SEND_EVERY_MS) {
       lastSent = now;
-      try {
-        const rpcPayload = {
-          p_servicio_id: servicioId,
-          p_lat: lat,
-          p_lng: lng,
-        };
-        if (servicioCustodioId) {
-          rpcPayload.p_servicio_custodio_id = servicioCustodioId;
-        }
-        const { error } = await window.sb.rpc(
-          "registrar_ubicacion",
-          rpcPayload
-        );
-        if (error) console.error("[mapa] registrar_ubicacion error", error);
-      } catch (err) {
-        console.error("[mapa] registrar_ubicacion excepcion", err);
-      }
+      registrarUbicacionSeguro({
+        servicioId,
+        lat,
+        lng,
+        servicioCustodioId,
+      });
     }
   }
 
