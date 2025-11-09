@@ -58,28 +58,41 @@
     }
   });
 
+  const isLoginPage = () => {
+    if (document.querySelector(".login-wrap")) return true;
+    const path = window.location.pathname || "";
+    return path.endsWith("/html/login/login.html");
+  };
+
   let installBtn = null;
   function showInstallButton() {
-    if (installBtn || !document.body) return;
-    installBtn = document.createElement("button");
-    installBtn.id = "pwa-install-btn";
-    installBtn.type = "button";
-    installBtn.textContent = "Instalar app";
-    installBtn.style.position = "fixed";
-    installBtn.style.right = "16px";
-    installBtn.style.bottom = "16px";
-    installBtn.style.zIndex = "6000";
-    installBtn.style.padding = "10px 20px";
-    installBtn.style.borderRadius = "999px";
-    installBtn.style.border = "none";
-    installBtn.style.background = "#263238";
-    installBtn.style.color = "#fff";
-    installBtn.style.fontWeight = "600";
-    installBtn.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
-    installBtn.addEventListener("click", () => {
-      window.installApp?.();
-    });
-    document.body.appendChild(installBtn);
+    const render = () => {
+      if (installBtn || !document.body || !isLoginPage()) return;
+      installBtn = document.createElement("button");
+      installBtn.id = "pwa-install-btn";
+      installBtn.type = "button";
+      installBtn.textContent = "Instalar app";
+      installBtn.style.position = "fixed";
+      installBtn.style.right = "16px";
+      installBtn.style.bottom = "16px";
+      installBtn.style.zIndex = "6000";
+      installBtn.style.padding = "10px 20px";
+      installBtn.style.borderRadius = "999px";
+      installBtn.style.border = "none";
+      installBtn.style.background = "#263238";
+      installBtn.style.color = "#fff";
+      installBtn.style.fontWeight = "600";
+      installBtn.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
+      installBtn.addEventListener("click", () => {
+        window.installApp?.();
+      });
+      document.body.appendChild(installBtn);
+    };
+    if (!document.body) {
+      document.addEventListener("DOMContentLoaded", render, { once: true });
+      return;
+    }
+    render();
   }
 
   function hideInstallButton() {

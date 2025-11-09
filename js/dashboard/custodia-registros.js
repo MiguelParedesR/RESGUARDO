@@ -25,6 +25,7 @@
     realtimeChannel: null,
     reloadTimer: null,
     isLoading: false,
+    permissionsRequested: false,
   };
 
   const ui = {};
@@ -98,6 +99,7 @@
     }
 
     mapUI();
+    requestEssentialPermissions();
     bindUI();
     bootstrap();
   }
@@ -262,6 +264,7 @@
         .from("servicio")
         .select("cliente_id, cliente:cliente_id(id, nombre)")
         .eq("empresa", state.empresa)
+        .eq("estado", "ACTIVO")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const map = new Map();
@@ -316,9 +319,13 @@
       )
       .eq("empresa", state.empresa)
       .eq("cliente_id", clienteId)
+      .eq("estado", "ACTIVO")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    const base = Array.isArray(data) ? data : [];
+    const baseRaw = Array.isArray(data) ? data : [];
+    const base = baseRaw.filter(
+      (row) => (row.estado || "").toUpperCase() !== "FINALIZADO"
+    );
 
     const detalles = [];
 
@@ -1096,6 +1103,62 @@
       return "hace " + diffMinutes + " minutos";
     } catch (_) {
       return ping.captured_at;
+    }
+  }
+
+  async function requestEssentialPermissions() {
+    if (state.permissionsRequested) return;
+    state.permissionsRequested = true;
+    const results = { location: false, audio: false, camera: false };
+    if (navigator.geolocation) {
+      results.location = await new Promise((resolve) => {
+        try {
+          navigator.geolocation.getCurrentPosition(
+            () => resolve(true),
+            (err) => {
+              console.warn("[session] geolocalizacion rechazada", err);
+              resolve(false);
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+          );
+        } catch (err) {
+          console.warn("[session] geolocalizacion error", err);
+          resolve(false);
+        }
+      });
+    }
+    if (window.Alarma?.enableAlerts) {
+      try {
+        const perms = await window.Alarma.enableAlerts({
+          sound: true,
+          haptics: true,
+        });
+        results.audio = Boolean(perms?.sound);
+      } catch (err) {
+        console.warn("[audio] enableAlerts fallo", err);
+      }
+    } else if (window.Alarma?.getPermissions) {
+      try {
+        results.audio = Boolean(window.Alarma.getPermissions().sound);
+      } catch (_) {}
+    }
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        results.camera = true;
+      } catch (err) {
+        console.warn("[session] camara fallo", err);
+      }
+    }
+    console.log("[session] permisos solicitados", results);
+    if (!results.location || !results.audio || !results.camera) {
+      showMessage(
+        "Activa permisos de ubicacion, sonido y camara para evitar bloqueos."
+      );
     }
   }
 

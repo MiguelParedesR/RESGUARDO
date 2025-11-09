@@ -1,8 +1,8 @@
-﻿// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
+// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
 // @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-MARCADORES-CUSTODIA, HU-CHECKIN-15M
 // @author Codex
 // @date 2025-02-15
-// @rationale Mantener dashboard admin alineado con sonido, pÃ¡nico y check-in sin regresiones.
+// @rationale Mantener dashboard admin alineado con sonido, panico y check-in sin regresiones.
 
 document.addEventListener("DOMContentLoaded", () => {
   const h = (v) =>
@@ -753,6 +753,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
     }
+    console.log("[markers] collect", {
+      scoped: Boolean(servicioIdFilter),
+      includeInactive,
+      total: items.length,
+    });
     return items;
   }
 
@@ -903,6 +908,10 @@ document.addEventListener("DOMContentLoaded", () => {
     ensureMap();
     if (!map) return;
     const scoped = Boolean(options.scopedToService);
+    console.log("[markers] update", {
+      scoped,
+      total: custodias.length,
+    });
     try {
       overviewLayer?.clearLayers();
     } catch {}
@@ -920,10 +929,10 @@ document.addEventListener("DOMContentLoaded", () => {
       bounds.push([ping.lat, ping.lng]);
       const label = scoped
         ? item.nombre
-        : `${item.nombre} â€“ ${item.cliente} â€“ ${item.placa}`;
+        : `${item.nombre} - ${item.cliente} - ${item.placa}`;
       const popup = scoped
         ? `<strong>${h(item.nombre)}</strong>`
-        : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} â€“ ${h(
+        : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} - ${h(
             item.placa
           )}`;
       const targetLayer = overviewLayer;

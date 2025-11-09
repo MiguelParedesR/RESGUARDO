@@ -44,7 +44,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const estadoTextoEl = document.getElementById("estado-texto");
   const destinoTextoEl = document.getElementById("destino-texto");
   const panicBtn = document.getElementById("alarma-panic-btn");
-  const btnAudioOptin = document.getElementById("btn-audio-optin");
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
@@ -60,7 +59,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
-  let alertsEnabled = false;
 
   const SEND_EVERY_MS = 30_000;
   const ARRIVE_M = 50;
@@ -83,75 +81,26 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAlarma();
 
   function setupAlarma() {
-    if (!hasAlarma) {
-      if (btnAudioOptin) {
-        btnAudioOptin.disabled = true;
-        btnAudioOptin.textContent = "Sonido no disponible";
-      }
-      return;
-    }
+    if (!hasAlarma) return;
     try {
       window.Alarma.initCustodia();
     } catch (err) {
-      console.warn("[mapa][alarma] init error", err);
+      console.warn("[audio] initCustodia fallo", err);
     }
     if (hasPushKey && typeof window.Alarma?.registerPush === "function") {
+      window.Alarma.registerPush("custodia", empresaActual || null, {
+        origen: "mapa-resguardo",
+        servicio_id: servicioId,
+        servicio_custodio_id: servicioCustodioId,
+      }).catch((err) => console.warn("[push] register custodia", err));
+    }
+    if (typeof window.Alarma?.enableAlerts === "function") {
       window.Alarma
-        .registerPush("custodia", empresaActual || null, {
-          origen: "mapa-resguardo",
-          servicio_id: servicioId,
-          servicio_custodio_id: servicioCustodioId,
-        })
-        .catch((err) => console.warn("[mapa][alarma] registerPush", err));
-    }
-    setupAudioButton();
-  }
-
-  function setupAudioButton() {
-    if (!btnAudioOptin) return;
-    if (!window.Alarma?.enableAlerts) {
-      btnAudioOptin.disabled = true;
-      btnAudioOptin.textContent = "Sonido no disponible";
-      return;
-    }
-    const perms = getAlarmaPermissions();
-    alertsEnabled = Boolean(perms.sound);
-    if (alertsEnabled) {
-      setAudioButtonActive();
-    }
-    btnAudioOptin.addEventListener("click", async () => {
-      if (alertsEnabled) {
-        showMsg("El sonido ya esta habilitado.");
-        return;
-      }
-      btnAudioOptin.disabled = true;
-      try {
-        const granted = await window.Alarma.enableAlerts({
-          sound: true,
-          haptics: true,
+        .enableAlerts({ sound: true, haptics: true })
+        .catch((err) => {
+          console.warn("[audio] enable error", err);
         });
-        if (granted?.sound) {
-          setAudioButtonActive();
-          alertsEnabled = true;
-          showMsg("Alertas sonoras activadas.");
-          console.log("[audio] sonido habilitado");
-        } else {
-          btnAudioOptin.disabled = false;
-          showMsg("Activa sonido desde el navegador para continuar.");
-        }
-      } catch (err) {
-        console.warn("[audio] enable error", err);
-        btnAudioOptin.disabled = false;
-        showMsg("No se pudo habilitar el sonido.");
-      }
-    });
-  }
-
-  function setAudioButtonActive() {
-    if (!btnAudioOptin) return;
-    btnAudioOptin.textContent = "Sonido activo";
-    btnAudioOptin.classList.add("is-active");
-    btnAudioOptin.disabled = true;
+    }
   }
 
   function getAlarmaPermissions() {
@@ -223,21 +172,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initMap() {
-    if (!document.getElementById(mapContainerId)) {
-      console.error(
-        "[mapa] Contenedor del mapa no encontrado:",
-        mapContainerId
-      );
+    let mapHost = document.getElementById(mapContainerId);
+    if (!mapHost) {
+      console.warn("[mapa] Contenedor del mapa no encontrado:", mapContainerId);
+      const wrap = document.querySelector(".map-wrap");
+      mapHost = document.createElement("div");
+      mapHost.id = mapContainerId;
+      wrap?.appendChild(mapHost);
+    }
+    if (!mapHost) {
+      showMsg("No se pudo inicializar el mapa.");
       return;
     }
-
     const options = {
       preferCanvas: true,
       zoomAnimation: false,
       markerZoomAnimation: false,
       wheelDebounceTime: 40,
     };
-    map = L.map(mapContainerId, options);
+    map = L.map(mapHost, options);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
@@ -493,10 +446,8 @@ document.addEventListener("DOMContentLoaded", () => {
           p_servicio_id: servicioId,
           p_lat: lat,
           p_lng: lng,
+          p_servicio_custodio_id: servicioCustodioId ?? null,
         };
-        if (servicioCustodioId) {
-          rpcPayload.p_servicio_custodio_id = servicioCustodioId;
-        }
         const { error } = await window.sb.rpc(
           "registrar_ubicacion",
           rpcPayload

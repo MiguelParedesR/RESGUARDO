@@ -1,6 +1,6 @@
-/* service-worker.js — precache + runtime cache + offline fallback (safe) */
+/* service-worker.js - precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.1.30";
+const VERSION = "v1.1.31";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -45,10 +45,10 @@ const CORE_ASSETS = [
   "/assets/icons/pin-destination.svg",
 ];
 
-const OFFLINE_HTML = `
+let OFFLINE_HTML = `
 <!doctype html><html lang="es"><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sin conexión</title>
+<title>Sin conexion</title>
 <style>
   body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f7fa;margin:0;display:grid;place-items:center;height:100vh;color:#263238}
   .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;margin:16px}
@@ -57,34 +57,12 @@ const OFFLINE_HTML = `
   code{background:#f1f3f7;padding:2px 6px;border-radius:6px}
 </style>
 <div class="card">
-<h1>Estás sin conexión</h1>
-<p>No pudimos cargar la página solicitada. Revisa tu conexión e inténtalo de nuevo.</p>
-<p>Los recursos básicos de la aplicación están disponibles offline gracias al modo PWA.</p>
+<h1>Estas sin conexion</h1>
+<p>No pudimos cargar la pagina solicitada. Revisa tu conexion e intentalo de nuevo.</p>
+<p>Los recursos basicos de la aplicacion estan disponibles offline gracias al modo PWA.</p>
 <p><code>Monitoreo de Resguardos</code></p>
 </div>
 </html>`;
-
-// Re-define OFFLINE_HTML with proper UTF-8 accents to avoid mojibake
-try {
-  OFFLINE_HTML = `
-<!doctype html><html lang="es"><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sin conexión</title>
-<style>
-  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f7fa;margin:0;display:grid;place-items:center;height:100vh;color:#263238}
-  .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;margin:16px}
-  h1{margin:0 0 8px;font-size:20px}
-  p{opacity:.8}
-  code{background:#f1f3f7;padding:2px 6px;border-radius:6px}
-</style>
-<div class="card">
-<h1>Estás sin conexión</h1>
-<p>No pudimos cargar la página solicitada. Revisa tu conexión e inténtalo de nuevo.</p>
-<p>Los recursos básicos de la aplicación están disponibles offline gracias al modo PWA.</p>
-<p><code>Monitoreo de Resguardos</code></p>
-</div>
-</html>`;
-} catch {}
 
 const isHttp = (url) => url.protocol === "http:" || url.protocol === "https:";
 const isHTML = (request) =>
@@ -183,7 +161,7 @@ self.addEventListener("fetch", (event) => {
   const isOSMTile = host.endsWith("tile.openstreetmap.org");
 
   if (!isOSMTile) {
-    // No interceptamos otras peticiones cross‑origin (CDNs, Supabase, Google Fonts, etc.).
+    // No interceptamos otras peticiones cross-origin (CDNs, Supabase, Google Fonts, etc.).
     return;
   }
 
@@ -204,7 +182,7 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// Mantenimiento simple del tamaño del cache
+// Mantenimiento simple del tamano del cache
 async function trimCache(cacheName, maxItems) {
   try {
     const cache = await caches.open(cacheName);
@@ -227,11 +205,13 @@ self.addEventListener("push", (event) => {
           payload.options
         );
       } catch (err) {
-        console.warn("[sw] showNotification falló", err);
+        console.warn("[sw] showNotification fallo", err);
       }
+      const eventPayload = payload.options?.data?.event || null;
       await broadcastAlarma({
         kind: "push",
-        event: payload.type,
+        type: payload.type,
+        event: eventPayload,
         payload: payload.options.data,
       });
     })()
@@ -306,7 +286,7 @@ function parsePushData(data) {
     const title = raw.title || "Alerta";
     return { title, options, type };
   } catch (err) {
-    console.warn("[sw] push payload inválido", err);
+    console.warn("[sw] push payload invalido", err);
     return null;
   }
 }

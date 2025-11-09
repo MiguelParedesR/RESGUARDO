@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   "use strict";
 
   // @hu HU-CHECKIN-15M, HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-NO400-ALARM_EVENT
@@ -196,6 +196,9 @@
     if (sanitized.lat != null) metadata.lat = sanitized.lat;
     if (sanitized.lng != null) metadata.lng = sanitized.lng;
     if (sanitized.direccion) metadata.direccion = sanitized.direccion;
+    if (sanitized.servicio_custodio_id) {
+      metadata.servicio_custodio_id = sanitized.servicio_custodio_id;
+    }
     if (sanitized.metadata && typeof sanitized.metadata === "object") {
       Object.assign(metadata, sanitized.metadata);
     }
@@ -365,15 +368,25 @@
     const data = event.data;
     if (!data || data.channel !== "alarma") return;
     notify({ type: "sw-message", payload: data });
-    if (data.kind === "push" && data.event) {
+    const eventType =
+      data.type ||
+      (typeof data.event === "string" ? data.event : null) ||
+      data.event?.type ||
+      data.payload?.type ||
+      null;
+    const eventRecord =
+      (data.event && typeof data.event === "object" ? data.event : null) ||
+      (data.payload && typeof data.payload === "object" ? data.payload : null) ||
+      null;
+    if (data.kind === "push" && eventType) {
       if (state.mode === "admin") {
-        handleIncomingEvent(data.event, data.payload || {}, { source: "push" });
+        handleIncomingEvent(eventType, eventRecord || {}, { source: "push" });
       /* === BEGIN HU:HU-CHECKIN-15M sw message (no tocar fuera) === */
-      } else if (state.mode === "custodia" && data.event === "checkin") {
-        const payload = data.payload || data;
+      } else if (state.mode === "custodia" && eventType === "checkin") {
+        const payload = eventRecord || {};
         scheduleCheckinReminder(payload);
         openCheckinPrompt(payload);
-        notify({ type: "checkin", record: payload.event || payload });
+        notify({ type: "checkin", record: payload });
       }
       /* === END HU:HU-CHECKIN-15M === */
     }
@@ -459,7 +472,18 @@
         placa: record.placa,
         tipo: record.tipo,
       });
-      const dbRecord = { ...record };
+      const dbRecord = {
+        type: record.type,
+        servicio_id: record.servicio_id,
+        empresa: record.empresa,
+        cliente: record.cliente,
+        placa: record.placa,
+        tipo: record.tipo,
+        lat: record.lat ?? null,
+        lng: record.lng ?? null,
+        direccion: record.direccion ?? null,
+        metadata: record.metadata ?? {},
+      };
       const {
         data,
         error: err,
@@ -483,10 +507,23 @@
         event: eventData,
         source: "local",
       });
+      console.log("[alarm_event] emit", {
+        type: eventData.type,
+        servicio_id: eventData.servicio_id,
+      });
       handlePostEmit(type, eventData);
       return { data };
     } catch (err) {
-      error("No se pudo insertar alarm_event", err, { payload: record });
+      const logPayload = {
+        status: typeof err?.status === "number" ? err.status : null,
+        statusText: err?.statusText || null,
+        code: err?.code || null,
+        message: err?.message || null,
+        details: err?.details || null,
+        hint: err?.hint || null,
+        body: err?.body || null,
+      };
+      error("No se pudo insertar alarm_event", logPayload, { payload: record });
       queueOffline(record);
       notify({
         type: "emit",

@@ -14,8 +14,8 @@
   <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin />
   <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossorigin />
   <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
-  <link rel="manifest" href="/manifest.json"/><!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="manifest" href="/manifest.json" /><!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Estilos -->
@@ -27,7 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="../../config.js"></script>
 
-  <!-- ProtecciÃ³n + LÃ³gica -->
+  <!-- Proteccion + Logica -->
   <script defer src="../../modules/alarma/alarma.js"></script>
   <script defer src="../../js/lib/custodia-session.js"></script>
   <script defer src="../../js/lib/router-local.js"></script>
@@ -51,14 +51,16 @@
           <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
             Servicio Finalizado
           </button>
-          <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
-          <button id="btn-audio-optin" class="mdl-button mdl-js-button mdl-button--raised btn-audio" type="button">
-            Habilitar sonido
+          <button id="btn-custodias-toggle" class="mdl-button mdl-js-button mdl-button--raised" type="button"
+            aria-expanded="false">
+            Mostrar custodias
           </button>
           <div class="metrics">
             <span><strong>Distancia:</strong> <span id="distancia-label">--</span></span>
           </div>
         </div>
+        <div class="layout-track">
+          <aside id="custodios-sidebar" class="cust-sidebar" hidden>
             <div class="cust-head">
               <h3>Custodios</h3>
               <button id="custodios-add" class="add-btn" title="Agregar">+</button>
@@ -66,9 +68,9 @@
             <div id="custodios-list" class="cust-list"></div>
           </aside>
           <div class="map-wrap with-sidebar">
-              <p><strong>Destino:</strong> <span id="destino-texto">Cargando...</span></p>
+            <div id="map-track"></div>
             <div class="panel show">
-              <p><strong>Destino:</strong> <span id="destino-texto">Cargando...¦</span></p>
+              <p><strong>Destino:</strong> <span id="destino-texto">Cargando...</span></p>
               <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
             </div>
           </div>
@@ -112,6 +114,23 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const servicioId = sessionStorage.getItem('servicio_id_actual');
+      const layout = document.querySelector('.layout-track');
+      const sidebar = document.getElementById('custodios-sidebar');
+      const toggleBtn = document.getElementById('btn-custodias-toggle');
+      const setSidebarState = (open) => {
+        if (!layout || !sidebar || !toggleBtn) return;
+        layout.classList.toggle('cust-open', open);
+        sidebar.hidden = !open;
+        toggleBtn.textContent = open ? 'Ocultar custodias' : 'Mostrar custodias';
+        toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      if (toggleBtn) {
+        setSidebarState(false);
+        toggleBtn.addEventListener('click', () => {
+          const open = layout ? !layout.classList.contains('cust-open') : false;
+          setSidebarState(open);
+        });
+      }
       if (!servicioId || !window.sb) return;
       try {
         const listEl = document.getElementById('custodios-list');
@@ -284,7 +303,6 @@
         amCancel.addEventListener('click', cleanup);
       }      // Botones: sidebar y movil
       try { document.getElementById('custodios-add')?.addEventListener('click', openAdd); } catch { }
-      try { document.getElementById('btn-custodias-mobile')?.addEventListener('click', openAdd); } catch { }
       function openEdit(c) {
         selfieDataUrl = null;
         const modal = document.createElement('div'); modal.className = 'edit-modal';
@@ -429,8 +447,3 @@
 </body>
 
 </html>
-
-
-
-
-
