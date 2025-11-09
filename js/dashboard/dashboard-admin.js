@@ -1,4 +1,4 @@
-﻿// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
+// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
 // @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-MARCADORES-CUSTODIA, HU-CHECKIN-15M
 // @author Codex
 // @date 2025-02-15
@@ -83,6 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Estado de mapa debe declararse antes de cualquier uso para evitar TDZ
   let map;
   const markers = new Map();
+  const PING_FRESH_MIN = 10;
   let selectedId = null;
   let overviewLayer = null,
     focusLayer = null,
@@ -745,6 +746,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function collectCustodiasForMap(servicioIdFilter = null, includeInactive = false) {
     const items = [];
+    const now = new Date();
     for (const svc of servicesCache || []) {
       if (!includeInactive && svc.estado !== "ACTIVO") continue;
       if (servicioIdFilter && svc.id !== servicioIdFilter) continue;
@@ -753,6 +755,10 @@ document.addEventListener("DOMContentLoaded", () => {
       (svc.custodios || []).forEach((cust) => {
         const ping = cust.lastPing;
         if (!ping?.lat || !ping?.lng) return;
+        const pingMinutes = ping.captured_at
+          ? minDiff(now, new Date(ping.captured_at))
+          : Number.POSITIVE_INFINITY;
+        if (!servicioIdFilter && pingMinutes > PING_FRESH_MIN) return;
         items.push({
           servicioId: svc.id,
           servicio_custodio_id: cust.id,
@@ -761,6 +767,7 @@ document.addEventListener("DOMContentLoaded", () => {
           placa,
           tipo: cust.tipo_custodia || "",
           lastPing: ping,
+          pingMinutes,
         });
       });
     }
@@ -931,12 +938,10 @@ document.addEventListener("DOMContentLoaded", () => {
       bounds.push([ping.lat, ping.lng]);
       const label = scoped
         ? item.nombre
-        : `${item.nombre} â€“ ${item.cliente} â€“ ${item.placa}`;
+        : ${item.nombre} -  - ;
       const popup = scoped
-        ? `<strong>${h(item.nombre)}</strong>`
-        : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} â€“ ${h(
-            item.placa
-          )}`;
+        ? <strong></strong>
+        : <strong></strong><br> - ;
       const targetLayer = overviewLayer;
       let marker = markers.get(item.servicio_custodio_id);
       if (!marker) {
@@ -953,9 +958,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     if (scoped && bounds.length) {
-      const b = L.latLngBounds(bounds);
-      map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 16);
+      } else {
+        const b = L.latLngBounds(bounds);
+        map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
+      }
     }
+    console.log("[markers]", scoped ? "scoped" : "overview", {
+      count: custodias.length,
+      servicio: scoped ? custodias[0]?.servicioId || null : null,
+    });
   }
   // === END HU:HU-MARCADORES-CUSTODIA ===
 
