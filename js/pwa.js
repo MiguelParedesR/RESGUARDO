@@ -5,6 +5,11 @@
 // @rationale Manejar beforeinstallprompt segun HU de audio/PWA.
 // === BEGIN HU:HU-AUDIO-GESTO pwa install (no tocar fuera) ===
 (() => {
+  console.log("[task][HU-SW-UPDATE] start");
+  console.assert(
+    "serviceWorker" in navigator,
+    "[task][HU-SW-UPDATE] navigator.serviceWorker no soportado"
+  );
   if (!("serviceWorker" in navigator)) return;
 
   const snackbar = () => document.getElementById("app-snackbar");
@@ -32,6 +37,7 @@
         scope: "/",
       });
       console.log("[PWA] SW registrado:", reg.scope);
+      console.log("[task][HU-SW-UPDATE] done");
 
       // === BEGIN HU:HU-SW-UPDATE sw-refresh-cycle (NO TOCAR FUERA) ===
       const requestSkipWaiting = (worker) => {

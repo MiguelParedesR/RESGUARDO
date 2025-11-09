@@ -1,11 +1,20 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
 // === BEGIN HU:HU-SW-UPDATE sw-versioning (NO TOCAR FUERA) ===
-const VERSION = "v1.1.28";
+const VERSION = "v1.1.29";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
 const CACHE_PREFIXES = ["static-", "runtime-", "tiles-"];
+// === END HU:HU-SW-UPDATE ===
+
+// === BEGIN HU:HU-SW-UPDATE telemetry (NO TOCAR FUERA) ===
+console.log("[task][HU-SW-UPDATE] start", VERSION);
+// ensure core shell no vacío para autodebug
+console.assert(
+  Array.isArray(CORE_ASSETS) && CORE_ASSETS.length > 0,
+  "[task][HU-SW-UPDATE] CORE_ASSETS vacío"
+);
 // === END HU:HU-SW-UPDATE ===
 
 const CORE_ASSETS = [
@@ -117,6 +126,7 @@ self.addEventListener("activate", (event) => {
         console.warn("[sw] activate cleanup error", err);
       }
       await self.clients.claim();
+      console.log("[task][HU-SW-UPDATE] done", VERSION);
     })()
   );
 });
