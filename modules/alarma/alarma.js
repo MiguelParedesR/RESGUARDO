@@ -83,11 +83,47 @@
     return `panic:${record?.id || record?.servicio_id || record?.timestamp}`;
   }
 
+  const EVENT_TYPE_MAP = {
+    start: "start",
+    panic: "panic",
+    heartbeat: "heartbeat",
+    finalize: "finalize",
+    "checkin_ok": "checkin_ok",
+    "checkin-missed": "checkin_missed",
+    checkin_missed: "checkin_missed",
+    checkin: "checkin",
+  };
+  const SERVICIO_TIPO_MAP = {
+    SIMPLE: "SIMPLE",
+    "TIPO A": "TIPO A",
+    "TIPO B": "TIPO B",
+    A: "TIPO A",
+    B: "TIPO B",
+  };
+
+  function normalizeEventType(value) {
+    if (!value) return null;
+    const key = String(value).toLowerCase().trim();
+    return EVENT_TYPE_MAP[key] || null;
+  }
+
+  function normalizeServicioTipo(value) {
+    if (!value) return null;
+    const upper = String(value).toUpperCase().trim();
+    if (SERVICIO_TIPO_MAP[upper]) return SERVICIO_TIPO_MAP[upper];
+    if (upper === "TIPO_A") return "TIPO A";
+    if (upper === "TIPO_B") return "TIPO B";
+    return upper;
+  }
+
+  function normalizeEmpresa(value) {
+    if (!value) return null;
+    return String(value).toUpperCase().trim();
+  }
+
   function sanitizePayload(type, raw) {
     const payload = raw || {};
     const placaSource = payload.placa != null ? String(payload.placa) : null;
-    const empresaSource =
-      payload.empresa != null ? String(payload.empresa) : null;
     const metadataSource = payload.metadata || payload.meta || null;
     let metadata =
       metadataSource && typeof metadataSource === "object"
@@ -99,15 +135,15 @@
       else metadata = { extra: extraCopy };
     }
     const safe = {
-      type: clip(type, 32),
+      type: normalizeEventType(type) || normalizeEventType(payload.type),
       servicio_id: payload.servicio_id ?? null,
-      empresa: clip(empresaSource ? empresaSource.toUpperCase() : null, 60),
+      empresa: clip(normalizeEmpresa(payload.empresa), 60),
       cliente: clip(payload.cliente, 80),
       placa: clip(
         placaSource ? placaSource.toUpperCase().replace(/\s+/g, "") : null,
         16
       ),
-      tipo: clip(payload.tipo, 32),
+      tipo: clip(normalizeServicioTipo(payload.tipo), 32),
       lat:
         typeof payload.lat === "number" ? Number(payload.lat.toFixed(6)) : null,
       lng:
@@ -116,9 +152,21 @@
       timestamp: payload.timestamp || new Date().toISOString(),
       metadata,
     };
-    if (!safe.metadata || !Object.keys(safe.metadata).length)
-      delete safe.metadata;
+    if (!safe.metadata || Object.keys(safe.metadata).length === 0) {
+      safe.metadata = {};
+    }
     return safe;
+  }
+
+  function validateRequired(record) {
+    const missing = [];
+    if (!record.type) missing.push("type");
+    if (!record.servicio_id) missing.push("servicio_id");
+    if (!record.empresa) missing.push("empresa");
+    if (!record.cliente) missing.push("cliente");
+    if (!record.placa) missing.push("placa");
+    if (!record.tipo) missing.push("tipo");
+    return missing;
   }
 
   function buildMetadataFromSanitized(sanitized) {
@@ -129,7 +177,7 @@
     if (sanitized.metadata && typeof sanitized.metadata === "object") {
       Object.assign(metadata, sanitized.metadata);
     }
-    return Object.keys(metadata).length ? metadata : null;
+    return Object.keys(metadata).length ? metadata : {};
   }
 
   function createEventRecord(sanitized) {
@@ -226,6 +274,14 @@
     const remaining = [];
     for (const item of toSend) {
       const record = normalizeRecord(item);
+      const missing = validateRequired(record);
+      if (missing.length) {
+        warn("[alarma] evento en cola descartado", missing, record);
+        continue;
+      }
+      if (!record.metadata || typeof record.metadata !== "object") {
+        record.metadata = {};
+      }
       try {
         const { error: err } = await client.from("alarm_event").insert(record);
         if (err) throw err;
@@ -346,6 +402,18 @@
   async function emit(type, payload) {
     const sanitized = sanitizePayload(type, payload);
     const record = normalizeRecord(createEventRecord(sanitized));
+    const missing = validateRequired(record);
+    if (missing.length) {
+      warn(
+        "[alarma] evento descartado por campos faltantes",
+        missing,
+        record
+      );
+      return { error: new Error("Campos obligatorios faltantes"), queued: false };
+    }
+    if (!record.metadata || typeof record.metadata !== "object") {
+      record.metadata = {};
+    }
     const client = ensureSupabase();
     if (!client) {
       warn("Supabase no inicializado: se guarda en cola local");
@@ -359,13 +427,21 @@
       return { queued: true };
     }
     try {
+      log("[alarma] insert alarm_event", {
+        type: record.type,
+        servicio_id: record.servicio_id,
+        empresa: record.empresa,
+        cliente: record.cliente,
+        placa: record.placa,
+        tipo: record.tipo,
+      });
       const dbRecord = { ...record };
-      const { data, error: err } = await client
+      const { data, error: err, status, statusText } = await client
         .from("alarm_event")
         .insert(dbRecord)
         .select("*")
         .single();
-      if (err) throw err;
+      if (err) throw Object.assign(err, { status, statusText });
       const eventData = expandEventRecord(data || {});
       if (sanitized.timestamp) {
         eventData.timestamp = sanitized.timestamp;
@@ -381,7 +457,7 @@
       handlePostEmit(type, eventData);
       return { data };
     } catch (err) {
-      error("No se pudo insertar alarm_event", err);
+      error("No se pudo insertar alarm_event", err, { payload: record });
       queueOffline(record);
       notify({
         type: "emit",
