@@ -1,8 +1,7 @@
-// pwa.js — registra el Service Worker y maneja updates + instalación
+// pwa.js - registro del Service Worker y flujo de instalacion PWA
 (() => {
   if (!("serviceWorker" in navigator)) return;
 
-  // Helpers para mostrar mensajes si existe el snackbar (MDL)
   const snackbar = () => document.getElementById("app-snackbar");
   const notify = (message) => {
     const sb = snackbar();
@@ -19,11 +18,9 @@
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
     refreshing = true;
-    // Recargar la página cuando el SW actualizado toma el control
     location.reload();
   });
 
-  // Registro
   window.addEventListener("load", async () => {
     try {
       const reg = await navigator.serviceWorker.register("/service-worker.js", {
@@ -31,29 +28,21 @@
       });
       console.log("[PWA] SW registrado:", reg.scope);
 
-      // Detectar nuevas versiones
+      const handleInstalled = (worker) => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          notify("Nueva version lista. Actualizando...");
+          worker.postMessage({ type: "SKIP_WAITING" });
+        }
+      };
+
       if (reg.installing) {
-        reg.installing.addEventListener("statechange", () => {
-          if (
-            reg.installing.state === "installed" &&
-            navigator.serviceWorker.controller
-          ) {
-            notify("Nueva versión lista. Actualizando…");
-            reg.installing.postMessage({ type: "SKIP_WAITING" });
-          }
-        });
+        reg.installing.addEventListener("statechange", () =>
+          handleInstalled(reg.installing)
+        );
       } else {
         reg.addEventListener("updatefound", () => {
           const nw = reg.installing;
-          nw?.addEventListener("statechange", () => {
-            if (
-              nw.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              notify("Actualización disponible. Aplicando…");
-              nw.postMessage({ type: "SKIP_WAITING" });
-            }
-          });
+          nw?.addEventListener("statechange", () => handleInstalled(nw));
         });
       }
     } catch (e) {
@@ -61,32 +50,67 @@
     }
   });
 
-  // Instalación A2HS (Add to Home Screen)
+  let installBtn = null;
+  function showInstallButton() {
+    if (installBtn || !document.body) return;
+    installBtn = document.createElement("button");
+    installBtn.id = "pwa-install-btn";
+    installBtn.type = "button";
+    installBtn.textContent = "Instalar app";
+    installBtn.style.position = "fixed";
+    installBtn.style.right = "16px";
+    installBtn.style.bottom = "16px";
+    installBtn.style.zIndex = "6000";
+    installBtn.style.padding = "10px 20px";
+    installBtn.style.borderRadius = "999px";
+    installBtn.style.border = "none";
+    installBtn.style.background = "#263238";
+    installBtn.style.color = "#fff";
+    installBtn.style.fontWeight = "600";
+    installBtn.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
+    installBtn.addEventListener("click", () => {
+      window.installApp?.();
+    });
+    document.body.appendChild(installBtn);
+  }
+
+  function hideInstallButton() {
+    if (!installBtn) return;
+    try {
+      installBtn.remove();
+    } catch (_) {}
+    installBtn = null;
+  }
+
   let deferredPrompt = null;
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
     console.log("[PWA] beforeinstallprompt capturado");
-    // Ejemplo: mostrar un botón propio si lo necesitas:
-    // document.getElementById('btn-install').style.display = 'inline-flex';
+    showInstallButton();
   });
 
-  // Llama a esto desde un botón “Instalar” si agregas uno en la UI
   window.installApp = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     try {
       await deferredPrompt.userChoice;
-    } catch {}
+    } catch (_) {}
     deferredPrompt = null;
+    hideInstallButton();
   };
 
-  // Check manual de updates (si lo necesitas en algún botón)
+  window.addEventListener("appinstalled", () => {
+    hideInstallButton();
+    deferredPrompt = null;
+    notify("Aplicacion instalada correctamente.");
+  });
+
   window.checkForSWUpdate = async () => {
     const reg = await navigator.serviceWorker.getRegistration();
     try {
       await reg?.update();
-      notify("Buscando actualizaciones…");
-    } catch {}
+      notify("Buscando actualizaciones...");
+    } catch (_) {}
   };
 })();

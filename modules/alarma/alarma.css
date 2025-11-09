@@ -1,4 +1,4 @@
-.alarma-panic-btn {
+﻿﻿.alarma-panic-btn {
   position: fixed;
   top: 16px;
   right: 16px;
@@ -79,10 +79,16 @@
   letter-spacing: 0.04em;
 }
 
-.alarma-badge::before {
-  content: "⚠";
-  font-size: 14px;
+
+.alarma-badge + .alarma-badge {
+  margin-left: 6px;
 }
+
+.alarma-badge--warn {
+  background: #fdd835;
+  color: #1b1b1b;
+}
+
 
 .alarma-card--shake {
   animation: alarmaShake 0.6s linear infinite;
@@ -319,12 +325,13 @@
   gap: 16px;
 }
 
-.alarma-checkin__title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+
+.alarma-checkin__hint {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
 }
+
 
 .alarma-checkin__options {
   display: grid;

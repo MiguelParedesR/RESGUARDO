@@ -406,7 +406,7 @@
       row.svc.placaUpper || "SIN PLACA",
       row.svc.clienteNombre,
       row.svc.tipo,
-    ].join(" - ");
+    ].join(" · ");
     head.appendChild(title);
 
     const badge = document.createElement("span");

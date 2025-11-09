@@ -1,4 +1,4 @@
-(function (global) {
+﻿﻿﻿﻿﻿﻿(function (global) {
   "use strict";
 
   const STORAGE_QUEUE = "alarma.queue.v1";
@@ -9,6 +9,7 @@
   const CHECKIN_ENDPOINT = "/.netlify/functions/push-send";
   const MAX_STRING = 180;
   const TOAST_TIMEOUT = 4200;
+  const CHECKIN_REMIND_MS = 5 * 60 * 1000;
   const REVERSE_GEOCODE_URL = "https://us1.locationiq.com/v1/reverse";
 
   const state = {
@@ -44,6 +45,10 @@
       panel: null,
       busy: false,
       rePromptTimers: new Map(),
+    },
+    permissions: {
+      sound: false,
+      haptics: false,
     },
   };
 
@@ -284,10 +289,11 @@
     if (data.kind === "push" && data.event) {
       if (state.mode === "admin") {
         handleIncomingEvent(data.event, data.payload || {}, { source: "push" });
-      } else if (state.mode === "custodia") {
-        if (data.event === "checkin-reminder") {
-          openCheckinPrompt(data.payload || {});
-        }
+      } else if (state.mode === "custodia" && data.event === "checkin") {
+        const payload = data.payload || data;
+        scheduleCheckinReminder(payload);
+        openCheckinPrompt(payload);
+        notify({ type: "checkin", record: payload.event || payload });
       }
     }
   }
@@ -505,7 +511,7 @@
         servicio_id: eventPayload.servicio_id || null,
       };
     }
-    return { roles: ["ADMIN"], empresa: null };
+    return { roles: ["ADMIN"], empresa: eventPayload.empresa || null };
   }
 
   function buildClientNotificationPayload(pushType, eventPayload) {
@@ -593,8 +599,23 @@
     } else if (type === "panic") {
       if (state.admin.handled.has(`${key}-panic-ack`)) return;
       activatePanic(record);
-    } else if (type === "checkin_reminder" && state.mode === "custodia") {
+    } else if (type === "checkin" && state.mode === "custodia") {
+      scheduleCheckinReminder(record);
       openCheckinPrompt(record);
+      notify({ type: "checkin", record });
+    } else if (type === "checkin_missed") {
+      clearCheckinReminder(record?.servicio_id);
+      notify({ type: "checkin_missed", record });
+    } else if (type === "checkin_ok") {
+      clearCheckinReminder(record?.servicio_id);
+      if (
+        state.mode === "custodia" &&
+        state.checkin.panel?.dataset?.servicioId ===
+          String(record?.servicio_id || "")
+      ) {
+        state.checkin.panel.classList.remove("is-open");
+      }
+      notify({ type: "checkin_ok", record });
     }
   }
 
@@ -604,7 +625,7 @@
     state.admin.handled.add(key);
     persistFlags();
     notify({ type: "highlight", record, metadata });
-    if (document.hidden && navigator.vibrate) {
+    if (document.hidden && state.permissions.haptics && navigator.vibrate) {
       try {
         navigator.vibrate([120, 60, 120]);
       } catch (_) {}
@@ -619,8 +640,20 @@
     sirenaOn({ loop: true });
     const frase =
       record && record.cliente
-        ? `ALERTA DE ROBO - ${record.cliente}`
+        ? `ALERTA - ${record.cliente}`
         : "ALERTA DE ROBO";
+    if (state.permissions.sound) {
+      try {
+        tts(frase, { lang: "es-PE" });
+      } catch (err) {
+        warn("No se pudo reproducir TTS de panico", err);
+      }
+    }
+    if (state.permissions.haptics) {
+      try {
+        navigator.vibrate?.([360, 160, 360, 160, 520]);
+      } catch (_) {}
+    }
     notify({ type: "panic", record });
   }
 
@@ -635,8 +668,40 @@
     return state.siren.audioCtx;
   }
 
+  async function enableAlerts(options) {
+    const opts = options || {};
+    const wantSound = opts.sound !== false;
+    const wantHaptics = opts.haptics !== false;
+    let soundOk = state.permissions.sound;
+    if (wantSound) {
+      const ctx = ensureAudioCtx();
+      if (!ctx) throw new Error("AudioContext no disponible");
+      try {
+        if (ctx.state === "suspended" && ctx.resume) {
+          await ctx.resume();
+        }
+        soundOk = ctx.state === "running";
+      } catch (err) {
+        warn("No se pudo activar audio", err);
+        soundOk = false;
+      }
+      state.permissions.sound = soundOk;
+    }
+    if (wantHaptics) {
+      state.permissions.haptics = true;
+    }
+    return {
+      sound: state.permissions.sound,
+      haptics: state.permissions.haptics,
+    };
+  }
+
   function sirenaOn(options) {
     const opts = options || {};
+    if (!state.permissions.sound) {
+      showToast("Activa sonido desde el boton de alertas para escuchar la sirena.");
+      return;
+    }
     const ctx = ensureAudioCtx();
     if (!ctx) return;
     if (state.siren.interval) return;
@@ -1137,60 +1202,168 @@
     const panel = ensureCheckinPanel();
     populateCheckinPanel(panel, payload);
     panel.classList.add("is-open");
+    panel.dataset.method = "text";
     try {
-      navigator.vibrate?.([160, 60, 160]);
+      panel.focus();
     } catch (_) {}
+    updateCheckinSoundButton(panel);
+    toggleCheckinSoundHint(panel, !state.permissions.sound);
+    if (state.permissions.haptics) {
+      try {
+        navigator.vibrate?.([240, 120, 240]);
+      } catch (_) {}
+    }
+    if (state.permissions.sound) {
+      try {
+        const frase = panel.dataset.cliente
+          ? `Reportese ${panel.dataset.cliente}`
+          : "Reportese ahora";
+        tts(frase, { lang: "es-PE" });
+      } catch (err) {
+        warn("No se pudo reproducir TTS", err);
+      }
+    }
+    scheduleCheckinReminder(payload);
+  }
+
+  function getServicioIdFromPayload(payload) {
+    if (!payload) return null;
+    if (payload.servicio_id) return String(payload.servicio_id);
+    if (payload.event && payload.event.servicio_id)
+      return String(payload.event.servicio_id);
+    if (payload.payload && payload.payload.servicio_id)
+      return String(payload.payload.servicio_id);
+    return null;
+  }
+
+  function clearCheckinReminder(servicioId) {
+    if (!servicioId) return;
+    const key = String(servicioId);
+    const entry = state.checkin.rePromptTimers.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    state.checkin.rePromptTimers.delete(key);
+  }
+
+  function scheduleCheckinReminder(payload) {
+    if (state.mode !== "custodia") return;
+    const servicioId = getServicioIdFromPayload(payload);
+    if (!servicioId) return;
+    const key = String(servicioId);
+    clearCheckinReminder(key);
+    const timer = setTimeout(() => {
+      state.checkin.rePromptTimers.delete(servicioId);
+      const panel = state.checkin.panel;
+      if (
+        panel &&
+        panel.classList.contains("is-open") &&
+        panel.dataset.servicioId === key
+      ) {
+        return;
+      }
+      openCheckinPrompt(payload);
+    }, CHECKIN_REMIND_MS);
+    state.checkin.rePromptTimers.set(key, { timer, payload });
   }
 
   function ensureCheckinPanel() {
     if (state.checkin.panel) return state.checkin.panel;
     const panel = document.createElement("div");
     panel.className = "alarma-checkin";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-live", "assertive");
+    panel.tabIndex = -1;
     panel.innerHTML = `
-      <div class="alarma-checkin__title" aria-live="assertive">Confirma tu estado</div>
-      <div class="alarma-checkin__desc">Responde por voz o texto para confirmar tu ubicacion actual.</div>
-      <div class="alarma-checkin__options">
-        <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Responder por voz</button>
-        <div class="alarma-checkin__field">
-          <label for="alarma-checkin-input">Donde te encuentras?</label>
-          <input id="alarma-checkin-input" class="alarma-checkin__input" type="text" placeholder="Ej. Antes de entrar al puerto">
+      <div class="alarma-checkin__dialog">
+        <div class="alarma-checkin__header">
+          <div>
+            <div class="alarma-checkin__eyebrow">REPORTESE</div>
+            <h3 class="alarma-checkin__title">Servicio <span class="js-checkin-servicio">-</span></h3>
+            <p class="alarma-checkin__subtitle">Confirma tu ubicacion actual y avisa por WhatsApp.</p>
+            <p class="alarma-checkin__hint js-checkin-sound-hint" hidden>Activa sonido para escuchar la alerta.</p>
+          </div>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-checkin-enable-sound">Habilitar sonido</button>
         </div>
-      </div>
-      <div class="alarma-checkin__actions">
-        <button type="button" class="alarma-btn alarma-btn--primary js-checkin-confirm">Confirmar</button>
-        <button type="button" class="alarma-btn alarma-btn--ghost alarma-checkin__close js-checkin-close">Cerrar</button>
+        <div class="alarma-checkin__body">
+          <div class="alarma-checkin__client"><strong>Cliente:</strong> <span class="js-checkin-cliente">-</span></div>
+          <div class="alarma-checkin__placa"><strong>Placa:</strong> <span class="js-checkin-placa">-</span></div>
+          <div class="alarma-checkin__meta js-checkin-meta">Intento 1 · Reporta tu ubicacion actual.</div>
+          <div class="alarma-checkin__options">
+            <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Grabar voz</button>
+            <div class="alarma-checkin__field">
+              <label for="alarma-checkin-input">Donde te encuentras?</label>
+              <textarea id="alarma-checkin-input" class="alarma-checkin__input" rows="3" placeholder="Ej. Ingresando a puerta 3, sin novedad."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="alarma-checkin__actions">
+          <button type="button" class="alarma-btn alarma-btn--danger js-checkin-confirm">Confirmar y silenciar</button>
+        </div>
       </div>
     `;
     document.body.appendChild(panel);
-    panel
-      .querySelector(".js-checkin-close")
-      ?.addEventListener("click", () => panel.classList.remove("is-open"));
     panel
       .querySelector(".js-checkin-confirm")
       ?.addEventListener("click", () => confirmCheckin(panel));
     panel
       .querySelector(".js-checkin-voice")
       ?.addEventListener("click", () => captureCheckinVoice(panel));
+    panel
+      .querySelector(".js-checkin-enable-sound")
+      ?.addEventListener("click", async () => {
+        try {
+          await enableAlerts({ sound: true, haptics: true });
+          updateCheckinSoundButton(panel);
+          toggleCheckinSoundHint(panel, false);
+        } catch (err) {
+          showToast("No se pudo habilitar el sonido. Reintenta.");
+        }
+      });
+    updateCheckinSoundButton(panel);
+    toggleCheckinSoundHint(panel, !state.permissions.sound);
     state.checkin.panel = panel;
     return panel;
   }
 
   function populateCheckinPanel(panel, payload) {
-    const desc = panel.querySelector(".alarma-checkin__desc");
-    const title = panel.querySelector(".alarma-checkin__title");
-    if (title)
-      title.textContent = `Confirma tu estado - Servicio ${
-        payload?.servicio_id || ""
-      }`;
-    if (desc)
-      desc.textContent = `Cliente: ${
-        payload?.cliente || "N/D"
-      } - Ultimo check-in hace ${payload?.diff_minutes || "?"} min.`;
-    panel.dataset.servicioId = payload?.servicio_id || "";
-    panel.dataset.empresa = payload?.empresa || "";
-    panel.dataset.cliente = payload?.cliente || "";
+    const data = payload?.event || payload || {};
+    const servicioId = data.servicio_id || payload?.servicio_id || "";
+    const cliente = data.cliente || payload?.cliente || "N/D";
+    const placa = data.placa || data.placa_upper || "S/N";
+    const attemptSource = Number(data.metadata?.attempt || payload?.metadata?.attempt) || 1;
+    const attempt = attemptSource > 0 ? attemptSource : 1;
+    const serviceSpan = panel.querySelector(".js-checkin-servicio");
+    if (serviceSpan) serviceSpan.textContent = placa;
+    panel.querySelector(".js-checkin-cliente")?.textContent = cliente;
+    panel.querySelector(".js-checkin-placa")?.textContent = placa;
+    const meta = panel.querySelector(".js-checkin-meta");
+    if (meta) meta.textContent = `Intento ${attempt} · Reporta tu ubicacion actual.`;
+    panel.dataset.servicioId = servicioId ? String(servicioId) : "";
+    panel.dataset.empresa = data.empresa || "";
+    panel.dataset.cliente = cliente;
+    panel.dataset.placa = placa;
+    panel.dataset.tipo = data.tipo || "";
+    panel.dataset.attempt = attempt;
+    panel.dataset.method = "text";
     const input = panel.querySelector("#alarma-checkin-input");
     if (input) input.value = "";
+  }
+
+  function updateCheckinSoundButton(panel) {
+    const btn = panel?.querySelector(".js-checkin-enable-sound");
+    if (!btn) return;
+    if (state.permissions.sound) {
+      btn.textContent = "Sonido activo";
+      btn.disabled = true;
+    } else {
+      btn.textContent = "Habilitar sonido";
+      btn.disabled = false;
+    }
+  }
+
+  function toggleCheckinSoundHint(panel, visible) {
+    const hint = panel?.querySelector(".js-checkin-sound-hint");
+    if (hint) hint.hidden = !visible;
   }
 
   function captureCheckinVoice(panel) {
@@ -1215,6 +1388,9 @@
         const transcript = event.results[0][0].transcript;
         const input = panel.querySelector("#alarma-checkin-input");
         if (input) input.value = transcript;
+        panel.dataset.method = "voice";
+        panel.dataset.transcript = transcript;
+        showToast("Se registro tu voz. Revisa el texto antes de confirmar.");
       };
       recog.onerror = () => {
         showToast("No se pudo capturar tu voz. Escribe la respuesta.");
@@ -1246,18 +1422,43 @@
       return;
     }
     const last = state.custodia.lastLocation;
+    const method = panel.dataset.method === "voice" ? "voice" : "text";
+    const attempt = Number(panel.dataset.attempt || 1);
     state.checkin.busy = true;
     try {
-      await emit("checkin_ok", {
-        servicio_id: panel.dataset.servicioId,
+      const servicioId = panel.dataset.servicioId;
+      const payload = {
+        servicio_id: servicioId,
         empresa: panel.dataset.empresa,
         cliente: panel.dataset.cliente,
+        placa: panel.dataset.placa,
+        tipo: panel.dataset.tipo,
         lat: last?.lat || null,
         lng: last?.lng || null,
-        metadata: { respuesta: texto },
-      });
+        metadata: {
+          channel: "checkin",
+          method,
+          transcript: texto,
+          attempt,
+        },
+      };
+      await emit("checkin_ok", payload);
+      clearCheckinReminder(servicioId);
+      if (window.sb && servicioId) {
+        try {
+          await window.sb
+            .from("servicio")
+            .update({ last_checkin_at: new Date().toISOString() })
+            .eq("id", servicioId);
+        } catch (err) {
+          console.warn("[checkin] update servicio fallo", err);
+        }
+      }
       panel.classList.remove("is-open");
-      showToast("Check-in confirmado. Gracias.");
+      showToast(
+        "Conforme. Ahora reportate en el grupal de WhatsApp con las evidencias."
+      );
+      panel.dataset.method = "text";
     } catch (err) {
       warn("Error al registrar check-in", err);
       showToast("No se pudo registrar. Se guardara offline.");
@@ -1282,6 +1483,10 @@
     showToast,
     confirmCheckin: confirmCheckin,
     flushQueue,
+    enableAlerts,
+    getPermissions() {
+      return { ...state.permissions };
+    },
   };
 
   Object.defineProperty(api, "queueLength", {

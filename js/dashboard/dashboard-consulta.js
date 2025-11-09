@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (clienteSeleccionado && clienteSeleccionado.nombre) || '';
     const cliente = clienteNombre.toUpperCase();
     const tipo = svc.tipo || '';
-    return [placa, cliente, tipo].filter(Boolean).join(' - ');
+    return [placa, cliente, tipo].filter(Boolean).join(' · ');
   }
 
   async function renderServicioCard(svc) {
@@ -377,6 +377,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (window.componentHandler && window.componentHandler.upgradeElement)
       window.componentHandler.upgradeElement(card);
+    try {
+      const { data: ping, error: pingErr } = await window.sb
+        .from("ubicacion")
+        .select("captured_at")
+        .eq("servicio_id", svc.id)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!pingErr && ping?.captured_at) {
+        const info = card.querySelector(".servicio-info");
+        if (info) {
+          const pingEl = document.createElement("p");
+          pingEl.innerHTML = `<strong>Ultimo ping:</strong> ${fmtFecha(
+            ping.captured_at
+          )}`;
+          info.appendChild(pingEl);
+        }
+      }
+    } catch (e) {
+      console.warn("[consulta] ultimo ping error", e);
+    }
     return card;
   }
 

@@ -85,9 +85,12 @@ document.addEventListener("DOMContentLoaded", () => {
     panicLayer = null;
   let panicMarker = null;
   let servicesCache = [];
+  let servicesLoaded = false;
   let lastPanicRecord = null;
   let panicBannerEl = null;
   let alarmaUnsubscribe = null;
+  const serviceFlags = new Map();
+  let alertsEnabled = false;
 
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
@@ -121,6 +124,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const filtersInlineHost = document.getElementById("filters-inline");
   const btnVerTodos = document.getElementById("btn-ver-todos");
   const btnAlarmaPush = document.getElementById("btn-alarma-push-admin");
+  const btnAudioOptin = document.getElementById("btn-audio-optin");
+  const audioBtnDefaultLabel = btnAudioOptin ? btnAudioOptin.innerHTML : "";
+  const audioBtnActiveLabel =
+    '<i class="material-icons">volume_up</i> Sonido activo';
+  if (btnAudioOptin && window.Alarma?.getPermissions) {
+    const perms = window.Alarma.getPermissions();
+    if (perms?.sound) {
+      alertsEnabled = true;
+      btnAudioOptin.disabled = true;
+      btnAudioOptin.innerHTML = audioBtnActiveLabel;
+    }
+  }
   btnVerTodos?.addEventListener("click", () => {
     try {
       selectedId = null;
@@ -129,10 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {}
     loadServices();
   });
-  btnAlarmaPush?.addEventListener("click", () => {
-    unlockAudio();
-  });
-
   function openFiltersDrawer() {
     if (!filtersDrawer || !mapPanel) return;
     mapPanel.classList.add("filters-open");
@@ -351,6 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btnAlarmaPush.disabled = true;
       btnAlarmaPush.classList.add("is-working");
       try {
+        unlockAudio();
         const empresaFiltro =
           fEmpresa?.value && fEmpresa.value !== "TODAS" ? fEmpresa.value : null;
         await window.Alarma.registerPush("admin", empresaFiltro, {
@@ -366,6 +378,41 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  btnAudioOptin?.addEventListener("click", async () => {
+    if (alertsEnabled) {
+      showMsg("El sonido ya esta habilitado.");
+      return;
+    }
+    if (!window.Alarma?.enableAlerts) {
+      showMsg("Modulo de alarmas no disponible.");
+      return;
+    }
+    btnAudioOptin.disabled = true;
+    try {
+      const perms = await window.Alarma.enableAlerts({
+        sound: true,
+        haptics: true,
+      });
+      alertsEnabled = Boolean(perms?.sound);
+      if (alertsEnabled) {
+        unlockAudio();
+        btnAudioOptin.disabled = true;
+        btnAudioOptin.innerHTML = audioBtnActiveLabel;
+        showMsg("Alertas sonoras activadas.");
+      } else {
+        showMsg("Activa sonido desde el navegador para continuar.");
+      }
+    } catch (err) {
+      console.warn("[admin][audio] enable error", err);
+      showMsg("No se pudo habilitar el sonido.");
+    } finally {
+      if (!alertsEnabled) {
+        btnAudioOptin.disabled = false;
+        btnAudioOptin.innerHTML = audioBtnDefaultLabel;
+      }
+    }
+  });
 
   // UI refs
   // Tapping header title resets selection (mobile UX)
@@ -554,6 +601,8 @@ document.addEventListener("DOMContentLoaded", () => {
             (s.cliente?.nombre || "").toUpperCase().includes(texto)
         );
       }
+      const servicioIds = (data || []).map((s) => s.id).filter(Boolean);
+      const custodiosMap = await fetchCustodiosMap(servicioIds);
       const enriched = await Promise.all(
         (data || []).map(async (s) => {
           try {
@@ -567,18 +616,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (pingErr) {
               console.warn("[admin] ubicacion query error", pingErr);
             }
-            return { ...s, lastPing: ping || null };
+            return {
+              ...s,
+              lastPing: ping || null,
+              custodios: custodiosMap.get(s.id) || [],
+            };
           } catch (e) {
             console.warn("[admin] ubicacion query exception", e);
-            return { ...s, lastPing: null };
+            return { ...s, lastPing: null, custodios: custodiosMap.get(s.id) || [] };
           }
         })
       );
       const enrichedNorm = (enriched || []).map((s) => ({
         ...s,
         lastPing: normPing(s.lastPing),
+        custodios: Array.isArray(s.custodios) ? s.custodios : [],
       }));
       servicesCache = enrichedNorm;
+      servicesLoaded = true;
       renderList(enrichedNorm);
       updateMarkers(enrichedNorm.filter((x) => x.estado === "ACTIVO"));
       // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
@@ -600,8 +655,67 @@ document.addEventListener("DOMContentLoaded", () => {
   function formatTitle(s) {
     const placa = (s.placa || "-").toString().toUpperCase();
     const cliente = (s.cliente?.nombre || "-").toString().toUpperCase();
-    const tipo = s.tipo ? s.tipo : "-";
-    return `${placa} - ${cliente} (${tipo})`;
+    const tipo = (s.tipo || "-").toString().toUpperCase();
+    return [placa, cliente, tipo].join(" · ");
+  }
+
+  async function fetchCustodiosMap(ids) {
+    const map = new Map();
+    const filtered = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    if (!filtered.length) return map;
+    try {
+      const { data, error } = await window.sb
+        .from("servicio_custodio")
+        .select("servicio_id,nombre_custodio,tipo_custodia")
+        .in("servicio_id", filtered);
+      if (error) throw error;
+      for (const row of data || []) {
+        const key = row.servicio_id;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(row);
+      }
+    } catch (err) {
+      console.warn("[admin] custodios query error", err);
+    }
+    return map;
+  }
+
+  function describeCustodios(list) {
+    if (!Array.isArray(list) || !list.length) return "Sin custodios";
+    return list
+      .map((c) => {
+        const nombre = (c.nombre_custodio || "-").trim() || "-";
+        const tipo = (c.tipo_custodia || "").trim();
+        return tipo ? `${nombre} (${tipo})` : nombre;
+      })
+      .join(", ");
+  }
+
+  function updateServiceFlag(servicioId, flag, value) {
+    if (!servicioId) return;
+    const key = String(servicioId);
+    const current = serviceFlags.get(key) || {};
+    if (value) {
+      current[flag] = true;
+      serviceFlags.set(key, current);
+    } else if (current[flag]) {
+      delete current[flag];
+      if (Object.keys(current).length) serviceFlags.set(key, current);
+      else serviceFlags.delete(key);
+    }
+  }
+
+  function renderAlertBadges(servicioId) {
+    const flags = servicioId ? serviceFlags.get(String(servicioId)) : null;
+    if (!flags) return "";
+    const badges = [];
+    if (flags.panic) badges.push('<span class="alarma-badge">PANICO</span>');
+    if (flags.checkinPending) {
+      badges.push(
+        '<span class="alarma-badge alarma-badge--warn">CHECK-IN PENDIENTE</span>'
+      );
+    }
+    return badges.join("");
   }
 
   function renderList(services) {
@@ -616,6 +730,11 @@ document.addEventListener("DOMContentLoaded", () => {
       card.className = "card";
       card.dataset.sid = s.id;
       if (s.id === selectedId) card.classList.add("active");
+      const flags = serviceFlags.get(String(s.id));
+      if (flags?.panic) card.classList.add("alarma-card--panic");
+      if (flags?.checkinPending) card.classList.add("alarma-card--flash");
+      const badgesHtml = renderAlertBadges(s.id) || "";
+      const custodiosLabel = describeCustodios(s.custodios);
       let pingLabel = "-",
         pingClass = "ping-ok",
         alertNow = false;
@@ -646,15 +765,17 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "t-alerta"
           : "t-activo";
       card.innerHTML = `
-        <div class="title"><div><strong>${h(
-          formatTitle(s)
-        )}</strong></div><span class="tag ${tagClass}">${h(
-        s.estado
-      )}</span></div>
-        <div class="meta"><span class="pill">${h(
-          s.empresa
-        )}</span><span class="pill">${h(s.tipo || "-")}</span></div>
+        <div class="title">
+          <div>
+            <strong>${h(formatTitle(s))}</strong>
+            ${badgesHtml}
+          </div>
+          <span class="tag ${tagClass}">${h(s.estado)}</span>
+        </div>
+        <div class="meta"><span class="pill">${h(s.empresa)}</span></div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || "-")}</div>
+        <div><strong>Custodios:</strong> ${h(custodiosLabel)}</div>
+        <div><strong>Tipo:</strong> ${h(s.tipo || "-")}</div>
         <div class="${pingClass}"><strong>Ultimo ping:</strong> ${pingLabel}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${
@@ -673,11 +794,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btn.dataset.act === "ver") {
           selectService(s);
         } else if (btn.dataset.act === "fin") {
-          await finalizarServicio(s.id);
+          await finalizarServicio(s);
         }
       });
       listado.appendChild(card);
     });
+  }
+
+  function refreshList() {
+    if (servicesLoaded) {
+      renderList(servicesCache);
+    }
   }
 
   function selectService(s) {
@@ -860,6 +987,7 @@ document.addEventListener("DOMContentLoaded", () => {
       metricPing.className = s.estado === "ACTIVO" ? "ping-warn" : "";
     }
     metricEstado.textContent = s.estado;
+    const custodiosTexto = describeCustodios(s.custodios);
     details.innerHTML = `<div><strong>Empresa:</strong> ${
       s.empresa
     }</div><div><strong>Cliente:</strong> ${
@@ -870,7 +998,9 @@ document.addEventListener("DOMContentLoaded", () => {
       s.tipo || "-"
     }</div><div><strong>Destino:</strong> ${
       s.destino_texto || "-"
-    }</div><div><strong>Creado:</strong> ${fmtDT(
+    }</div><div><strong>Custodios:</strong> ${h(
+      custodiosTexto
+    )}</div><div><strong>Creado:</strong> ${fmtDT(
       s.created_at
     )}</div><div><button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" ${
       s.estado === "FINALIZADO" ? "disabled" : ""
@@ -878,11 +1008,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document
       .getElementById("btn-finalizar")
       ?.addEventListener("click", async () => {
-        await finalizarServicio(s.id);
+        await finalizarServicio(s);
       });
   }
-  async function finalizarServicio(id) {
-    const ok = confirm(`Finalizar el servicio #${id}?`);
+  async function finalizarServicio(servicio) {
+    const serviceObj =
+      typeof servicio === "object"
+        ? servicio
+        : servicesCache.find((item) => item.id === servicio) || { id: servicio };
+    const id = serviceObj?.id;
+    if (!id) return;
+    const title = serviceObj.placa ? formatTitle(serviceObj) : `el servicio ${id}`;
+    const ok = confirm(`Finalizar ${title}?`);
     if (!ok) return;
     try {
       const { error } = await window.sb
@@ -918,6 +1055,10 @@ document.addEventListener("DOMContentLoaded", () => {
         cliente: lastPanicRecord?.cliente,
         placa: lastPanicRecord?.placa,
       });
+      if (lastPanicRecord?.servicio_id) {
+        updateServiceFlag(lastPanicRecord.servicio_id, "panic", true);
+        refreshList();
+      }
       showPanicBanner(lastPanicRecord);
       focusPanicOnMap(lastPanicRecord, { forceReload: true });
       try {
@@ -931,7 +1072,19 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (evt.type === "panic-focus" && lastPanicRecord) {
       focusPanicOnMap(lastPanicRecord, { forceReload: false });
     } else if (evt.type === "panic-ack") {
+      const servicioId = lastPanicRecord?.servicio_id;
       dismissPanicAlert();
+      if (servicioId) {
+        updateServiceFlag(servicioId, "panic", false);
+        refreshList();
+      }
+    }
+    if (evt.type === "checkin_missed" && evt.record?.servicio_id) {
+      updateServiceFlag(evt.record.servicio_id, "checkinPending", true);
+      refreshList();
+    } else if (evt.type === "checkin_ok" && evt.record?.servicio_id) {
+      updateServiceFlag(evt.record.servicio_id, "checkinPending", false);
+      refreshList();
     }
   }
 
