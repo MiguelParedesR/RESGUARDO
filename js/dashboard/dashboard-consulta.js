@@ -1,4 +1,7 @@
-﻿// dashboard-consulta.js â€” Consulta por Cliente â†’ Placas â†’ Servicios â†’ Custodios + Selfies
+﻿// @hu HU-MARCADORES-CUSTODIA
+// @author Codex
+// @date 2025-02-15
+// @rationale Ajustar etiquetas y pings segun HU.
 
 document.addEventListener("DOMContentLoaded", () => {
   const h = (v) =>
@@ -42,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Anti-exfiltraciÃ³n bÃ¡sica (disuasiva)
+  // Anti-exfiltraciÃƒÂ³n bÃƒÂ¡sica (disuasiva)
   const antiOverlay = document.getElementById("anti-capture-overlay");
   document.addEventListener("contextmenu", (e) => {
     if (e.target.closest(".sensitive")) {
@@ -82,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!window.sb) {
     console.error("[consulta] Supabase no inicializado (config.js)");
-    showMsg("Error de inicializaciÃ³n");
+    showMsg("Error de inicializaciÃƒÂ³n");
     return;
   }
 
@@ -262,9 +265,10 @@ document.addEventListener("DOMContentLoaded", () => {
       (clienteSeleccionado && clienteSeleccionado.nombre) || '';
     const cliente = clienteNombre.toUpperCase();
     const tipo = svc.tipo || '';
-    return [placa, cliente, tipo].filter(Boolean).join(' · ');
+    return [placa, cliente, tipo].filter(Boolean).join(' - ');
   }
 
+  // === BEGIN HU:HU-MARCADORES-CUSTODIA consulta cards (no tocar fuera) ===
   async function renderServicioCard(svc) {
     const card = document.createElement('div');
     card.className = 'mdl-card mdl-shadow--2dp servicio-card';
@@ -400,6 +404,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return card;
   }
+  // === END HU:HU-MARCADORES-CUSTODIA ===
 
   // Sidebar toggle
   function openSidebar() {
@@ -564,6 +569,7 @@ const scheduleClienteRefresh = debounce(async () => {
     });
   } catch {}
 })();
+
 
 
 

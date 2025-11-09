@@ -1,3 +1,9 @@
+// @hu HU-NO400-ALARM_EVENT
+// @author Codex
+// @date 2025-02-15
+// @rationale Gestionar envios push con trazas consistentes.
+
+// === BEGIN HU:HU-NO400-ALARM_EVENT push send (no tocar fuera) ===
 import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 
@@ -10,7 +16,7 @@ const VAPID_PRIVATE_KEY =
   process.env.VAPID_PRIVATE_KEY || process.env.WEB_PUSH_PRIVATE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn("[push-send] Missing Supabase credentials");
+  console.warn("[push] Missing Supabase credentials");
 }
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
@@ -21,7 +27,7 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   );
 } else {
   console.warn(
-    "[push-send] VAPID keys are not configured. Notifications will fail."
+    "[push] VAPID keys are not configured. Notifications will fail."
   );
 }
 
@@ -308,3 +314,5 @@ function ensureObject(value) {
   if (typeof value === "object" && !Array.isArray(value)) return { ...value };
   return {};
 }
+
+// === END HU:HU-NO400-ALARM_EVENT ===

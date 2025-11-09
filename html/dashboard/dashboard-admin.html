@@ -1,11 +1,12 @@
-﻿﻿<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard Administrador</title>
-    <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">\n<!-- MDL -->
+    <link rel="icon" href="/assets/icon-192.svg" type="image/svg\+xml">
+    <!-- @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO --> <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -66,7 +67,7 @@
                         </div>
                         <div class="filters-inline" id="filters-inline"></div>
                         <div id="listado" class="sidebar-body">
-                            <div class="card">Cargandoâ€¦</div>
+                            <div class="card">Cargando</div>
                         </div>
                     </aside>
 
@@ -75,14 +76,15 @@
                         <div class="map-head">
                             <div class="map-title" id="map-title">Selecciona un servicio</div>
                             <div class="map-metrics">
-                                <span><strong>Ping:</strong> <span id="metric-ping">â€”</span></span>
-                                <span><strong>Estado:</strong> <span id="metric-estado">â€”</span></span>
-                                <button id="btn-alarma-push-admin" class="btn btn-ghost"
-                                    title="Activar notificaciones de alarma"><i
-                                        class="material-icons">notifications_active</i> Alertas</button>
-                                <button id="btn-audio-optin" class="btn btn-ghost"
-                                    title="Habilitar sonido y vibración"><i class="material-icons">volume_up</i>
-                                    Sonido</button>
+                                <span><strong>Ping:</strong> <span id="metric-ping">--</span></span>
+                                <span><strong>Estado:</strong> <span id="metric-estado">--</span></span>
+                                <button id="btn-alarma-push-admin" class="btn btn-ghost" `r`n
+                                    title="Activar notificaciones de alarma">
+                                    <i`r`n class="material-icons">notifications_active</i>Alertas
+                                </button> <!-- === BEGIN HU:HU-AUDIO-GESTO btn sonido (no tocar fuera) === -->
+                                <button id="btn-audio-optin" class="btn btn-ghost" `r`n
+                                    title="Habilitar sonido y vibracion"><i class="material-icons">volume_up</i>
+                                    Sonido</button><!-- === END HU:HU-AUDIO-GESTO === -->
                                 <button id="btn-filtros" class="btn btn-ghost" aria-controls="filters-drawer"
                                     aria-expanded="false" title="Mostrar filtros"><i class="material-icons">tune</i>
                                     Filtros</button>
@@ -126,11 +128,11 @@
                         <div id="map-admin"></div>
 
                         <div class="details" id="details">
-                            <div><strong>Empresa:</strong> â€”</div>
-                            <div><strong>Cliente:</strong> â€”</div>
-                            <div><strong>Placa:</strong> â€”</div>
-                            <div><strong>Tipo:</strong> â€”</div>
-                            <div><strong>Destino:</strong> â€”</div>
+                            <div><strong>Empresa:</strong> --</div>
+                            <div><strong>Cliente:</strong> --</div>
+                            <div><strong>Placa:</strong> --</div>
+                            <div><strong>Tipo:</strong> --</div>
+                            <div><strong>Destino:</strong> --</div>
                             <div>
                                 <button id="btn-finalizar"
                                     class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>

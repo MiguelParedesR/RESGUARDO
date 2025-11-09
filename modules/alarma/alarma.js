@@ -1,5 +1,10 @@
-﻿﻿﻿﻿﻿﻿(function (global) {
+(function (global) {
   "use strict";
+
+  // @hu HU-CHECKIN-15M, HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-NO400-ALARM_EVENT
+  // @author Codex
+  // @date 2025-02-15
+  // @rationale Mantener alarmas, audio y check-in alineados con la HU vigente sin regresiones.
 
   const STORAGE_QUEUE = "alarma.queue.v1";
   const STORAGE_FLAGS = "alarma.flags.v1";
@@ -9,7 +14,9 @@
   const CHECKIN_ENDPOINT = "/.netlify/functions/push-send";
   const MAX_STRING = 180;
   const TOAST_TIMEOUT = 4200;
+  /* === BEGIN HU:HU-CHECKIN-15M checkin constants (no tocar fuera) === */
   const CHECKIN_REMIND_MS = 5 * 60 * 1000;
+  /* === END HU:HU-CHECKIN-15M === */
   const REVERSE_GEOCODE_URL = "https://us1.locationiq.com/v1/reverse";
 
   const state = {
@@ -41,15 +48,19 @@
       voices: [],
       lastStart: 0,
     },
+    /* === BEGIN HU:HU-CHECKIN-15M checkin state (no tocar fuera) === */
     checkin: {
       panel: null,
       busy: false,
       rePromptTimers: new Map(),
     },
+    /* === END HU:HU-CHECKIN-15M === */
+    /* === BEGIN HU:HU-AUDIO-GESTO permissions state (no tocar fuera) === */
     permissions: {
       sound: false,
       haptics: false,
     },
+    /* === END HU:HU-AUDIO-GESTO === */
   };
 
   function log() {
@@ -88,7 +99,7 @@
     panic: "panic",
     heartbeat: "heartbeat",
     finalize: "finalize",
-    "checkin_ok": "checkin_ok",
+    checkin_ok: "checkin_ok",
     "checkin-missed": "checkin_missed",
     checkin_missed: "checkin_missed",
     checkin: "checkin",
@@ -345,12 +356,14 @@
     if (data.kind === "push" && data.event) {
       if (state.mode === "admin") {
         handleIncomingEvent(data.event, data.payload || {}, { source: "push" });
+      /* === BEGIN HU:HU-CHECKIN-15M sw message (no tocar fuera) === */
       } else if (state.mode === "custodia" && data.event === "checkin") {
         const payload = data.payload || data;
         scheduleCheckinReminder(payload);
         openCheckinPrompt(payload);
         notify({ type: "checkin", record: payload.event || payload });
       }
+      /* === END HU:HU-CHECKIN-15M === */
     }
   }
 
@@ -404,12 +417,11 @@
     const record = normalizeRecord(createEventRecord(sanitized));
     const missing = validateRequired(record);
     if (missing.length) {
-      warn(
-        "[alarma] evento descartado por campos faltantes",
-        missing,
-        record
-      );
-      return { error: new Error("Campos obligatorios faltantes"), queued: false };
+      warn("[alarma] evento descartado por campos faltantes", missing, record);
+      return {
+        error: new Error("Campos obligatorios faltantes"),
+        queued: false,
+      };
     }
     if (!record.metadata || typeof record.metadata !== "object") {
       record.metadata = {};
@@ -436,7 +448,12 @@
         tipo: record.tipo,
       });
       const dbRecord = { ...record };
-      const { data, error: err, status, statusText } = await client
+      const {
+        data,
+        error: err,
+        status,
+        statusText,
+      } = await client
         .from("alarm_event")
         .insert(dbRecord)
         .select("*")
@@ -484,6 +501,7 @@
     }
   }
 
+  /* === BEGIN HU:HU-NO400-ALARM_EVENT trigger push (no tocar fuera) === */
   async function triggerPush(type, eventRecord, options) {
     const endpoint =
       options && options.endpoint ? options.endpoint : PUSH_ENDPOINT;
@@ -548,7 +566,7 @@
           responseBody = responseText;
         }
       }
-      console.log("[alertas] broadcast respuesta", {
+      console.log("[push] broadcast respuesta", {
         endpoint,
         status: res.status,
         body: responseBody,
@@ -559,16 +577,17 @@
         typeof responseBody.sent === "number" &&
         responseBody.sent === 0
       ) {
-        console.warn("[alertas] broadcast sin destinatarios", {
+        console.warn("[push] broadcast sin destinatarios", {
           audience,
           payloadKeys: Object.keys((payload && payload.data) || {}),
         });
       }
       if (!res.ok) throw new Error(`Push ${endpoint} -> ${res.status}`);
     } catch (err) {
-      warn("Fetch push fallo", err);
+      console.warn("[push] Fetch fallo", err);
     }
   }
+  /* === END HU:HU-NO400-ALARM_EVENT === */
 
   function normalisePushType(rawType) {
     const base = String(rawType || "").toLowerCase();
@@ -675,6 +694,7 @@
     } else if (type === "panic") {
       if (state.admin.handled.has(`${key}-panic-ack`)) return;
       activatePanic(record);
+    /* === BEGIN HU:HU-CHECKIN-15M incoming events (no tocar fuera) === */
     } else if (type === "checkin" && state.mode === "custodia") {
       scheduleCheckinReminder(record);
       openCheckinPrompt(record);
@@ -692,6 +712,7 @@
         state.checkin.panel.classList.remove("is-open");
       }
       notify({ type: "checkin_ok", record });
+    /* === END HU:HU-CHECKIN-15M === */
     }
   }
 
@@ -708,6 +729,7 @@
     }
   }
 
+  /* === BEGIN HU:HU-PANICO-TTS activate panic (no tocar fuera) === */
   function activatePanic(record) {
     const key = panicKey(record);
     if (state.admin.handled.has(key)) return;
@@ -718,6 +740,10 @@
       record && record.cliente
         ? `ALERTA - ${record.cliente}`
         : "ALERTA DE ROBO";
+    console.log("[panic] evento recibido", {
+      servicio_id: record?.servicio_id || null,
+      cliente: record?.cliente || null,
+    });
     if (state.permissions.sound) {
       try {
         tts(frase, { lang: "es-PE" });
@@ -732,6 +758,7 @@
     }
     notify({ type: "panic", record });
   }
+  /* === END HU:HU-PANICO-TTS === */
 
   function ensureAudioCtx() {
     if (state.siren.audioCtx) return state.siren.audioCtx;
@@ -744,6 +771,7 @@
     return state.siren.audioCtx;
   }
 
+  /* === BEGIN HU:HU-AUDIO-GESTO enable alerts (no tocar fuera) === */
   async function enableAlerts(options) {
     const opts = options || {};
     const wantSound = opts.sound !== false;
@@ -758,7 +786,7 @@
         }
         soundOk = ctx.state === "running";
       } catch (err) {
-        warn("No se pudo activar audio", err);
+        console.warn("[audio] No se pudo activar audio", err);
         soundOk = false;
       }
       state.permissions.sound = soundOk;
@@ -771,11 +799,15 @@
       haptics: state.permissions.haptics,
     };
   }
+  /* === END HU:HU-AUDIO-GESTO === */
 
   function sirenaOn(options) {
     const opts = options || {};
     if (!state.permissions.sound) {
-      showToast("Activa sonido desde el boton de alertas para escuchar la sirena.");
+      console.warn("[audio] Sirena bloqueada por falta de permiso");
+      showToast(
+        "Activa sonido desde el boton de alertas para escuchar la sirena."
+      );
       return;
     }
     const ctx = ensureAudioCtx();
@@ -1136,9 +1168,7 @@
       role: normalisePushRole(params.role),
       empresa: empresaValue,
       user_label: label,
-      user_agent: userAgentSource
-        ? clip(String(userAgentSource), 360)
-        : null,
+      user_agent: userAgentSource ? clip(String(userAgentSource), 360) : null,
       is_active: true,
       servicio_id: params.servicioId ?? null,
       last_seen_at: new Date().toISOString(),
@@ -1204,10 +1234,10 @@
         upsertError = err;
       }
       if (upsertError) {
-        console.error("[alertas] No se pudo registrar push", upsertError);
-        console.error("[alertas] Payload keys", Object.keys(payload || {}));
+        console.error("[push] No se pudo registrar push", upsertError);
+        console.error("[push] Payload keys", Object.keys(payload || {}));
         showToast(
-          "[alertas] No se pudo registrar notificaciones. Revisa consola."
+          "[push] No se pudo registrar notificaciones. Revisa consola."
         );
         throw upsertError;
       }
@@ -1217,19 +1247,19 @@
           .select("id,is_active,last_seen_at")
           .eq("endpoint", payload.endpoint);
         if (verifyErr) {
-          warn("[alertas] Conteo de suscriptores fallo", verifyErr);
+          warn("[push] Conteo de suscriptores fallo", verifyErr);
         } else {
           const activeCount = (verifyRows || []).filter(
             (row) => row?.is_active !== false
           ).length;
-          console.log("[alertas] push registrado OK", {
+          console.log("[push] push registrado OK", {
             endpoint: clip(payload.endpoint, 200),
             activos: activeCount,
             registros: verifyRows?.length || 0,
           });
         }
       } catch (verifyErr) {
-        warn("[alertas] No se pudo verificar el registro push", verifyErr);
+        warn("[push] No se pudo verificar el registro push", verifyErr);
       }
       try {
         global.localStorage.setItem(STORAGE_PUSH, JSON.stringify(payload));
@@ -1273,6 +1303,7 @@
     return data.display_name || data.address?.road || "";
   }
 
+  /* === BEGIN HU:HU-CHECKIN-15M checkin ui (no tocar fuera) === */
   function openCheckinPrompt(payload) {
     if (state.mode !== "custodia") return;
     const panel = ensureCheckinPanel();
@@ -1299,6 +1330,10 @@
         warn("No se pudo reproducir TTS", err);
       }
     }
+    console.log("[checkin] panel abierto", {
+      servicio_id: panel.dataset.servicioId || null,
+      attempt: panel.dataset.attempt || 1,
+    });
     scheduleCheckinReminder(payload);
   }
 
@@ -1326,9 +1361,19 @@
     const servicioId = getServicioIdFromPayload(payload);
     if (!servicioId) return;
     const key = String(servicioId);
+    const metaSource =
+      payload?.metadata ||
+      payload?.event?.metadata ||
+      payload?.payload?.metadata ||
+      {};
+    const attemptFromPayload = Number(metaSource.attempt || 1);
+    if (attemptFromPayload >= 3) {
+      clearCheckinReminder(key);
+      return;
+    }
     clearCheckinReminder(key);
     const timer = setTimeout(() => {
-      state.checkin.rePromptTimers.delete(servicioId);
+      state.checkin.rePromptTimers.delete(key);
       const panel = state.checkin.panel;
       if (
         panel &&
@@ -1363,7 +1408,7 @@
         <div class="alarma-checkin__body">
           <div class="alarma-checkin__client"><strong>Cliente:</strong> <span class="js-checkin-cliente">-</span></div>
           <div class="alarma-checkin__placa"><strong>Placa:</strong> <span class="js-checkin-placa">-</span></div>
-          <div class="alarma-checkin__meta js-checkin-meta">Intento 1 · Reporta tu ubicacion actual.</div>
+          <div class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</div>
           <div class="alarma-checkin__options">
             <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Grabar voz</button>
             <div class="alarma-checkin__field">
@@ -1406,14 +1451,18 @@
     const servicioId = data.servicio_id || payload?.servicio_id || "";
     const cliente = data.cliente || payload?.cliente || "N/D";
     const placa = data.placa || data.placa_upper || "S/N";
-    const attemptSource = Number(data.metadata?.attempt || payload?.metadata?.attempt) || 1;
+    const attemptSource =
+      Number(data.metadata?.attempt || payload?.metadata?.attempt) || 1;
     const attempt = attemptSource > 0 ? attemptSource : 1;
     const serviceSpan = panel.querySelector(".js-checkin-servicio");
     if (serviceSpan) serviceSpan.textContent = placa;
-    panel.querySelector(".js-checkin-cliente")?.textContent = cliente;
-    panel.querySelector(".js-checkin-placa")?.textContent = placa;
+    const clienteSpan = panel.querySelector(".js-checkin-cliente");
+    if (clienteSpan) clienteSpan.textContent = cliente;
+    const placaSpan = panel.querySelector(".js-checkin-placa");
+    if (placaSpan) placaSpan.textContent = placa;
     const meta = panel.querySelector(".js-checkin-meta");
-    if (meta) meta.textContent = `Intento ${attempt} · Reporta tu ubicacion actual.`;
+    if (meta)
+      meta.textContent = `Intento ${attempt} - Reporta tu ubicacion actual.`;
     panel.dataset.servicioId = servicioId ? String(servicioId) : "";
     panel.dataset.empresa = data.empresa || "";
     panel.dataset.cliente = cliente;
@@ -1535,13 +1584,19 @@
         "Conforme. Ahora reportate en el grupal de WhatsApp con las evidencias."
       );
       panel.dataset.method = "text";
+      console.log("[checkin] confirmado", {
+        servicio_id: servicioId || null,
+        method,
+        attempt,
+      });
     } catch (err) {
-      warn("Error al registrar check-in", err);
+      console.warn("[checkin] Error al registrar check-in", err);
       showToast("No se pudo registrar. Se guardara offline.");
     } finally {
       state.checkin.busy = false;
     }
   }
+  /* === END HU:HU-CHECKIN-15M === */
 
   const api = {
     initCustodia,
@@ -1560,9 +1615,11 @@
     confirmCheckin: confirmCheckin,
     flushQueue,
     enableAlerts,
+    /* === BEGIN HU:HU-AUDIO-GESTO api permissions (no tocar fuera) === */
     getPermissions() {
       return { ...state.permissions };
     },
+    /* === END HU:HU-AUDIO-GESTO === */
   };
 
   Object.defineProperty(api, "queueLength", {
@@ -1573,3 +1630,8 @@
 
   global.Alarma = api;
 })(window);
+
+
+
+
+

@@ -1,4 +1,9 @@
-// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
+﻿// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
+// @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-MARCADORES-CUSTODIA, HU-CHECKIN-15M
+// @author Codex
+// @date 2025-02-15
+// @rationale Mantener dashboard admin alineado con sonido, pÃ¡nico y check-in sin regresiones.
+
 document.addEventListener("DOMContentLoaded", () => {
   const h = (v) =>
     String(v ?? "").replace(
@@ -124,6 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const filtersInlineHost = document.getElementById("filters-inline");
   const btnVerTodos = document.getElementById("btn-ver-todos");
   const btnAlarmaPush = document.getElementById("btn-alarma-push-admin");
+  /* === BEGIN HU:HU-AUDIO-GESTO boton sonido (no tocar fuera) === */
   const btnAudioOptin = document.getElementById("btn-audio-optin");
   const audioBtnDefaultLabel = btnAudioOptin ? btnAudioOptin.innerHTML : "";
   const audioBtnActiveLabel =
@@ -400,11 +406,12 @@ document.addEventListener("DOMContentLoaded", () => {
         btnAudioOptin.disabled = true;
         btnAudioOptin.innerHTML = audioBtnActiveLabel;
         showMsg("Alertas sonoras activadas.");
+        console.log("[audio] Alertas sonoras activadas");
       } else {
         showMsg("Activa sonido desde el navegador para continuar.");
       }
     } catch (err) {
-      console.warn("[admin][audio] enable error", err);
+      console.warn("[audio] enable error", err);
       showMsg("No se pudo habilitar el sonido.");
     } finally {
       if (!alertsEnabled) {
@@ -413,6 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+  /* === END HU:HU-AUDIO-GESTO === */
 
   // UI refs
   // Tapping header title resets selection (mobile UX)
@@ -577,6 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Datos
+  // === BEGIN HU:HU-MARCADORES-CUSTODIA load services (no tocar fuera) ===
   async function loadServices() {
     if (!window.sb) {
       showMsg("Supabase no inicializado");
@@ -635,7 +644,10 @@ document.addEventListener("DOMContentLoaded", () => {
       servicesCache = enrichedNorm;
       servicesLoaded = true;
       renderList(enrichedNorm);
-      updateMarkers(enrichedNorm.filter((x) => x.estado === "ACTIVO"));
+      const markerItems = selectedId
+        ? collectCustodiasForMap(selectedId, true)
+        : collectCustodiasForMap(null, false);
+      updateMarkers(markerItems, { scopedToService: Boolean(selectedId) });
       // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
       if (selectedId) {
         const cur = enrichedNorm.find((x) => x.id === selectedId);
@@ -656,9 +668,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const placa = (s.placa || "-").toString().toUpperCase();
     const cliente = (s.cliente?.nombre || "-").toString().toUpperCase();
     const tipo = (s.tipo || "-").toString().toUpperCase();
-    return [placa, cliente, tipo].join(" · ");
+    return [placa, cliente, tipo].join(" - ");
   }
+  // === END HU:HU-MARCADORES-CUSTODIA ===
 
+  // === BEGIN HU:HU-MARCADORES-CUSTODIA custodios helpers (no tocar fuera) ===
   async function fetchCustodiosMap(ids) {
     const map = new Map();
     const filtered = Array.isArray(ids) ? ids.filter(Boolean) : [];
@@ -666,13 +680,40 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const { data, error } = await window.sb
         .from("servicio_custodio")
-        .select("servicio_id,nombre_custodio,tipo_custodia")
+        .select("id,servicio_id,nombre_custodio,tipo_custodia")
         .in("servicio_id", filtered);
       if (error) throw error;
+      const { data: ubicaciones, error: pingError } = await window.sb
+        .from("v_ultimo_ping_por_custodia")
+        .select(
+          "servicio_custodio_id, servicio_id, lat, lng, ultimo_ping_at, cliente, placa"
+        )
+        .in("servicio_id", filtered);
+      if (pingError) throw pingError;
+      const pingMap = new Map();
+      (ubicaciones || []).forEach((row) => {
+        pingMap.set(row.servicio_custodio_id, {
+          lat: row.lat,
+          lng: row.lng,
+          captured_at: row.ultimo_ping_at,
+          cliente: row.cliente,
+          placa: row.placa,
+        });
+      });
       for (const row of data || []) {
         const key = row.servicio_id;
         if (!map.has(key)) map.set(key, []);
-        map.get(key).push(row);
+        const ping = pingMap.get(row.id) || null;
+        map.get(key).push({
+          ...row,
+          lastPing: ping
+            ? {
+                lat: ping.lat,
+                lng: ping.lng,
+                captured_at: ping.captured_at,
+              }
+            : null,
+        });
       }
     } catch (err) {
       console.warn("[admin] custodios query error", err);
@@ -689,6 +730,30 @@ document.addEventListener("DOMContentLoaded", () => {
         return tipo ? `${nombre} (${tipo})` : nombre;
       })
       .join(", ");
+  }
+
+  function collectCustodiasForMap(servicioIdFilter = null, includeInactive = false) {
+    const items = [];
+    for (const svc of servicesCache || []) {
+      if (!includeInactive && svc.estado !== "ACTIVO") continue;
+      if (servicioIdFilter && svc.id !== servicioIdFilter) continue;
+      const clienteNombre = svc.cliente?.nombre || "";
+      const placa = svc.placa_upper || svc.placa || "";
+      (svc.custodios || []).forEach((cust) => {
+        const ping = cust.lastPing;
+        if (!ping?.lat || !ping?.lng) return;
+        items.push({
+          servicioId: svc.id,
+          servicio_custodio_id: cust.id,
+          nombre: cust.nombre_custodio || "Custodia",
+          cliente: clienteNombre,
+          placa,
+          tipo: cust.tipo_custodia || "",
+          lastPing: ping,
+        });
+      });
+    }
+    return items;
   }
 
   function updateServiceFlag(servicioId, flag, value) {
@@ -834,58 +899,54 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Markers + fitBounds
-  function updateMarkers(activos) {
-    // sugerencia: este metodo comparte responsabilidades (gestion markers + layout bounds).
-    // Conviene extraer markers a un gestor y dejar solo layout aquI o moverlo a tracking-common.
+  function updateMarkers(custodias, options = {}) {
     ensureMap();
     if (!map) return;
+    const scoped = Boolean(options.scopedToService);
     try {
       overviewLayer?.clearLayers();
-    } catch (e) {}
-    try {
-      focusLayer?.clearLayers();
-    } catch (e) {}
-    try {
-      routeLayerFocus?.clearLayers();
-    } catch (e) {}
+    } catch {}
+    const keepIds = new Set(custodias.map((c) => c.servicio_custodio_id));
     for (const id of Array.from(markers.keys())) {
-      if (!activos.find((s) => s.id === id)) {
-        markers.get(id).remove();
+      if (!keepIds.has(id)) {
+        markers.get(id)?.remove();
         markers.delete(id);
       }
     }
     const bounds = [];
-    activos.forEach((s) => {
-      const p = s.lastPing;
-      if (!p?.lat || !p?.lng) return;
-      const label = `${h(formatTitle(s))}`;
-      const popup = `<strong>${h(formatTitle(s))}</strong><br>Destino: ${h(
-        s.destino_texto || "-"
-      )}`;
-      if (!markers.has(s.id)) {
-        const m = L.marker([p.lat, p.lng], {
+    for (const item of custodias) {
+      const ping = item.lastPing;
+      if (!ping?.lat || !ping?.lng) continue;
+      bounds.push([ping.lat, ping.lng]);
+      const label = scoped
+        ? item.nombre
+        : `${item.nombre} â€“ ${item.cliente} â€“ ${item.placa}`;
+      const popup = scoped
+        ? `<strong>${h(item.nombre)}</strong>`
+        : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} â€“ ${h(
+            item.placa
+          )}`;
+      const targetLayer = overviewLayer;
+      let marker = markers.get(item.servicio_custodio_id);
+      if (!marker) {
+        marker = L.marker([ping.lat, ping.lng], {
           title: label,
           icon: ICON.custodia,
-          zIndexOffset: 200,
-        }).addTo(focusLayer);
-        m.bindPopup(popup);
-        markers.set(s.id, m);
+          zIndexOffset: scoped ? 220 : 180,
+        }).addTo(targetLayer);
+        marker.bindPopup(popup);
+        markers.set(item.servicio_custodio_id, marker);
       } else {
-        const m = markers.get(s.id);
-        m.setLatLng([p.lat, p.lng]);
-        m.setPopupContent(popup);
+        marker.setLatLng([ping.lat, ping.lng]);
+        marker.setPopupContent(popup);
       }
-      bounds.push([p.lat, p.lng]);
-    });
-    if (bounds.length) {
-      if (window.__adminFollow !== false) {
-        const b = L.latLngBounds(bounds);
-        map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
-      }
-    } else {
-      map.setView([-12.0464, -77.0428], 12);
+    }
+    if (scoped && bounds.length) {
+      const b = L.latLngBounds(bounds);
+      map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
     }
   }
+  // === END HU:HU-MARCADORES-CUSTODIA ===
 
   let selectionLayer = null;
   let lastRouteSig = "";
@@ -895,9 +956,6 @@ document.addEventListener("DOMContentLoaded", () => {
     ensureMap();
     if (!map) return;
     try {
-      overviewLayer?.clearLayers();
-    } catch (e) {}
-    try {
       focusLayer?.clearLayers();
     } catch (e) {}
     try {
@@ -905,23 +963,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {}
     const p = s.lastPing;
     if (!p?.lat || !p?.lng) return;
-    const label = `${h(formatTitle(s))}`;
-    const popup = `<strong>${h(formatTitle(s))}</strong><br>Destino: ${h(
-      s.destino_texto || "-"
-    )}`;
-    let m = markers.get(s.id);
-    if (!m) {
-      m = L.marker([p.lat, p.lng], {
-        title: label,
-        icon: ICON.custodia,
-        zIndexOffset: 200,
-      }).addTo(focusLayer);
-      m.bindPopup(popup);
-      markers.set(s.id, m);
-    } else {
-      m.setLatLng([p.lat, p.lng]);
-      m.setPopupContent(popup);
-    }
     // Limpia capa anterior y dibuja ruta/POIs
     const start = [p.lat, p.lng];
     const hasDestino = s.destino_lat != null && s.destino_lng != null;
@@ -1046,11 +1087,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // === BEGIN HU:HU-PANICO-MODAL-UNICO panic handler (no tocar fuera) ===
   function handleAlarmaEvent(evt) {
     if (!evt) return;
     if (evt.type === "panic") {
       lastPanicRecord = evt.record || evt.payload || evt;
-      console.log("[admin][push] recibido panic", {
+      console.log("[panic] recibido en admin", {
         servicio_id: lastPanicRecord?.servicio_id,
         cliente: lastPanicRecord?.cliente,
         placa: lastPanicRecord?.placa,
@@ -1066,9 +1108,15 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (err) {
         console.warn("[admin][alarma] modal panic", err);
       }
-      try {
-        navigator.vibrate?.([240, 120, 240, 140, 320]);
-      } catch (_) {}
+      if (alertsEnabled) {
+        try {
+          navigator.vibrate?.([240, 120, 240, 140, 320]);
+        } catch (err) {
+          console.warn("[audio] Vibracion fallo", err);
+        }
+      } else {
+        console.log("[audio] Vibracion omitida por permisos");
+      }
     } else if (evt.type === "panic-focus" && lastPanicRecord) {
       focusPanicOnMap(lastPanicRecord, { forceReload: false });
     } else if (evt.type === "panic-ack") {
@@ -1087,6 +1135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshList();
     }
   }
+  // === END HU:HU-PANICO-MODAL-UNICO ===
 
   function formatPanicLocation(record) {
     if (record?.direccion) return record.direccion;
@@ -1284,3 +1333,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupRealtime();
   initAlarmaIntegration();
 });
+
+
+
+
+

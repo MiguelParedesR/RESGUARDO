@@ -1,11 +1,14 @@
+// @hu HU-CHECKIN-15M
+// @author Codex
+// @date 2025-02-15
+// @rationale Recordatorios programados de check-in sin regresiones.
+
+// === BEGIN HU:HU-CHECKIN-15M checkin scheduler (no tocar fuera) ===
 import { schedule } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  CHECKIN_FUNCTION_URL,
-} = process.env;
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CHECKIN_FUNCTION_URL } =
+  process.env;
 
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
@@ -20,7 +23,8 @@ const explicitPush =
   CHECKIN_FUNCTION_URL && CHECKIN_FUNCTION_URL.trim().length
     ? CHECKIN_FUNCTION_URL.trim()
     : null;
-const PUSH_URL = explicitPush || `${baseSite}/.netlify/functions/push-broadcast`;
+const PUSH_URL =
+  explicitPush || `${baseSite}/.netlify/functions/push-broadcast`;
 
 const CHECKIN_INTERVAL_MIN = 15;
 const RETRY_DELAY_MIN = 5;
@@ -31,7 +35,7 @@ function minutesAgo(min) {
   return new Date(Date.now() - min * 60 * 1000).toISOString();
 }
 
-const runCheckin = async (event) => {
+const runCheckin = async () => {
   if (!supabase) {
     console.error("[checkin] Supabase no configurado");
     return {
@@ -114,13 +118,10 @@ const runCheckin = async (event) => {
     }
   }
 
-  const summary = results.reduce(
-    (acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  const summary = results.reduce((acc, item) => {
+    acc[item.status] = (acc[item.status] || 0) + 1;
+    return acc;
+  }, {});
   console.log("[checkin] resumen", summary);
 
   return {
@@ -245,3 +246,4 @@ async function sendReminder(svc, attempt) {
 }
 
 export const handler = schedule("*/15 * * * *", runCheckin);
+// === END HU:HU-CHECKIN-15M ===

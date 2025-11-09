@@ -13,6 +13,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  const custSession = window.CustodiaSession?.load();
+  if (!custSession || custSession.servicio_id !== servicioId) {
+    alert(
+      "Necesitas seleccionar un custodio usando la opcion SEGUIR antes de abrir el seguimiento."
+    );
+    location.replace("/html/dashboard/custodia-registros.html");
+    return;
+  }
+  const servicioCustodioId = custSession.servicio_custodio_id;
+  const custodioNombre = custSession.nombre_custodio || "Custodia";
+  const custodioTipo = custSession.tipo_custodia || "";
+  const extendSession = () => {
+    try {
+      window.CustodiaSession?.touch();
+    } catch {}
+  };
+
   // Referencias de UI
   const mapContainerId = "map-track";
   const distanciaLabel = document.getElementById("distancia-label");
@@ -33,6 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let markerDestino = null;
   let destino = null;
   let lastSent = 0;
+  let servicioChannel = null;
+  let finishModal = null;
 
   const SEND_EVERY_MS = 30_000;
   const ARRIVE_M = 50;
@@ -98,14 +117,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (destinoTextoEl) destinoTextoEl.textContent = destino?.texto || "-";
-      if (estadoTextoEl) {
-        const estado = data.estado || "EN CURSO";
-        estadoTextoEl.textContent = estado;
-        estadoTextoEl.style.color =
-          estado === "FINALIZADO" ? "#2e7d32" : "#f57c00";
-      }
+      handleServicioUpdate(data);
 
       initMap();
+      subscribeServicio();
     } catch (err) {
       console.error("[mapa] cargarServicio error", err);
       showMsg("No se pudo cargar el servicio");
@@ -180,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         await window.Alarma.emit("panic", {
           servicio_id: servicioId,
+          servicio_custodio_id: servicioCustodioId,
           empresa: servicioInfo?.empresa || empresaActual || null,
           cliente: servicioInfo?.cliente?.nombre || null,
           placa: servicioInfo?.placa || null,
@@ -240,11 +256,105 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         navigator.geolocation.clearWatch(watchId);
       } catch {}
+      cleanupChannels();
+    });
+  }
+
+  function subscribeServicio() {
+    if (!window.sb?.channel) return;
+    cleanupServicioChannel();
+    try {
+      servicioChannel = window.sb
+        .channel(`svc-finish-${servicioId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "servicio",
+            filter: `id=eq.${servicioId}`,
+          },
+          (payload) => handleServicioUpdate(payload.new)
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("[mapa] no se pudo suscribir a servicio", err);
+    }
+  }
+
+  function cleanupServicioChannel() {
+    if (servicioChannel && window.sb?.removeChannel) {
+      try {
+        window.sb.removeChannel(servicioChannel);
+      } catch {}
+    }
+    servicioChannel = null;
+  }
+
+  function cleanupChannels() {
+    cleanupServicioChannel();
+  }
+
+  function handleServicioUpdate(row) {
+    if (!row) return;
+    servicioInfo = { ...(servicioInfo || {}), ...row };
+    if (estadoTextoEl && row.estado) {
+      estadoTextoEl.textContent = row.estado;
+      estadoTextoEl.style.color =
+        row.estado === "FINALIZADO" ? "#2e7d32" : "#f57c00";
+    }
+    if (row.destino_texto && destinoTextoEl) {
+      destinoTextoEl.textContent = row.destino_texto;
+    }
+    if (row.finished_at) {
+      if (row.finished_by_sc_id === servicioCustodioId) {
+        window.CustodiaSession?.clear?.();
+        return;
+      }
+      showFinishModal(row.finished_by_sc_id);
+    }
+  }
+
+  async function showFinishModal(byCustodioId) {
+    window.CustodiaSession?.clear?.();
+    if (finishModal) return;
+    let nombre = "otro custodio";
+    if (byCustodioId) {
+      try {
+        const { data } = await window.sb
+          .from("servicio_custodio")
+          .select("nombre_custodio")
+          .eq("id", byCustodioId)
+          .maybeSingle();
+        if (data?.nombre_custodio) nombre = data.nombre_custodio;
+      } catch (err) {
+        console.warn("[mapa] no se pudo obtener custodio finalizador", err);
+      }
+    }
+    finishModal = document.createElement("div");
+    finishModal.style.position = "fixed";
+    finishModal.style.inset = "0";
+    finishModal.style.background = "rgba(0,0,0,.55)";
+    finishModal.style.display = "flex";
+    finishModal.style.alignItems = "center";
+    finishModal.style.justifyContent = "center";
+    finishModal.style.zIndex = "6000";
+    finishModal.innerHTML = `
+      <div style="background:#fff;padding:24px;border-radius:14px;max-width:420px;width:90%;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.35);">
+        <h3 style="margin-top:0;">Servicio finalizado</h3>
+        <p style="margin:16px 0;">SERVICIO FUE FINALIZADO POR <strong>${nombre.toUpperCase()}</strong></p>
+        <button id="finish-return" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">RETORNAR A LA PANTALLA PRINCIPAL</button>
+      </div>
+    `;
+    document.body.appendChild(finishModal);
+    document.getElementById("finish-return")?.addEventListener("click", () => {
+      location.replace("/html/dashboard/custodia-registros.html");
     });
   }
 
   async function onPos(lat, lng, pinUser, coords = null) {
     if (!map) return;
+    extendSession();
     if (!markerYo) {
       markerYo = L.marker([lat, lng], {
         title: "Ubicacion actual",
@@ -284,6 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
           p_servicio_id: servicioId,
           p_lat: lat,
           p_lng: lng,
+          p_servicio_custodio_id: servicioCustodioId,
         });
         if (error) console.error("[mapa] registrar_ubicacion error", error);
       } catch (err) {
@@ -294,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnFinalizar) {
     btnFinalizar.addEventListener("click", async () => {
+      extendSession();
       let ok = true;
       if (destino && markerYo) {
         const posActual = markerYo.getLatLng();
@@ -310,16 +422,36 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (!ok) return;
       try {
+        const finishedAt = new Date().toISOString();
         const { error } = await window.sb
           .from("servicio")
-          .update({ estado: "FINALIZADO" })
+          .update({
+            estado: "FINALIZADO",
+            finished_at: finishedAt,
+            finished_by_sc_id: servicioCustodioId,
+          })
           .eq("id", servicioId);
         if (error) throw error;
         if (estadoTextoEl) {
           estadoTextoEl.textContent = "FINALIZADO";
           estadoTextoEl.style.color = "#2e7d32";
         }
+        try {
+          await window.Alarma?.emit?.("finalize", {
+            servicio_id: servicioId,
+            servicio_custodio_id: servicioCustodioId,
+            empresa: servicioInfo?.empresa || empresaActual || null,
+            cliente: servicioInfo?.cliente?.nombre || null,
+            placa: servicioInfo?.placa || servicioInfo?.placa_upper || null,
+            tipo: servicioInfo?.tipo || null,
+            metadata: { origen: "mapa-resguardo" },
+          });
+        } catch (err) {
+          console.warn("[alarma] emit finalize", err);
+        }
+        window.CustodiaSession?.clear?.();
         showMsg("Servicio finalizado correctamente.");
+        btnFinalizar.disabled = true;
         setTimeout(() => {
           location.href = DASHBOARD_URL;
         }, REDIRECT_DELAY);
@@ -330,6 +462,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  window.addEventListener("beforeunload", cleanupChannels);
   cargarServicio();
 });
 
