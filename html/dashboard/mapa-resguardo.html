@@ -1,4 +1,4 @@
-﻿﻿<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
@@ -52,13 +52,13 @@
             Servicio Finalizado
           </button>
           <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
+          <button id="btn-audio-optin" class="mdl-button mdl-js-button mdl-button--raised btn-audio" type="button">
+            Habilitar sonido
+          </button>
           <div class="metrics">
-            <span><strong>Distancia:</strong> <span id="distancia-label">â€“</span></span>
+            <span><strong>Distancia:</strong> <span id="distancia-label">--</span></span>
           </div>
         </div>
-
-        <div class="layout-track">
-          <aside id="custodios-sidebar" class="cust-sidebar">
             <div class="cust-head">
               <h3>Custodios</h3>
               <button id="custodios-add" class="add-btn" title="Agregar">+</button>
@@ -66,9 +66,9 @@
             <div id="custodios-list" class="cust-list"></div>
           </aside>
           <div class="map-wrap with-sidebar">
-            <div id="map-track"></div>
+              <p><strong>Destino:</strong> <span id="destino-texto">Cargando...</span></p>
             <div class="panel show">
-              <p><strong>Destino:</strong> <span id="destino-texto">Cargandoâ€¦</span></p>
+              <p><strong>Destino:</strong> <span id="destino-texto">Cargando...¦</span></p>
               <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
             </div>
           </div>
@@ -88,7 +88,7 @@
       const destinoEl = document.getElementById('destino-texto');
       const estadoEl = document.getElementById('estado-texto');
 
-      if (!servicioId || !window.sb) { destinoEl.textContent = 'â€”'; estadoEl.textContent = 'â€”'; return; }
+      if (!servicioId || !window.sb) { destinoEl.textContent = '--'; estadoEl.textContent = '--'; return; }
 
       try {
         const { data, error } = await window.sb
@@ -99,13 +99,13 @@
 
         if (error) throw error;
 
-        destinoEl.textContent = data?.destino_texto || 'â€”';
+        destinoEl.textContent = data?.destino_texto || '--';
         estadoEl.textContent = data?.estado || 'EN CURSO';
         estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
       } catch (err) {
         console.error('[mapa-resguardo] error', err);
-        destinoEl.textContent = 'â€”';
-        estadoEl.textContent = 'â€”';
+        destinoEl.textContent = '--';
+        estadoEl.textContent = '--';
       }
     });
   </script>
@@ -429,3 +429,8 @@
 </body>
 
 </html>
+
+
+
+
+
