@@ -256,12 +256,13 @@
     return expanded;
   }
 
+  // === BEGIN HU:HU-NO400-ALARM_EVENT db payload (NO TOCAR FUERA) ===
   function buildDbInsertPayload(record) {
-    const metaValue =
+    const metadata =
       record.metadata && typeof record.metadata === "object"
         ? record.metadata
         : {};
-    return {
+    const payload = {
       type: record.type,
       servicio_id: record.servicio_id,
       empresa: record.empresa,
@@ -271,9 +272,11 @@
       lat: record.lat ?? null,
       lng: record.lng ?? null,
       direccion: record.direccion ?? null,
-      meta: metaValue,
+      metadata: metadata,
     };
+    return payload;
   }
+  // === END HU:HU-NO400-ALARM_EVENT ===
 
   function ensureSupabase() {
     if (!state.supabase && global.sb) state.supabase = global.sb;
@@ -775,8 +778,8 @@
     sirenaOn({ loop: true });
     const frase =
       record && record.cliente
-        ? `ALERTA - ${record.cliente}`
-        : "ALERTA DE ROBO";
+        ? `ALERTA \u2014 ${record.cliente}`
+        : "ALERTA DE PANICO";
     console.log("[panic] evento recibido", {
       servicio_id: record?.servicio_id || null,
       cliente: record?.cliente || null,
@@ -794,6 +797,21 @@
       } catch (_) {}
     }
     notify({ type: "panic", record });
+  }
+
+  function retryPanicAudioIfNeeded() {
+    if (state.mode !== "admin") return;
+    if (!state.permissions.sound) return;
+    if (!state.admin.currentPanicKey || !state.admin.lastPanic) return;
+    const frase = state.admin.lastPanic.cliente
+      ? `ALERTA \u2014 ${state.admin.lastPanic.cliente}`
+      : "ALERTA DE PANICO";
+    try {
+      sirenaOn({ loop: true });
+      tts(frase, { lang: "es-PE" });
+    } catch (err) {
+      warn("No se pudo reactivar audio de panico", err);
+    }
   }
   /* === END HU:HU-PANICO-TTS === */
 
@@ -879,6 +897,9 @@
     }
     if (wantHaptics) {
       state.permissions.haptics = true;
+    }
+    if (state.permissions.sound) {
+      retryPanicAudioIfNeeded();
     }
     console.log("[task][HU-AUDIO-GESTO] done", {
       sound: state.permissions.sound,
@@ -978,6 +999,7 @@
     }
   }
 
+  // === BEGIN HU:HU-PANICO-MODAL-UNICO modal (NO TOCAR FUERA) ===
   function ensureModal() {
     if (state.admin.modal) return state.admin.modal;
     const backdrop = document.createElement("div");
@@ -988,25 +1010,13 @@
     backdrop.innerHTML = `
       <div class="alarma-modal__dialog" role="document">
         <div class="alarma-modal__header">
-          <div>
-            <div class="alarma-modal__title">Alerta de panico</div>
-            <div class="alarma-modal__badge" aria-live="polite">Prioridad maxima</div>
-          </div>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close">Cerrar</button>
+          <div class="alarma-modal__title">ALERTA DE PANICO</div>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close" aria-label="Cerrar alerta">×</button>
         </div>
         <div class="alarma-modal__body" id="alarma-modal-body"></div>
-        <div class="alarma-modal__voice" id="alarma-modal-voice" hidden>
-          <div class="alarma-voice-status" id="alarma-voice-status">Escuchando "silenciar alarma"...</div>
-          <div class="alarma-voice-manual" id="alarma-voice-manual" hidden>
-            <label for="alarma-voice-input">Escribe "silenciar alarma" para detener la sirena</label>
-            <input id="alarma-voice-input" class="alarma-modal__input" type="text" autocomplete="off" placeholder="silenciar alarma" />
-            <button type="button" class="alarma-btn alarma-btn--primary" id="alarma-voice-confirm">Confirmar</button>
-          </div>
-        </div>
         <div class="alarma-modal__actions">
+          <button type="button" class="alarma-btn alarma-btn--primary js-alarma-focus">Fijar en mapa</button>
           <button type="button" class="alarma-btn alarma-btn--danger js-alarma-silence">Silenciar</button>
-          <button type="button" class="alarma-btn alarma-btn--primary js-alarma-focus">Fijar foco en ruta</button>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-ack">Reconocer</button>
         </div>
       </div>
     `;
@@ -1020,16 +1030,11 @@
       close: backdrop.querySelector(".js-alarma-close"),
       silence: backdrop.querySelector(".js-alarma-silence"),
       focus: backdrop.querySelector(".js-alarma-focus"),
-      ack: backdrop.querySelector(".js-alarma-ack"),
-      voiceConfirm: backdrop.querySelector("#alarma-voice-confirm"),
     };
     buttons.close?.addEventListener("click", () => {
       closePanicModal();
     });
     buttons.silence?.addEventListener("click", () => {
-      sirenaOff();
-    });
-    buttons.ack?.addEventListener("click", () => {
       sirenaOff();
       closePanicModal();
       markPanicHandled();
@@ -1037,20 +1042,6 @@
     });
     buttons.focus?.addEventListener("click", () => {
       notify({ type: "panic-focus" });
-    });
-    buttons.voiceConfirm?.addEventListener("click", () => {
-      const input = backdrop.querySelector("#alarma-voice-input");
-      if (!input) return;
-      if (
-        String(input.value || "")
-          .toLowerCase()
-          .includes("silenciar")
-      ) {
-        sirenaOff();
-        closePanicModal();
-        markPanicHandled();
-        notify({ type: "panic-ack", via: "manual" });
-      }
     });
     state.admin.modal = backdrop;
     state.admin.modalBackdrop = backdrop;
@@ -1068,26 +1059,32 @@
     const modal = ensureModal();
     const body = modal.querySelector("#alarma-modal-body");
     if (body) {
-      body.innerHTML = "";
+      const cliente = record?.cliente || "-";
       const rows = [
-        { label: "Cliente", value: record?.cliente || "-" },
+        { label: "Cliente", value: cliente },
         { label: "Placa", value: record?.placa || "-" },
-        { label: "Servicio", value: record?.servicio_id || "-" },
         { label: "Empresa", value: record?.empresa || "-" },
-        { label: "Direccion", value: record?.direccion || "-" },
-        { label: "Hora", value: formatTime(record?.timestamp) },
+        { label: "Ubicación", value: record?.direccion || "-" },
       ];
-      rows.forEach((row) => {
-        const div = document.createElement("div");
-        div.className = "alarma-modal__row";
-        div.innerHTML = `<strong>${clip(row.label, 32)}</strong><span>${
-          clip(row.value, MAX_STRING) || "-"
-        }</span>`;
-        body.appendChild(div);
-      });
+      const fieldsMarkup = rows
+        .map(
+          (row) =>
+            `<div class="alarma-modal__row"><strong>${clip(
+              row.label,
+              32
+            )}</strong><span>${clip(row.value, MAX_STRING) || "-"}</span></div>`
+        )
+        .join("");
+      body.innerHTML = `
+        <p class="alarma-modal__eyebrow">ALERTA – ${clip(
+          cliente,
+          MAX_STRING
+        )}</p>
+        <p class="alarma-modal__time">${formatTime(record?.timestamp)}</p>
+        ${fieldsMarkup}
+      `;
     }
     modal.classList.add("is-open");
-    startVoiceRecognition();
   }
 
   function markPanicHandled(record) {
@@ -1112,92 +1109,10 @@
     }
   }
 
-  function startVoiceRecognition() {
-    const Recognition =
-      global.SpeechRecognition || global.webkitSpeechRecognition;
-    const panel = state.admin.modalBackdrop?.querySelector(
-      "#alarma-modal-voice"
-    );
-    const status = panel?.querySelector("#alarma-voice-status");
-    const fallback = state.admin.modalBackdrop?.querySelector(
-      "#alarma-voice-manual"
-    );
-    if (panel) panel.hidden = false;
-    if (!Recognition) {
-      if (status)
-        status.textContent =
-          "Reconocimiento de voz no soportado. Usa el formulario.";
-      if (fallback) fallback.hidden = false;
-      state.admin.voice.fallbackVisible = true;
-      return;
-    }
-    if (fallback) fallback.hidden = true;
-    state.admin.voice.fallbackVisible = false;
-    try {
-      if (state.admin.voice.recognition) {
-        state.admin.voice.recognition.stop();
-      }
-    } catch (_) {}
-    try {
-      const recog = new Recognition();
-      recog.lang = "es-PE";
-      recog.continuous = false;
-      recog.interimResults = false;
-      recog.maxAlternatives = 3;
-      recog.onstart = () => {
-        if (status) status.textContent = 'Escuchando "silenciar alarma"...';
-      };
-      recog.onerror = (event) => {
-        warn("SpeechRecognition error", event.error);
-        if (status)
-          status.textContent = "No se pudo escuchar. Usa el formulario manual.";
-        if (fallback) fallback.hidden = false;
-      };
-      recog.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map((res) => res[0]?.transcript)
-          .join(" ")
-          .toLowerCase();
-        if (transcript.includes("silenciar") || transcript.includes("apagar")) {
-          sirenaOff();
-          closePanicModal();
-          markPanicHandled();
-          notify({ type: "panic-ack", via: "voice" });
-        } else if (status) {
-          status.textContent = `Escuchado: "${transcript}". Repite "Silenciar alarma".`;
-        }
-      };
-      recog.onend = () => {
-        if (state.admin.voice.fallbackVisible) return;
-        // Reiniciar captura mientras la alarma este activa
-        if (state.admin.modalBackdrop?.classList.contains("is-open")) {
-          try {
-            recog.start();
-          } catch (err) {
-            warn(err);
-          }
-        }
-      };
-      recog.start();
-      state.admin.voice.recognition = recog;
-    } catch (err) {
-      warn("No se pudo iniciar reconocimiento de voz", err);
-      if (status)
-        status.textContent =
-          "Error al iniciar reconocimiento. Usa el formulario.";
-      if (fallback) fallback.hidden = false;
-    }
-  }
+  function startVoiceRecognition() {}
 
-  function stopVoiceRecognition() {
-    if (state.admin.voice.recognition) {
-      try {
-        state.admin.voice.recognition.onend = null;
-        state.admin.voice.recognition.stop();
-      } catch (_) {}
-      state.admin.voice.recognition = null;
-    }
-  }
+  function stopVoiceRecognition() {}
+  // === END HU:HU-PANICO-MODAL-UNICO ===
 
   function showToast(message) {
     if (!message) return;
