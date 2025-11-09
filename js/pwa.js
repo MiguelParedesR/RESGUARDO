@@ -33,26 +33,33 @@
       });
       console.log("[PWA] SW registrado:", reg.scope);
 
-      const handleInstalled = (worker) => {
-        if (
-          worker.state === "installed" &&
-          navigator.serviceWorker.controller
-        ) {
-          notify("Nueva version lista. Actualizando...");
-          worker.postMessage({ type: "SKIP_WAITING" });
-        }
+      // === BEGIN HU:HU-SW-UPDATE sw-refresh-cycle (NO TOCAR FUERA) ===
+      const requestSkipWaiting = (worker) => {
+        if (!worker || worker.state !== "installed") return;
+        if (!navigator.serviceWorker.controller) return;
+        if (worker.__huSkipWaitingRequested) return;
+        worker.__huSkipWaitingRequested = true;
+        notify("Nueva version lista. Actualizando...");
+        console.log("[PWA] solicitando skipWaiting");
+        worker.postMessage({ type: "SKIP_WAITING" });
       };
 
-      if (reg.installing) {
-        reg.installing.addEventListener("statechange", () =>
-          handleInstalled(reg.installing)
-        );
-      } else {
-        reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
-          nw?.addEventListener("statechange", () => handleInstalled(nw));
-        });
-      }
+      const observeInstalling = (worker) => {
+        if (!worker) return;
+        if (worker.state === "installed") {
+          requestSkipWaiting(worker);
+          return;
+        }
+        const listener = () => requestSkipWaiting(worker);
+        worker.addEventListener("statechange", listener);
+      };
+
+      if (reg.installing) observeInstalling(reg.installing);
+      reg.addEventListener("updatefound", () => {
+        observeInstalling(reg.installing);
+      });
+      if (reg.waiting) requestSkipWaiting(reg.waiting);
+      // === END HU:HU-SW-UPDATE ===
     } catch (e) {
       console.warn("[PWA] Error al registrar SW", e);
     }

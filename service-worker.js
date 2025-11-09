@@ -1,9 +1,12 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
-const VERSION = "v1.1.27";
+// === BEGIN HU:HU-SW-UPDATE sw-versioning (NO TOCAR FUERA) ===
+const VERSION = "v1.1.28";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
+const CACHE_PREFIXES = ["static-", "runtime-", "tiles-"];
+// === END HU:HU-SW-UPDATE ===
 
 const CORE_ASSETS = [
   "/",
@@ -45,10 +48,11 @@ const CORE_ASSETS = [
   "/assets/icons/pin-destination.svg",
 ];
 
+// === BEGIN HU:HU-SW-UPDATE offline-fallback (NO TOCAR FUERA) ===
 const OFFLINE_HTML = `
 <!doctype html><html lang="es"><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sin conexión</title>
+<title>Sin conexi\u00f3n</title>
 <style>
   body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f7fa;margin:0;display:grid;place-items:center;height:100vh;color:#263238}
   .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;margin:16px}
@@ -57,34 +61,13 @@ const OFFLINE_HTML = `
   code{background:#f1f3f7;padding:2px 6px;border-radius:6px}
 </style>
 <div class="card">
-<h1>Estás sin conexión</h1>
-<p>No pudimos cargar la página solicitada. Revisa tu conexión e inténtalo de nuevo.</p>
-<p>Los recursos básicos de la aplicación están disponibles offline gracias al modo PWA.</p>
+<h1>Est\u00e1s sin conexi\u00f3n</h1>
+<p>No pudimos cargar la p\u00e1gina solicitada. Revisa tu conexi\u00f3n e int\u00e9ntalo de nuevo.</p>
+<p>Los recursos b\u00e1sicos de la aplicaci\u00f3n est\u00e1n disponibles offline gracias al modo PWA.</p>
 <p><code>Monitoreo de Resguardos</code></p>
 </div>
 </html>`;
-
-// Re-define OFFLINE_HTML with proper UTF-8 accents to avoid mojibake
-try {
-  OFFLINE_HTML = `
-<!doctype html><html lang="es"><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sin conexión</title>
-<style>
-  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f7fa;margin:0;display:grid;place-items:center;height:100vh;color:#263238}
-  .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;margin:16px}
-  h1{margin:0 0 8px;font-size:20px}
-  p{opacity:.8}
-  code{background:#f1f3f7;padding:2px 6px;border-radius:6px}
-</style>
-<div class="card">
-<h1>Estás sin conexión</h1>
-<p>No pudimos cargar la página solicitada. Revisa tu conexión e inténtalo de nuevo.</p>
-<p>Los recursos básicos de la aplicación están disponibles offline gracias al modo PWA.</p>
-<p><code>Monitoreo de Resguardos</code></p>
-</div>
-</html>`;
-} catch {}
+// === END HU:HU-SW-UPDATE ===
 
 const isHttp = (url) => url.protocol === "http:" || url.protocol === "https:";
 const isHTML = (request) =>
@@ -92,35 +75,61 @@ const isHTML = (request) =>
   (request.headers.get("accept") || "").includes("text/html");
 const sameOrigin = (url) => url.origin === self.location.origin;
 
+// === BEGIN HU:HU-SW-UPDATE sw-install (NO TOCAR FUERA) ===
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(STATIC_CACHE);
-      await cache.addAll(
-        CORE_ASSETS.map((p) => new Request(p, { cache: "reload" }))
-      );
+      console.log("[sw] install", VERSION);
+      try {
+        const cache = await caches.open(STATIC_CACHE);
+        await cache.addAll(
+          CORE_ASSETS.map((p) => new Request(p, { cache: "reload" }))
+        );
+      } catch (err) {
+        console.warn("[sw] precache error", err);
+      }
       self.skipWaiting();
     })()
   );
 });
+// === END HU:HU-SW-UPDATE ===
 
+// === BEGIN HU:HU-SW-UPDATE sw-activate (NO TOCAR FUERA) ===
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys
-          .filter((k) => ![STATIC_CACHE, RUNTIME_CACHE, TILE_CACHE].includes(k))
-          .map((k) => caches.delete(k))
-      );
+      console.log("[sw] activate", VERSION);
+      try {
+        const keys = await caches.keys();
+        const keepers = new Set([STATIC_CACHE, RUNTIME_CACHE, TILE_CACHE]);
+        const staleKeys = keys.filter(
+          (name) =>
+            CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)) &&
+            !keepers.has(name)
+        );
+        await Promise.all(
+          staleKeys.map(async (key) => {
+            await caches.delete(key);
+            console.log("[sw] cache purged", key);
+          })
+        );
+      } catch (err) {
+        console.warn("[sw] activate cleanup error", err);
+      }
       await self.clients.claim();
     })()
   );
 });
+// === END HU:HU-SW-UPDATE ===
 
+// === BEGIN HU:HU-SW-UPDATE sw-message-skipwaiting (NO TOCAR FUERA) ===
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+  if (event?.data?.type === "SKIP_WAITING") {
+    console.log("[sw] skipWaiting requested");
+    self.skipWaiting();
+  }
 });
+// === END HU:HU-SW-UPDATE ===
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -215,10 +224,12 @@ async function trimCache(cacheName, maxItems) {
   } catch {}
 }
 
+// === BEGIN HU:HU-SW-UPDATE sw-push-broadcast (NO TOCAR FUERA) ===
 self.addEventListener("push", (event) => {
   if (!event) return;
   const payload = parsePushData(event.data);
   if (!payload) return;
+  const pushType = payload.type || payload.options?.data?.type || "desconocido";
   event.waitUntil(
     (async () => {
       try {
@@ -227,16 +238,19 @@ self.addEventListener("push", (event) => {
           payload.options
         );
       } catch (err) {
-        console.warn("[sw] showNotification falló", err);
+        console.warn("[sw] showNotification fallo", err);
       }
+      console.log("[sw] push", pushType);
       await broadcastAlarma({
         kind: "push",
-        event: payload.type,
-        payload: payload.options.data,
+        type: pushType,
+        event: payload.options?.data?.event || null,
+        payload: payload.options?.data || {},
       });
     })()
   );
 });
+// === END HU:HU-SW-UPDATE ===
 
 self.addEventListener("notificationclick", (event) => {
   const data = event.notification?.data || {};
