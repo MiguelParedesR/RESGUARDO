@@ -8,15 +8,6 @@ const TILE_CACHE = `tiles-${VERSION}`;
 const CACHE_PREFIXES = ["static-", "runtime-", "tiles-"];
 // === END HU:HU-SW-UPDATE ===
 
-// === BEGIN HU:HU-SW-UPDATE telemetry (NO TOCAR FUERA) ===
-console.log("[task][HU-SW-UPDATE] start", VERSION);
-// ensure core shell no vacío para autodebug
-console.assert(
-  Array.isArray(CORE_ASSETS) && CORE_ASSETS.length > 0,
-  "[task][HU-SW-UPDATE] CORE_ASSETS vacío"
-);
-// === END HU:HU-SW-UPDATE ===
-
 const CORE_ASSETS = [
   "/",
   "/config.js",
@@ -56,6 +47,14 @@ const CORE_ASSETS = [
   "/assets/icons/custodia-current.svg",
   "/assets/icons/pin-destination.svg",
 ];
+
+// === BEGIN HU:HU-SW-UPDATE telemetry (NO TOCAR FUERA) ===
+console.log("[task][HU-SW-UPDATE] start", VERSION);
+console.assert(
+  Array.isArray(CORE_ASSETS) && CORE_ASSETS.length > 0,
+  "[task][HU-SW-UPDATE] CORE_ASSETS vacío"
+);
+// === END HU:HU-SW-UPDATE ===
 
 // === BEGIN HU:HU-SW-UPDATE offline-fallback (NO TOCAR FUERA) ===
 const OFFLINE_HTML = `
