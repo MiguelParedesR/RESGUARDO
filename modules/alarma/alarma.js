@@ -132,6 +132,12 @@
     return String(value).toUpperCase().trim();
   }
 
+  function normalizeUUID(value) {
+    if (!value) return null;
+    const str = String(value).trim();
+    return str.length ? str : null;
+  }
+
   function sanitizePayload(type, raw) {
     const payload = raw || {};
     const placaSource = payload.placa != null ? String(payload.placa) : null;
@@ -145,6 +151,10 @@
       if (metadata) metadata.extra = extraCopy;
       else metadata = { extra: extraCopy };
     }
+    const servicioCustodioId =
+      normalizeUUID(payload.servicio_custodio_id) ||
+      normalizeUUID(payload.servicio_custodio?.id) ||
+      null;
     const safe = {
       type: normalizeEventType(type) || normalizeEventType(payload.type),
       servicio_id: payload.servicio_id ?? null,
@@ -162,6 +172,7 @@
       direccion: clip(payload.direccion, MAX_STRING),
       timestamp: payload.timestamp || new Date().toISOString(),
       metadata,
+      servicio_custodio_id: servicioCustodioId,
     };
     if (!safe.metadata || Object.keys(safe.metadata).length === 0) {
       safe.metadata = {};
@@ -200,6 +211,7 @@
       cliente: sanitized.cliente ?? null,
       placa: sanitized.placa ?? null,
       tipo: sanitized.tipo ?? null,
+      servicio_custodio_id: sanitized.servicio_custodio_id ?? null,
       lat: sanitized.lat ?? null,
       lng: sanitized.lng ?? null,
       direccion: sanitized.direccion ?? null,

@@ -22,6 +22,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   const servicioCustodioId = custSession.servicio_custodio_id;
+  if (!servicioCustodioId) {
+    alert(
+      "No se detecto custodio asignado al servicio. Vuelve a seleccionar SEGUIR antes de continuar."
+    );
+    location.replace("/html/dashboard/custodia-registros.html");
+    return;
+  }
   const custodioNombre = custSession.nombre_custodio || "Custodia";
   const custodioTipo = custSession.tipo_custodia || "";
   const extendSession = () => {
@@ -390,12 +397,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (now - lastSent > SEND_EVERY_MS) {
       lastSent = now;
       try {
-        const { error } = await window.sb.rpc("registrar_ubicacion", {
+        const rpcPayload = {
           p_servicio_id: servicioId,
           p_lat: lat,
           p_lng: lng,
-          p_servicio_custodio_id: servicioCustodioId,
-        });
+        };
+        if (servicioCustodioId) {
+          rpcPayload.p_servicio_custodio_id = servicioCustodioId;
+        }
+        const { error } = await window.sb.rpc(
+          "registrar_ubicacion",
+          rpcPayload
+        );
         if (error) console.error("[mapa] registrar_ubicacion error", error);
       } catch (err) {
         console.error("[mapa] registrar_ubicacion excepcion", err);
