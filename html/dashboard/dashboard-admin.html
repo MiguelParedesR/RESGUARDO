@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 
 <head>
@@ -78,13 +78,11 @@
                             <div class="map-metrics">
                                 <span><strong>Ping:</strong> <span id="metric-ping">--</span></span>
                                 <span><strong>Estado:</strong> <span id="metric-estado">--</span></span>
-                                <button id="btn-alarma-push-admin" class="btn btn-ghost" `r`n
+                                <button id="btn-alarma-push-admin" class="btn btn-ghost"
                                     title="Activar notificaciones de alarma">
-                                    <i`r`n class="material-icons">notifications_active</i>Alertas
+                                    <i class="material-icons">notifications_active</i>Alertas
                                 </button> <!-- === BEGIN HU:HU-AUDIO-GESTO btn sonido (no tocar fuera) === -->
-                                <button id="btn-audio-optin" class="btn btn-ghost" `r`n
-                                    title="Habilitar sonido y vibracion"><i class="material-icons">volume_up</i>
-                                    Sonido</button><!-- === END HU:HU-AUDIO-GESTO === -->
+                                <span id="audio-permission-status" class="sr-only" aria-live="polite"></span><!-- === END HU:HU-AUDIO-GESTO === -->
                                 <button id="btn-filtros" class="btn btn-ghost" aria-controls="filters-drawer"
                                     aria-expanded="false" title="Mostrar filtros"><i class="material-icons">tune</i>
                                     Filtros</button>

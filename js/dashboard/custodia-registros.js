@@ -43,6 +43,7 @@
 
     mapUI();
     bindUI();
+    requestInitialPermissions();
     bootstrap();
   }
 
@@ -110,6 +111,45 @@
       cleanupRealtime();
       resetCamera();
     });
+  }
+
+  function requestInitialPermissions() {
+    console.log("[task][HU-AUDIO-GESTO] start-permisos");
+    if (window.Alarma?.primeAlerts) {
+      window.Alarma
+        .primeAlerts({ sound: true, haptics: true })
+        .catch(() => {});
+    }
+    warmupMediaPermissions();
+    warmupGeolocation();
+    console.log("[task][HU-AUDIO-GESTO] done-permisos");
+  }
+
+  async function warmupMediaPermissions() {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      console.log("[task][HU-AUDIO-GESTO] done-media");
+    } catch (err) {
+      console.warn("[task][HU-AUDIO-GESTO] hotfix:media", err);
+      showMessage("Permite camara y microfono para continuar.");
+    }
+  }
+
+  function warmupGeolocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      () => console.log("[task][HU-AUDIO-GESTO] done-geo"),
+      (err) => {
+        console.warn("[task][HU-AUDIO-GESTO] hotfix:geo", err);
+        showMessage("Activa ubicacion del dispositivo para continuar.");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
   }
 
   async function bootstrap() {

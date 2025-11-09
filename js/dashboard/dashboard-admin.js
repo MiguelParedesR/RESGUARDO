@@ -129,18 +129,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const filtersInlineHost = document.getElementById("filters-inline");
   const btnVerTodos = document.getElementById("btn-ver-todos");
   const btnAlarmaPush = document.getElementById("btn-alarma-push-admin");
+  const audioStatusLabel = document.getElementById(
+    "audio-permission-status"
+  );
   /* === BEGIN HU:HU-AUDIO-GESTO boton sonido (no tocar fuera) === */
-  const btnAudioOptin = document.getElementById("btn-audio-optin");
-  const audioBtnDefaultLabel = btnAudioOptin ? btnAudioOptin.innerHTML : "";
-  const audioBtnActiveLabel =
-    '<i class="material-icons">volume_up</i> Sonido activo';
-  if (btnAudioOptin && window.Alarma?.getPermissions) {
-    const perms = window.Alarma.getPermissions();
-    if (perms?.sound) {
-      alertsEnabled = true;
-      btnAudioOptin.disabled = true;
-      btnAudioOptin.innerHTML = audioBtnActiveLabel;
+  const setAlertsState = (perms) => {
+    alertsEnabled = Boolean(perms?.sound);
+    if (alertsEnabled) {
+      unlockAudio();
     }
+    if (audioStatusLabel) {
+      audioStatusLabel.textContent = alertsEnabled
+        ? "Sonido activo"
+        : "Permisos de sonido pendientes";
+    }
+  };
+  if (window.Alarma?.getPermissions) {
+    setAlertsState(window.Alarma.getPermissions());
+  }
+  if (window.Alarma?.primeAlerts) {
+    window.Alarma
+      .primeAlerts({ sound: true, haptics: true })
+      .then((perms) => setAlertsState(perms))
+      .catch(() => {});
   }
   btnVerTodos?.addEventListener("click", () => {
     try {
@@ -385,41 +396,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  btnAudioOptin?.addEventListener("click", async () => {
-    if (alertsEnabled) {
-      showMsg("El sonido ya esta habilitado.");
-      return;
-    }
-    if (!window.Alarma?.enableAlerts) {
-      showMsg("Modulo de alarmas no disponible.");
-      return;
-    }
-    btnAudioOptin.disabled = true;
-    try {
-      const perms = await window.Alarma.enableAlerts({
-        sound: true,
-        haptics: true,
-      });
-      alertsEnabled = Boolean(perms?.sound);
-      if (alertsEnabled) {
-        unlockAudio();
-        btnAudioOptin.disabled = true;
-        btnAudioOptin.innerHTML = audioBtnActiveLabel;
-        showMsg("Alertas sonoras activadas.");
-        console.log("[audio] Alertas sonoras activadas");
-      } else {
-        showMsg("Activa sonido desde el navegador para continuar.");
-      }
-    } catch (err) {
-      console.warn("[audio] enable error", err);
-      showMsg("No se pudo habilitar el sonido.");
-    } finally {
-      if (!alertsEnabled) {
-        btnAudioOptin.disabled = false;
-        btnAudioOptin.innerHTML = audioBtnDefaultLabel;
-      }
-    }
-  });
   /* === END HU:HU-AUDIO-GESTO === */
 
   // UI refs

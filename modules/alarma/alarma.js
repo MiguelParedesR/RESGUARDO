@@ -59,6 +59,7 @@
     permissions: {
       sound: false,
       haptics: false,
+      primerPromise: null,
     },
     /* === END HU:HU-AUDIO-GESTO === */
   };
@@ -255,6 +256,25 @@
     return expanded;
   }
 
+  function buildDbInsertPayload(record) {
+    const metaValue =
+      record.metadata && typeof record.metadata === "object"
+        ? record.metadata
+        : {};
+    return {
+      type: record.type,
+      servicio_id: record.servicio_id,
+      empresa: record.empresa,
+      cliente: record.cliente,
+      placa: record.placa,
+      tipo: record.tipo,
+      lat: record.lat ?? null,
+      lng: record.lng ?? null,
+      direccion: record.direccion ?? null,
+      meta: metaValue,
+    };
+  }
+
   function ensureSupabase() {
     if (!state.supabase && global.sb) state.supabase = global.sb;
     return state.supabase;
@@ -306,7 +326,10 @@
         record.metadata = {};
       }
       try {
-        const { error: err } = await client.from("alarm_event").insert(record);
+        const insertPayload = buildDbInsertPayload(record);
+        const { error: err } = await client
+          .from("alarm_event")
+          .insert(insertPayload);
         if (err) throw err;
       } catch (err) {
         warn("No se pudo reenviar registro en cola", err);
@@ -396,6 +419,7 @@
 
   function initCustodia(options) {
     initBase("custodia").catch(error);
+    autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
     if (options && typeof options.onCheckin === "function") {
       state.custodia.onCheckin = options.onCheckin;
     }
@@ -403,6 +427,7 @@
 
   function initAdmin(options) {
     initBase("admin").catch(error);
+    autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
     setupRealtimeChannel();
     setupEscShortcuts();
     if (options && typeof options.enrichEvent === "function")
@@ -459,7 +484,7 @@
         placa: record.placa,
         tipo: record.tipo,
       });
-      const dbRecord = { ...record };
+      const dbRecord = buildDbInsertPayload(record);
       const {
         data,
         error: err,
@@ -784,12 +809,61 @@
   }
 
   /* === BEGIN HU:HU-AUDIO-GESTO enable alerts (no tocar fuera) === */
+  function attachAlertPrimer(options) {
+    if (state.permissions.primerPromise) {
+      return state.permissions.primerPromise;
+    }
+    const events = ["pointerdown", "touchstart", "keydown"];
+    state.permissions.primerPromise = new Promise((resolve) => {
+      let resolved = false;
+      const handler = async () => {
+        if (resolved) return;
+        resolved = true;
+        events.forEach((evt) =>
+          document.removeEventListener(evt, handler, { capture: true })
+        );
+        try {
+          const perms = await enableAlerts(options);
+          resolve(perms);
+        } catch (err) {
+          resolve({
+            sound: state.permissions.sound,
+            haptics: state.permissions.haptics,
+            error: err,
+          });
+        }
+      };
+      events.forEach((evt) =>
+        document.addEventListener(evt, handler, {
+          once: true,
+          passive: true,
+          capture: true,
+        })
+      );
+    });
+    return state.permissions.primerPromise;
+  }
+
+  async function autoRequestAlerts(options) {
+    try {
+      const perms = await enableAlerts(options);
+      return perms;
+    } catch (err) {
+      return attachAlertPrimer(options);
+    }
+  }
+
   async function enableAlerts(options) {
+    console.log("[task][HU-AUDIO-GESTO] start");
     const opts = options || {};
     const wantSound = opts.sound !== false;
     const wantHaptics = opts.haptics !== false;
     let soundOk = state.permissions.sound;
     if (wantSound) {
+      console.assert(
+        global.AudioContext || global.webkitAudioContext,
+        "[task][HU-AUDIO-GESTO] AudioContext no soportado"
+      );
       const ctx = ensureAudioCtx();
       if (!ctx) throw new Error("AudioContext no disponible");
       try {
@@ -806,6 +880,10 @@
     if (wantHaptics) {
       state.permissions.haptics = true;
     }
+    console.log("[task][HU-AUDIO-GESTO] done", {
+      sound: state.permissions.sound,
+      haptics: state.permissions.haptics,
+    });
     return {
       sound: state.permissions.sound,
       haptics: state.permissions.haptics,
@@ -817,9 +895,7 @@
     const opts = options || {};
     if (!state.permissions.sound) {
       console.warn("[audio] Sirena bloqueada por falta de permiso");
-      showToast(
-        "Activa sonido desde el boton de alertas para escuchar la sirena."
-      );
+      showToast("Revisa permisos del navegador para escuchar la sirena.");
       return;
     }
     const ctx = ensureAudioCtx();
@@ -1401,6 +1477,7 @@
 
   function ensureCheckinPanel() {
     if (state.checkin.panel) return state.checkin.panel;
+    autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
     const panel = document.createElement("div");
     panel.className = "alarma-checkin";
     panel.setAttribute("role", "dialog");
@@ -1413,9 +1490,7 @@
             <div class="alarma-checkin__eyebrow">REPORTESE</div>
             <h3 class="alarma-checkin__title">Servicio <span class="js-checkin-servicio">-</span></h3>
             <p class="alarma-checkin__subtitle">Confirma tu ubicacion actual y avisa por WhatsApp.</p>
-            <p class="alarma-checkin__hint js-checkin-sound-hint" hidden>Activa sonido para escuchar la alerta.</p>
           </div>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-checkin-enable-sound">Habilitar sonido</button>
         </div>
         <div class="alarma-checkin__body">
           <div class="alarma-checkin__client"><strong>Cliente:</strong> <span class="js-checkin-cliente">-</span></div>
@@ -1441,19 +1516,6 @@
     panel
       .querySelector(".js-checkin-voice")
       ?.addEventListener("click", () => captureCheckinVoice(panel));
-    panel
-      .querySelector(".js-checkin-enable-sound")
-      ?.addEventListener("click", async () => {
-        try {
-          await enableAlerts({ sound: true, haptics: true });
-          updateCheckinSoundButton(panel);
-          toggleCheckinSoundHint(panel, false);
-        } catch (err) {
-          showToast("No se pudo habilitar el sonido. Reintenta.");
-        }
-      });
-    updateCheckinSoundButton(panel);
-    toggleCheckinSoundHint(panel, !state.permissions.sound);
     state.checkin.panel = panel;
     return panel;
   }
@@ -1484,23 +1546,6 @@
     panel.dataset.method = "text";
     const input = panel.querySelector("#alarma-checkin-input");
     if (input) input.value = "";
-  }
-
-  function updateCheckinSoundButton(panel) {
-    const btn = panel?.querySelector(".js-checkin-enable-sound");
-    if (!btn) return;
-    if (state.permissions.sound) {
-      btn.textContent = "Sonido activo";
-      btn.disabled = true;
-    } else {
-      btn.textContent = "Habilitar sonido";
-      btn.disabled = false;
-    }
-  }
-
-  function toggleCheckinSoundHint(panel, visible) {
-    const hint = panel?.querySelector(".js-checkin-sound-hint");
-    if (hint) hint.hidden = !visible;
   }
 
   function captureCheckinVoice(panel) {
@@ -1627,6 +1672,7 @@
     confirmCheckin: confirmCheckin,
     flushQueue,
     enableAlerts,
+    primeAlerts: autoRequestAlerts,
     /* === BEGIN HU:HU-AUDIO-GESTO api permissions (no tocar fuera) === */
     getPermissions() {
       return { ...state.permissions };
