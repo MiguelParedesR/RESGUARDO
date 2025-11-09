@@ -1,4 +1,4 @@
-﻿(function (global) {
+(function (global) {
   const KEY = "custodia_session";
   const TTL_MS = 4 * 60 * 60 * 1000;
 
@@ -32,7 +32,14 @@
     const data = { ...payload, exp_ts: Date.now() + ttl };
     try {
       global.localStorage.setItem(KEY, JSON.stringify(data));
-    } catch {}
+      console.log("[session] guardada", {
+        servicio_id: data.servicio_id,
+        servicio_custodio_id: data.servicio_custodio_id,
+        exp_ts: data.exp_ts,
+      });
+    } catch (err) {
+      console.warn("[session] no se pudo guardar", err);
+    }
     return data;
   }
 
@@ -50,7 +57,10 @@
   function clear() {
     try {
       global.localStorage.removeItem(KEY);
-    } catch {}
+      console.log("[session] limpiada");
+    } catch (err) {
+      console.warn("[session] no se pudo limpiar", err);
+    }
   }
 
   function isNombreValido(nombre) {
