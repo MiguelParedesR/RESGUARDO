@@ -1,5 +1,9 @@
-﻿// custodia-registros.js
+// custodia-registros.js
 // Gestion de servicios para el rol Custodia ajustado al esquema actual (sin origen_texto, uso de metadata)
+// @hu HU-CHECKIN-15M, HU-MARCADORES-CUSTODIA
+// @author Codex
+// @date 2025-02-15
+// @rationale Mantener listados y formatos de custodias segun HU vigente.
 
 (function () {
   "use strict";
@@ -393,6 +397,7 @@
     return true;
   }
 
+  // === BEGIN HU:HU-MARCADORES-CUSTODIA cards (no tocar fuera) ===
   function crearCard(row) {
     const card = document.createElement("div");
     card.className = "svc-card";
@@ -406,7 +411,7 @@
       row.svc.placaUpper || "SIN PLACA",
       row.svc.clienteNombre,
       row.svc.tipo,
-    ].join(" · ");
+    ].join(" - ");
     head.appendChild(title);
 
     const badge = document.createElement("span");
@@ -490,6 +495,7 @@
     card.appendChild(body);
     return card;
   }
+  // === END HU:HU-MARCADORES-CUSTODIA ===
 
   function abrirEdicion(row) {
     state.currentRow = row;

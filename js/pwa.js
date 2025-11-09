@@ -1,4 +1,9 @@
 // pwa.js - registro del Service Worker y flujo de instalacion PWA
+// @hu HU-AUDIO-GESTO
+// @author Codex
+// @date 2025-02-15
+// @rationale Manejar beforeinstallprompt segun HU de audio/PWA.
+// === BEGIN HU:HU-AUDIO-GESTO pwa install (no tocar fuera) ===
 (() => {
   if (!("serviceWorker" in navigator)) return;
 
@@ -29,7 +34,10 @@
       console.log("[PWA] SW registrado:", reg.scope);
 
       const handleInstalled = (worker) => {
-        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+        if (
+          worker.state === "installed" &&
+          navigator.serviceWorker.controller
+        ) {
           notify("Nueva version lista. Actualizando...");
           worker.postMessage({ type: "SKIP_WAITING" });
         }
@@ -114,3 +122,4 @@
     } catch (_) {}
   };
 })();
+// === END HU:HU-AUDIO-GESTO ===

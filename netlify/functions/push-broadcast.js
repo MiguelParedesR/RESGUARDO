@@ -1,3 +1,9 @@
+// @hu HU-NO400-ALARM_EVENT
+// @author Codex
+// @date 2025-02-15
+// @rationale Validar payloads y respuestas del broadcast.
+
+// === BEGIN HU:HU-NO400-ALARM_EVENT broadcast (no tocar fuera) ===
 import { handler as sendHandler } from "./push-send.js";
 
 const ALLOWED_TYPES = new Set(["start", "panic", "checkin", "heartbeat"]);
@@ -160,7 +166,7 @@ export async function handler(event) {
       body: JSON.stringify(sendRequest),
     });
   } catch (err) {
-    console.error("[push-broadcast] sendHandler failure", err);
+    console.error("[push] sendHandler failure", err);
     return json(502, {
       ok: false,
       error: "push-send internal failure",
@@ -187,3 +193,4 @@ export async function handler(event) {
     response.headers || {}
   );
 }
+// === END HU:HU-NO400-ALARM_EVENT ===
