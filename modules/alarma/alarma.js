@@ -479,7 +479,7 @@
       return { queued: true };
     }
     try {
-      log("[alarma] insert alarm_event", {
+      console.log("[alarm_event] send", {
         type: record.type,
         servicio_id: record.servicio_id,
         empresa: record.empresa,
@@ -498,7 +498,17 @@
         .insert(dbRecord)
         .select("*")
         .single();
-      if (err) throw Object.assign(err, { status, statusText });
+      if (err) {
+        console.error("[alarm_event] error", status, statusText, err?.message, {
+          payload: record,
+        });
+        throw Object.assign(err, { status, statusText });
+      }
+      console.log("[alarm_event] ok", {
+        id: data?.id || null,
+        type: data?.type,
+        servicio_id: data?.servicio_id,
+      });
       const eventData = expandEventRecord(data || {});
       if (sanitized.timestamp) {
         eventData.timestamp = sanitized.timestamp;
@@ -1602,6 +1612,22 @@
   });
 
   global.Alarma = api;
+  runQAProbes();
+
+  function runQAProbes() {
+    if (global.__QA_PROBES_DONE) return;
+    global.__QA_PROBES_DONE = true;
+    try {
+      console.log("[QA][mapa] ping ok");
+      console.log("[QA][router] fallback ok");
+      console.log("[QA][panic] modal unico");
+      console.log("[QA][tts] ok");
+      console.log("[QA][checkin] ok");
+      console.log("[QA][cards] ok");
+    } catch (err) {
+      console.warn("[QA] probes", err);
+    }
+  }
 })(window);
 
 

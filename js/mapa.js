@@ -14,6 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const custSession = window.CustodiaSession?.load();
+  if (custSession) {
+    console.log("[session] resume", {
+      servicio_id: custSession.servicio_id,
+      servicio_custodio_id: custSession.servicio_custodio_id,
+    });
+  }
   if (!custSession || custSession.servicio_id !== servicioId) {
     alert(
       "Necesitas seleccionar un custodio usando la opcion SEGUIR antes de abrir el seguimiento."

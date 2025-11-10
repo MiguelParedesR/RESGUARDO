@@ -19,6 +19,9 @@
     currentRow: null,
     mediaStream: null,
     selfieDataUrl: null,
+    selfieHasRemote: false,
+    selfieDraftDataUrl: null,
+    selfieReady: false,
     hasUltimoPingView: null,
     realtimeChannel: null,
     reloadTimer: null,
@@ -64,15 +67,21 @@
     ui.tipoCustodio = document.getElementById("tipo-custodio");
     ui.custodioId = document.getElementById("custodio-id");
 
-    ui.camStartBtn = document.querySelector('.cam-action[data-action="start"]');
-    ui.camCaptureBtn = document.querySelector(
-      '.cam-action[data-action="capture"]'
-    );
-    ui.camRetryBtn = document.querySelector('.cam-action[data-action="retry"]');
-    ui.camVideo = document.getElementById("cam-video");
-    ui.camCanvas = document.getElementById("cam-canvas");
+    ui.btnGuardar = document.getElementById("btn-guardar");
+    ui.selfieOpenBtn = document.getElementById("btn-open-selfie");
+    ui.selfiePreviewWrapper = document.getElementById("selfie-preview-wrapper");
     ui.selfiePreview = document.getElementById("selfie-preview");
-    ui.camEstado = document.getElementById("cam-estado");
+    ui.selfieEmptyLabel = document.getElementById("selfie-empty-label");
+    ui.selfieModal = document.getElementById("selfie-modal");
+    ui.selfieModalVideo = document.getElementById("selfie-modal-video");
+    ui.selfieModalCanvas = document.getElementById("selfie-modal-canvas");
+    ui.selfieModalStatus = document.getElementById("selfie-modal-status");
+    ui.selfieModalStart = document.getElementById("selfie-modal-start");
+    ui.selfieModalCapture = document.getElementById("selfie-modal-capture");
+    ui.selfieModalRetry = document.getElementById("selfie-modal-retry");
+    ui.selfieModalAccept = document.getElementById("selfie-modal-accept");
+    updateGuardarState();
+    refreshSelfiePreview();
   }
 
   function bindUI() {
@@ -93,15 +102,19 @@
     if (ui.drawerBackdrop)
       ui.drawerBackdrop.addEventListener("click", closeDrawer);
 
-    if (ui.camStartBtn) {
-      ui.camStartBtn.addEventListener("click", startCamera);
+    if (ui.selfieOpenBtn) {
+      ui.selfieOpenBtn.addEventListener("click", openSelfieModal);
     }
-    if (ui.camCaptureBtn) {
-      ui.camCaptureBtn.addEventListener("click", captureSelfie);
-    }
-    if (ui.camRetryBtn) {
-      ui.camRetryBtn.addEventListener("click", resetCamera);
-    }
+    document
+      .querySelectorAll('[data-close="selfie-modal"]')
+      .forEach((btn) => btn.addEventListener("click", closeSelfieModal));
+    ui.selfieModalStart?.addEventListener("click", startSelfieCamera);
+    ui.selfieModalCapture?.addEventListener("click", captureSelfieFrame);
+    ui.selfieModalRetry?.addEventListener("click", resetSelfieCapture);
+    ui.selfieModalAccept?.addEventListener("click", confirmSelfieSelection);
+
+    ui.nombreCustodio?.addEventListener("input", updateGuardarState);
+    ui.tipoCustodio?.addEventListener("change", updateGuardarState);
 
     if (ui.form) {
       ui.form.addEventListener("submit", onSubmitForm);
@@ -109,7 +122,7 @@
 
     window.addEventListener("beforeunload", () => {
       cleanupRealtime();
-      resetCamera();
+      resetSelfieState();
     });
   }
 
@@ -285,12 +298,18 @@
     for (const svc of base) {
       const normal = normalizarServicio(svc);
       const detalle = await cargarDetalleServicio(normal.id);
+      const slotSummary = calcularSlots(normal.tipo);
+      const totalSlots = Math.max(
+        slotSummary.total,
+        detalle.custodios.length
+      );
       detalles.push({
         svc: normal,
         custodios: detalle.custodios,
-        totalCustodios: detalle.custodios.length,
+        totalCustodios: totalSlots,
         custodiosCompletos: detalle.custodios.filter(esCustodioCompleto).length,
         ultimoPing: detalle.ultimoPing,
+        slotSummary,
       });
     }
 
@@ -447,11 +466,13 @@
 
     const title = document.createElement("div");
     title.className = "svc-title";
-    title.textContent = [
+    const slotText = formatSlotSummary(row.slotSummary);
+    const baseTitle = [
       row.svc.placaUpper || "SIN PLACA",
       row.svc.clienteNombre,
       row.svc.tipo,
     ].join(" - ");
+    title.textContent = slotText ? `${baseTitle} (${slotText})` : baseTitle;
     head.appendChild(title);
 
     const badge = document.createElement("span");
@@ -492,20 +513,16 @@
     lista.className = "svc-custodios";
     if (row.custodios.length) {
       row.custodios.forEach((custodio) => {
-        const li = document.createElement("li");
-        const nombre = (custodio.nombre_custodio || "").trim() || "Sin nombre";
-        const tipo = (custodio.tipo_custodia || "").trim() || "Sin tipo";
-        li.textContent =
-          nombre +
-          " (" +
-          tipo +
-          ")" +
-          (esCustodioCompleto(custodio) ? "" : " - incompleto");
-        lista.appendChild(li);
+        lista.appendChild(renderCustodioItem(row, custodio));
       });
-    } else {
+    }
+    const missingSlots = buildMissingSlots(row.slotSummary, row.custodios);
+    missingSlots.forEach((slotKey, index) => {
+      lista.appendChild(renderMissingCustodioItem(row, slotKey, index));
+    });
+    if (!lista.children.length) {
       const li = document.createElement("li");
-      li.textContent = "Sin custodios asignados";
+      li.textContent = "Sin custodios registrados";
       lista.appendChild(li);
     }
     body.appendChild(lista);
@@ -537,7 +554,131 @@
   }
   // === END HU:HU-MARCADORES-CUSTODIA ===
 
-  function abrirEdicion(row) {
+  function renderCustodioItem(row, custodio) {
+    const li = document.createElement("li");
+    li.className = "svc-custodio";
+    const nombre = (custodio.nombre_custodio || "").trim() || "Sin nombre";
+    const tipo = (custodio.tipo_custodia || "").trim() || "Sin tipo";
+    const label = document.createElement("span");
+    label.className = "svc-custodio__label";
+    const completo = esCustodioCompleto(custodio);
+    label.textContent = completo
+      ? `${nombre} (${tipo})`
+      : `(${tipo})`;
+    li.appendChild(label);
+
+    const servicioActivo = row.svc.estado === "ACTIVO";
+    if (completo && servicioActivo) {
+      const seguirBtn = document.createElement("button");
+      seguirBtn.type = "button";
+      seguirBtn.className = "svc-pill svc-pill--seguir";
+      seguirBtn.textContent = "{SEGUIR}";
+      seguirBtn.addEventListener("click", () => seguirCustodia(row, custodio));
+      li.appendChild(seguirBtn);
+    } else if (!completo) {
+      const completarBtn = document.createElement("button");
+      completarBtn.type = "button";
+      completarBtn.className = "svc-pill svc-pill--completar";
+      completarBtn.textContent = "[Completar]";
+      completarBtn.addEventListener("click", () =>
+        abrirEdicion(row, custodio.id)
+      );
+      li.appendChild(completarBtn);
+    }
+    return li;
+  }
+
+  function renderMissingCustodioItem(row, slotKey) {
+    const li = document.createElement("li");
+    li.className = "svc-custodio svc-custodio--missing";
+    const label = document.createElement("span");
+    const readable = slotKey === "SIMPLE" ? "Simple" : `Tipo ${slotKey}`;
+    label.textContent = `(${readable})`;
+    li.appendChild(label);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "svc-pill svc-pill--completar";
+    btn.textContent = "[Completar]";
+    btn.addEventListener("click", () => abrirEdicion(row));
+    li.appendChild(btn);
+    return li;
+  }
+
+  function seguirCustodia(row, custodio) {
+    if (!window.CustodiaSession?.save) {
+      showMessage("No se pudo preparar la sesion.");
+      return;
+    }
+    const payload = {
+      servicio_id: row.svc.id,
+      servicio_custodio_id: custodio.id,
+      nombre_custodio: custodio.nombre_custodio || "",
+      tipo_custodia: custodio.tipo_custodia || "",
+    };
+    const saved = window.CustodiaSession.save(payload);
+    if (!saved) {
+      showMessage("No se pudo guardar la sesion local.");
+      return;
+    }
+    console.log("[session] seguir", payload);
+    sessionStorage.setItem("servicio_id_actual", row.svc.id);
+    showMessage("Sesion reanudada. Abriendo mapa...");
+    setTimeout(() => {
+      location.href = "/html/dashboard/mapa-resguardo.html";
+    }, 300);
+  }
+
+  function buildMissingSlots(slotSummary, custodios) {
+    if (!slotSummary) return [];
+    const actual = { A: 0, SIMPLE: 0, B: 0 };
+    (custodios || []).forEach((custodio) => {
+      const key = classifyTipo(custodio.tipo_custodia);
+      if (actual[key] != null) actual[key] += 1;
+    });
+    const missing = [];
+    ["A", "SIMPLE", "B"].forEach((key) => {
+      const required = slotSummary[key] || 0;
+      const shortage = required - (actual[key] || 0);
+      for (let i = 0; i < shortage; i += 1) missing.push(key);
+    });
+    return missing;
+  }
+
+  function formatSlotSummary(summary) {
+    if (!summary) return "";
+    const parts = [];
+    if (summary.A) parts.push(`A:${summary.A}`);
+    if (summary.SIMPLE) parts.push(`SIMPLE:${summary.SIMPLE}`);
+    if (summary.B) parts.push(`B:${summary.B}`);
+    return parts.join(" · ");
+  }
+
+  function calcularSlots(tipoRaw) {
+    const counts = { A: 0, SIMPLE: 0, B: 0 };
+    const upper = (tipoRaw || "").toUpperCase();
+    const normalized = upper.replace(/TIPO/g, " ").replace(/[^\w\s]/g, " ");
+    const tokens = normalized
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (!tokens.length) tokens.push("SIMPLE");
+    tokens.forEach((token) => {
+      const key = classifyTipo(token);
+      if (key === "B") counts.B += 2;
+      else counts[key] += 1;
+    });
+    const total = counts.A + counts.SIMPLE + counts.B || 1;
+    return { ...counts, total };
+  }
+
+  function classifyTipo(value) {
+    const upper = (value || "").toUpperCase();
+    if (upper.includes("B")) return "B";
+    if (upper.includes("A")) return "A";
+    return "SIMPLE";
+  }
+
+  function abrirEdicion(row, focusCustodioId) {
     state.currentRow = row;
     const incompletos = row.custodios.filter(
       (custodio) => !esCustodioCompleto(custodio)
@@ -564,9 +705,13 @@
         ui.incompletosList.appendChild(btn);
       });
       if (incompletos[0]) {
+        const targetId = focusCustodioId || incompletos[0].id;
+        const targetBtn = Array.from(ui.incompletosList.children).find(
+          (child) => child.dataset.id === String(targetId)
+        );
         seleccionarCustodio(
-          incompletos[0].id,
-          ui.incompletosList.firstElementChild
+          targetId,
+          targetBtn || ui.incompletosList.firstElementChild
         );
       }
     }
@@ -592,7 +737,7 @@
       syncTextfield(ui.tipoCustodio);
     }
 
-    resetCamera();
+    updateSelfieStateFromCustodio(custodio);
   }
 
   function syncTextfield(inputEl) {
@@ -627,12 +772,12 @@
       ui.drawer.setAttribute("aria-hidden", "true");
     }
     if (ui.drawerBackdrop) ui.drawerBackdrop.classList.remove("show");
-    resetCamera();
+    resetSelfieState();
     if (ui.form) ui.form.reset();
     if (ui.tipoCustodio) syncTextfield(ui.tipoCustodio);
     if (ui.nombreCustodio) syncTextfield(ui.nombreCustodio);
     if (ui.custodioId) ui.custodioId.value = "";
-    state.selfieDataUrl = null;
+    updateGuardarState();
   }
 
   async function onSubmitForm(event) {
@@ -641,8 +786,11 @@
     const nombre = (ui.nombreCustodio?.value || "").trim();
     const tipo = (ui.tipoCustodio?.value || "").trim();
     if (!custodioId) return showMessage("Seleccione un custodio");
-    if (!nombre) return showMessage("Ingrese un nombre");
+    if (!hasValidNombre(nombre))
+      return showMessage("Ingresa nombre y apellido");
     if (!tipo) return showMessage("Seleccione el tipo de custodia");
+    if (!state.selfieReady)
+      return showMessage("Captura o confirma una selfie antes de guardar.");
 
     try {
       const updatePayload = { nombre_custodio: nombre, tipo_custodia: tipo };
@@ -660,6 +808,8 @@
           p_base64: base64,
         });
         if (selfieError) throw selfieError;
+      } else if (state.selfieHasRemote) {
+        state.selfieReady = true;
       }
 
       showMessage("Cambios guardados");
@@ -672,82 +822,203 @@
     }
   }
 
-  function startCamera() {
+  function openSelfieModal() {
+    if (!ui.selfieModal) return;
+    ui.selfieModal.classList.add("show");
+    ui.selfieModal.setAttribute("aria-hidden", "false");
+    state.selfieDraftDataUrl = null;
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent = "Inicia la camara para capturar tu selfie.";
+    resetSelfieCapture();
+    startSelfieCamera();
+  }
+
+  function closeSelfieModal() {
+    if (!ui.selfieModal) return;
+    ui.selfieModal.classList.remove("show");
+    ui.selfieModal.setAttribute("aria-hidden", "true");
+    resetSelfieCapture();
+  }
+
+  function startSelfieCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
       showMessage("Camara no soportada en este dispositivo");
       return;
     }
-    if (ui.camStartBtn) ui.camStartBtn.disabled = true;
-    if (ui.camEstado) ui.camEstado.textContent = "Solicitando permisos...";
-
+    ui.selfieModalStart?.setAttribute("disabled", "disabled");
+    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Solicitando permisos...";
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "user" }, audio: false })
       .then((stream) => {
         state.mediaStream = stream;
-        if (ui.camVideo) {
-          ui.camVideo.srcObject = stream;
-          ui.camVideo.style.display = "block";
+        if (ui.selfieModalVideo) {
+          ui.selfieModalVideo.srcObject = stream;
+          ui.selfieModalVideo.classList.add("on");
         }
-        if (ui.selfiePreview) ui.selfiePreview.style.display = "none";
-        if (ui.camCaptureBtn) ui.camCaptureBtn.disabled = false;
-        if (ui.camRetryBtn) ui.camRetryBtn.disabled = true;
-        if (ui.camEstado) ui.camEstado.textContent = "Camara lista";
+        if (ui.selfieModalCanvas) ui.selfieModalCanvas.classList.remove("show");
+        ui.selfieModalCapture?.removeAttribute("disabled");
+        ui.selfieModalRetry?.setAttribute("disabled", "disabled");
+        ui.selfieModalAccept?.setAttribute("disabled", "disabled");
+        if (ui.selfieModalStatus)
+          ui.selfieModalStatus.textContent = "Camara lista, captura cuando estes listo.";
       })
       .catch((err) => {
         console.error("[custodia-registros] camara error", err);
-        if (ui.camEstado)
-          ui.camEstado.textContent = "No se pudo acceder a la camara";
-        if (ui.camStartBtn) ui.camStartBtn.disabled = false;
+        if (ui.selfieModalStatus)
+          ui.selfieModalStatus.textContent = "No se pudo acceder a la camara";
+        ui.selfieModalStart?.removeAttribute("disabled");
       });
   }
 
-  function captureSelfie() {
-    if (!state.mediaStream || !ui.camVideo || !ui.camCanvas) {
-      showMessage("Inicie la camara antes de capturar");
+  function captureSelfieFrame() {
+    if (
+      !state.mediaStream ||
+      !ui.selfieModalVideo ||
+      !ui.selfieModalCanvas
+    ) {
+      showMessage("Inicia la camara antes de capturar");
       return;
     }
-    const width = ui.camVideo.videoWidth || 640;
-    const height = ui.camVideo.videoHeight || 480;
-    ui.camCanvas.width = width;
-    ui.camCanvas.height = height;
-    const context = ui.camCanvas.getContext("2d");
-    context.drawImage(ui.camVideo, 0, 0, width, height);
-    state.selfieDataUrl = ui.camCanvas.toDataURL("image/jpeg", 0.85);
-    if (ui.selfiePreview) {
-      ui.selfiePreview.src = state.selfieDataUrl;
-      ui.selfiePreview.style.display = "block";
-    }
-    if (ui.camVideo) ui.camVideo.style.display = "none";
-    if (ui.camCaptureBtn) ui.camCaptureBtn.disabled = true;
-    if (ui.camRetryBtn) ui.camRetryBtn.disabled = false;
-    if (ui.camEstado) ui.camEstado.textContent = "Selfie capturada";
+    const width = ui.selfieModalVideo.videoWidth || 640;
+    const height = ui.selfieModalVideo.videoHeight || 480;
+    const context = ui.selfieModalCanvas.getContext("2d");
+    ui.selfieModalCanvas.width = width;
+    ui.selfieModalCanvas.height = height;
+    context.drawImage(ui.selfieModalVideo, 0, 0, width, height);
+    state.selfieDraftDataUrl = ui.selfieModalCanvas.toDataURL(
+      "image/jpeg",
+      0.85
+    );
+    ui.selfieModalCanvas.classList.add("show");
+    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
+    ui.selfieModalRetry?.removeAttribute("disabled");
+    ui.selfieModalAccept?.removeAttribute("disabled");
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent = "Selfie capturada. Confirma para usarla.";
   }
 
-  function resetCamera() {
+  function confirmSelfieSelection() {
+    if (!state.selfieDraftDataUrl) {
+      showMessage("Captura una selfie antes de confirmar.");
+      return;
+    }
+    state.selfieDataUrl = state.selfieDraftDataUrl;
+    state.selfieDraftDataUrl = null;
+    state.selfieHasRemote = false;
+    state.selfieReady = true;
+    refreshSelfiePreview();
+    updateGuardarState();
+    closeSelfieModal();
+    showMessage("Selfie almacenada. Recuerda guardar el registro.");
+  }
+
+  function resetSelfieCapture() {
+    stopSelfieStream();
+    state.selfieDraftDataUrl = null;
+    ui.selfieModalVideo &&
+      (ui.selfieModalVideo.srcObject = null,
+      ui.selfieModalVideo.classList.remove("on"));
+    if (ui.selfieModalCanvas) {
+      ui.selfieModalCanvas.classList.remove("show");
+      const ctx = ui.selfieModalCanvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(
+          0,
+          0,
+          ui.selfieModalCanvas.width || 0,
+          ui.selfieModalCanvas.height || 0
+        );
+      }
+    }
+    ui.selfieModalStart?.removeAttribute("disabled");
+    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
+    ui.selfieModalRetry?.setAttribute("disabled", "disabled");
+    ui.selfieModalAccept?.setAttribute("disabled", "disabled");
+  }
+
+  function stopSelfieStream() {
     try {
       if (state.mediaStream) {
         state.mediaStream.getTracks().forEach((track) => track.stop());
       }
     } catch (_) {}
     state.mediaStream = null;
+  }
+
+  function resetSelfieState() {
+    resetSelfieCapture();
     state.selfieDataUrl = null;
-    if (ui.camVideo) {
-      ui.camVideo.srcObject = null;
-      ui.camVideo.style.display = "none";
+    state.selfieHasRemote = false;
+    state.selfieReady = false;
+    if (ui.selfieModal) ui.selfieModal.classList.remove("show");
+    if (ui.selfieModal) ui.selfieModal.setAttribute("aria-hidden", "true");
+    refreshSelfiePreview();
+  }
+
+  function updateSelfieStateFromCustodio(custodio) {
+    state.selfieDraftDataUrl = null;
+    state.selfieDataUrl = null;
+    state.selfieHasRemote =
+      Array.isArray(custodio.selfie) && custodio.selfie.length > 0;
+    state.selfieReady = state.selfieHasRemote;
+    refreshSelfiePreview();
+    updateGuardarState();
+    stopSelfieStream();
+    closeSelfieModal();
+  }
+
+  function refreshSelfiePreview() {
+    if (!ui.selfiePreviewWrapper) return;
+    if (state.selfieDataUrl) {
+      ui.selfiePreviewWrapper.classList.add("has-image");
+      if (ui.selfiePreview) {
+        ui.selfiePreview.src = state.selfieDataUrl;
+        ui.selfiePreview.removeAttribute("hidden");
+      }
+      if (ui.selfieEmptyLabel) ui.selfieEmptyLabel.textContent = "";
+      return;
     }
-    if (ui.selfiePreview) ui.selfiePreview.style.display = "none";
-    if (ui.camCaptureBtn) ui.camCaptureBtn.disabled = true;
-    if (ui.camRetryBtn) ui.camRetryBtn.disabled = true;
-    if (ui.camStartBtn) ui.camStartBtn.disabled = false;
-    if (ui.camEstado) ui.camEstado.textContent = "Camara inactiva";
+    ui.selfiePreviewWrapper.classList.remove("has-image");
+    if (ui.selfiePreview) {
+      ui.selfiePreview.src = "";
+      ui.selfiePreview.setAttribute("hidden", "hidden");
+    }
+    if (ui.selfieEmptyLabel) {
+      ui.selfieEmptyLabel.textContent = state.selfieHasRemote
+        ? "Selfie registrada"
+        : "Sin selfie";
+    }
+  }
+
+  function updateGuardarState() {
+    const nombre = (ui.nombreCustodio?.value || "").trim();
+    const tipo = (ui.tipoCustodio?.value || "").trim();
+    const nombreOk = hasValidNombre(nombre);
+    const tipoOk = Boolean(tipo);
+    const selfieOk = state.selfieReady;
+    if (ui.btnGuardar) {
+      ui.btnGuardar.disabled = !(nombreOk && tipoOk && selfieOk);
+    }
   }
 
   function esCustodioCompleto(custodio) {
-    const nombreOk = Boolean((custodio.nombre_custodio || "").trim());
+    const nombreOk = hasValidNombre(custodio.nombre_custodio || "");
     const tipoOk = Boolean((custodio.tipo_custodia || "").trim());
     const selfieOk =
       Array.isArray(custodio.selfie) && custodio.selfie.length > 0;
     return nombreOk && tipoOk && selfieOk;
+  }
+
+  function hasValidNombre(nombre) {
+    if (!nombre) return false;
+    if (window.CustodiaSession?.isNombreValido) {
+      return window.CustodiaSession.isNombreValido(nombre);
+    }
+    const tokens = nombre
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    return tokens.length >= 2;
   }
 
   function formatFecha(iso) {
