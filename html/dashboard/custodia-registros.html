@@ -96,10 +96,6 @@
                                     class="mdl-button mdl-js-button mdl-button--raised selfie-btn">
                                     Tomar foto
                                 </button>
-                                <button type="button" id="btn-selfie-upload" class="selfie-upload-link">
-                                    Subir archivo
-                                </button>
-                                <input type="file" id="selfie-file-input" accept="image/*" capture="user" hidden>
                                 <div class="selfie-preview" id="selfie-preview-wrapper">
                                     <img id="selfie-preview" alt="Selfie capturada" hidden />
                                     <span class="selfie-empty" id="selfie-empty-label">Sin selfie</span>
@@ -134,14 +130,10 @@
                             <p id="selfie-modal-status" class="cam-estado" aria-live="polite">Inicia la camara para
                                 capturar tu selfie.</p>
                         </div>
-                        <footer class="selfie-modal__actions selfie-modal__actions--compact">
-                            <button type="button" class="mdl-button mdl-js-button" data-close="selfie-modal">Cancelar</button>
-                            <div class="selfie-modal__confirm">
-                                <button type="button" class="selfie-modal__retry" id="selfie-modal-retry"
-                                    title="Repetir captura" disabled>Repetir</button>
-                                <button type="button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                    id="selfie-modal-accept" disabled>Confirmar</button>
-                            </div>
+                        <footer class="selfie-modal__actions selfie-modal__actions--single">
+                            <button type="button"
+                                class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent selfie-modal__capture"
+                                id="selfie-modal-capture" disabled>Capturar selfie</button>
                         </footer>
                     </div>
                 </div>

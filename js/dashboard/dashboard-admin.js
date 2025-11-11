@@ -126,7 +126,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function ensureMarkersChannel(servicioId) {
     if (!window.sb?.channel) return;
-    if (markersRealtime.channel && markersRealtime.channelServicioId === servicioId)
+    if (
+      markersRealtime.channel &&
+      markersRealtime.channelServicioId === servicioId
+    )
       return;
     cleanupMarkersChannel();
     const channelName = servicioId
@@ -141,9 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
             event: "*",
             schema: "public",
             table: "ubicacion",
-            ...(servicioId
-              ? { filter: `servicio_id=eq.${servicioId}` }
-              : {}),
+            ...(servicioId ? { filter: `servicio_id=eq.${servicioId}` } : {}),
           },
           () => {
             scheduleMarkersRefresh("realtime");
@@ -227,9 +228,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchMarkerDataset(servicioId = null) {
     if (!window.sb) return [];
     try {
-      let query = window.sb.from("v_ultimo_ping_por_custodia").select(
-        MARKER_COLUMNS
-      );
+      let query = window.sb
+        .from("v_ultimo_ping_por_custodia")
+        .select(MARKER_COLUMNS);
       if (servicioId) {
         query = query.eq("servicio_id", servicioId);
       }
@@ -326,9 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const filtersInlineHost = document.getElementById("filters-inline");
   const btnVerTodos = document.getElementById("btn-ver-todos");
   const btnAlarmaPush = document.getElementById("btn-alarma-push-admin");
-  const audioStatusLabel = document.getElementById(
-    "audio-permission-status"
-  );
+  const audioStatusLabel = document.getElementById("audio-permission-status");
   const btnAudioEnable = document.getElementById("btn-audio-enable");
   const isMobileDevice = /android|iphone|ipad|ipod/i.test(
     navigator.userAgent || ""
@@ -348,7 +347,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (btnAudioEnable) {
       btnAudioEnable.disabled = alertsEnabled;
-      btnAudioEnable.setAttribute("aria-pressed", alertsEnabled ? "true" : "false");
+      btnAudioEnable.setAttribute(
+        "aria-pressed",
+        alertsEnabled ? "true" : "false"
+      );
       btnAudioEnable.style.display = alertsEnabled ? "none" : "inline-flex";
     }
     if (prevState !== alertsEnabled) {
@@ -359,8 +361,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setAlertsState(window.Alarma.getPermissions());
   }
   if (window.Alarma?.primeAlerts) {
-    window.Alarma
-      .primeAlerts({ sound: true, haptics: true })
+    window.Alarma.primeAlerts({ sound: true, haptics: true })
       .then((perms) => setAlertsState(perms))
       .catch(() => {});
   }
@@ -376,7 +377,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (perms) setAlertsState(perms);
     } catch (err) {
       console.warn("[permissions] audio:error", err);
-      showMsg("No se pudo habilitar el sonido. Revisa los permisos del navegador.");
+      showMsg(
+        "No se pudo habilitar el sonido. Revisa los permisos del navegador."
+      );
     }
   });
   btnVerTodos?.addEventListener("click", () => {
@@ -869,7 +872,11 @@ document.addEventListener("DOMContentLoaded", () => {
             };
           } catch (e) {
             console.warn("[admin] ubicacion query exception", e);
-            return { ...s, lastPing: null, custodios: custodiosMap.get(s.id) || [] };
+            return {
+              ...s,
+              lastPing: null,
+              custodios: custodiosMap.get(s.id) || [],
+            };
           }
         })
       );
@@ -1304,10 +1311,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const serviceObj =
       typeof servicio === "object"
         ? servicio
-        : servicesCache.find((item) => item.id === servicio) || { id: servicio };
+        : servicesCache.find((item) => item.id === servicio) || {
+            id: servicio,
+          };
     const id = serviceObj?.id;
     if (!id) return;
-    const title = serviceObj.placa ? formatTitle(serviceObj) : `el servicio ${id}`;
+    const title = serviceObj.placa
+      ? formatTitle(serviceObj)
+      : `el servicio ${id}`;
     const ok = confirm(`Finalizar ${title}?`);
     if (!ok) return;
     try {
@@ -1329,16 +1340,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!hasAlarma || typeof window.Alarma?.initAdmin !== "function") return;
     try {
       window.Alarma.initAdmin();
-      window.Alarma
-        .primeAdminPermissions?.({
-          reason: isMobileDevice ? "mobile-init" : "admin-init",
-        })
-        .catch((err) => console.warn("[permissions] audio:auto", err));
+      window.Alarma.primeAdminPermissions?.({
+        reason: isMobileDevice ? "mobile-init" : "admin-init",
+      }).catch((err) => console.warn("[permissions] audio:auto", err));
       if (isMobileDevice) {
         setTimeout(() => {
-          window.Alarma
-            .primeAdminPermissions?.({ reason: "mobile-retry" })
-            .catch(() => {});
+          window.Alarma.primeAdminPermissions?.({
+            reason: "mobile-retry",
+          }).catch(() => {});
         }, 1500);
       }
       alarmaUnsubscribe = window.Alarma.subscribe(handleAlarmaEvent);
@@ -1526,8 +1535,3 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[QA] modal único de pánico OK");
   console.log("[QA] sirena + TTS en bucle OK");
 });
-
-
-
-
-

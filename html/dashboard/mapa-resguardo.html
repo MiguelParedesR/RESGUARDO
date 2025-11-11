@@ -61,7 +61,12 @@
           <aside id="custodios-sidebar" class="cust-sidebar">
             <div class="cust-head">
               <h3>Custodios</h3>
-              <button id="custodios-add" class="add-btn" title="Agregar">+</button>
+              <div class="cust-head__actions">
+                <button id="custodios-add" class="add-btn" title="Agregar">+</button>
+                <button id="custodios-close" class="cust-close" title="Cerrar listado">
+                  <i class="material-icons" aria-hidden="true">close</i>
+                </button>
+              </div>
             </div>
             <div id="custodios-list" class="cust-list"></div>
           </aside>
@@ -74,6 +79,8 @@
           </div>
         </div>
       </section>
+
+      <div id="custodios-overlay" class="cust-overlay" hidden></div>
 
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
         <div class="mdl-snackbar__text"></div>

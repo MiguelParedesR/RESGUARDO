@@ -365,28 +365,13 @@ textarea:focus::placeholder {
 
 .selfie-inline {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .selfie-btn {
-  min-width: 150px;
-}
-
-.selfie-upload-link {
-  border: none;
-  background: none;
-  color: #1e88e5;
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.selfie-upload-link:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  min-width: 180px;
 }
 
 .selfie-preview {
@@ -519,23 +504,12 @@ textarea:focus::placeholder {
   flex-wrap: wrap;
 }
 
-.selfie-modal__actions--compact {
-  flex-direction: row;
+.selfie-modal__actions--single {
+  justify-content: center;
 }
 
-.selfie-modal__retry {
-  background: none;
-  border: none;
-  color: #3949ab;
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 6px;
-}
-
-.selfie-modal__retry:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.selfie-modal__capture {
+  min-width: 180px;
 }
 
 .actions {

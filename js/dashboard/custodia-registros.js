@@ -49,19 +49,24 @@
     try {
       if (window.CustodiaSession?.save) {
         const saved = window.CustodiaSession.save(payload);
-        console.log("[session] ready", { source, servicio: saved?.servicio_id });
+        console.log("[session] ready", {
+          source,
+          servicio: saved?.servicio_id,
+        });
         return saved;
       }
     } catch (err) {
       console.warn("[session] save error", err);
     }
     try {
-      const ttl =
-        window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000; /* 4h */
+      const ttl = window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000; /* 4h */
       const fallback = { ...payload, exp_ts: Date.now() + ttl };
       const key = window.CustodiaSession?.KEY || "custodia_session";
       window.localStorage.setItem(key, JSON.stringify(fallback));
-      console.log("[session] fallback ready", { source, servicio: payload.servicio_id });
+      console.log("[session] fallback ready", {
+        source,
+        servicio: payload.servicio_id,
+      });
       return fallback;
     } catch (err) {
       console.warn("[session] fallback error", err);
@@ -129,10 +134,7 @@
     ui.selfieModalVideo = document.getElementById("selfie-modal-video");
     ui.selfieModalCanvas = document.getElementById("selfie-modal-canvas");
     ui.selfieModalStatus = document.getElementById("selfie-modal-status");
-    ui.selfieModalRetry = document.getElementById("selfie-modal-retry");
-    ui.selfieModalAccept = document.getElementById("selfie-modal-accept");
-    ui.selfieFileInput = document.getElementById("selfie-file-input");
-    ui.selfieUploadBtn = document.getElementById("btn-selfie-upload");
+    ui.selfieModalCapture = document.getElementById("selfie-modal-capture");
     updateGuardarState();
     refreshSelfiePreview();
   }
@@ -161,15 +163,7 @@
     document
       .querySelectorAll('[data-close="selfie-modal"]')
       .forEach((btn) => btn.addEventListener("click", closeSelfieModal));
-    ui.selfieModalRetry?.addEventListener("click", () => {
-      resetSelfieCapture();
-      startSelfieCamera(true);
-    });
-    ui.selfieModalAccept?.addEventListener("click", confirmSelfieSelection);
-    ui.selfieUploadBtn?.addEventListener("click", () => {
-      ui.selfieFileInput?.click();
-    });
-    ui.selfieFileInput?.addEventListener("change", handleSelfieFile);
+    ui.selfieModalCapture?.addEventListener("click", captureSelfieAndStore);
 
     ui.nombreCustodio?.addEventListener("input", (event) => {
       syncTextfield(event.target);
@@ -198,15 +192,15 @@
     });
     console.log("[QA] completar custodia guarda y cierra UI OK");
     console.log("[QA] cámara compacta sin pantalla negra OK");
-    console.log("[QA] permisos solicitados por módulo (noti/audio/cam/mic/geo) OK");
+    console.log(
+      "[QA] permisos solicitados por módulo (noti/audio/cam/mic/geo) OK"
+    );
   }
 
   function requestInitialPermissions() {
     console.log("[task][HU-AUDIO-GESTO] start-permisos");
     if (window.Alarma?.primeAlerts) {
-      window.Alarma
-        .primeAlerts({ sound: true, haptics: true })
-        .catch(() => {});
+      window.Alarma.primeAlerts({ sound: true, haptics: true }).catch(() => {});
     }
     console.log("[task][HU-AUDIO-GESTO] done-permisos");
     console.log("[task][HU-PERMISSIONS-PROMPT] done");
@@ -235,14 +229,17 @@
 
   async function handleClienteChange() {
     try {
-      const value = ui.clienteSelect ? ui.clienteSelect.value : '';
-      state.clienteSeleccionado = value || '';
+      const value = ui.clienteSelect ? ui.clienteSelect.value : "";
+      state.clienteSeleccionado = value || "";
       state.servicios = [];
-      state.searchText = '';
-      if (ui.searchInput) ui.searchInput.value = '';
+      state.searchText = "";
+      if (ui.searchInput) ui.searchInput.value = "";
       render();
       if (!state.clienteSeleccionado) {
-        togglePlaceholder(true, 'Selecciona un cliente para visualizar los servicios disponibles.');
+        togglePlaceholder(
+          true,
+          "Selecciona un cliente para visualizar los servicios disponibles."
+        );
         return;
       }
       await loadServiciosForCliente(state.clienteSeleccionado);
@@ -256,21 +253,24 @@
   }
 
   function clearClienteSelection() {
-    if (ui.clienteSelect) ui.clienteSelect.value = '';
-    if (ui.searchInput) ui.searchInput.value = '';
-    state.clienteSeleccionado = '';
-    state.searchText = '';
+    if (ui.clienteSelect) ui.clienteSelect.value = "";
+    if (ui.searchInput) ui.searchInput.value = "";
+    state.clienteSeleccionado = "";
+    state.searchText = "";
     state.servicios = [];
     state.isLoading = false;
     render();
-    togglePlaceholder(true, 'Selecciona un cliente para visualizar los servicios disponibles.');
+    togglePlaceholder(
+      true,
+      "Selecciona un cliente para visualizar los servicios disponibles."
+    );
   }
 
   function togglePlaceholder(show, text) {
     if (!ui.placeholder) return;
     if (show) {
       ui.placeholder.hidden = false;
-      ui.placeholder.textContent = text || '';
+      ui.placeholder.textContent = text || "";
     } else {
       ui.placeholder.hidden = true;
     }
@@ -346,10 +346,7 @@
       const normal = normalizarServicio(svc);
       const detalle = await cargarDetalleServicio(normal.id);
       const slotSummary = calcularSlots(normal.tipo);
-      const totalSlots = Math.max(
-        slotSummary.total,
-        detalle.custodios.length
-      );
+      const totalSlots = Math.max(slotSummary.total, detalle.custodios.length);
       detalles.push({
         svc: normal,
         custodios: detalle.custodios,
@@ -438,7 +435,7 @@
       placaUpper: (raw.placa_upper || "").toUpperCase(),
       destinoTexto: raw.destino_texto || "",
       clienteNombre,
-      clienteId: clienteId ? String(clienteId) : '',
+      clienteId: clienteId ? String(clienteId) : "",
     };
   }
 
@@ -447,7 +444,7 @@
     const previous = state.clienteSeleccionado;
     ui.clienteSelect.innerHTML = '<option value="">Seleccione cliente</option>';
     state.clientes.forEach((cliente) => {
-      const option = document.createElement('option');
+      const option = document.createElement("option");
       option.value = cliente.id;
       option.textContent = cliente.nombre;
       if (cliente.id === previous) option.selected = true;
@@ -609,9 +606,7 @@
     const label = document.createElement("span");
     label.className = "svc-custodio__label";
     const completo = esCustodioCompleto(custodio);
-    label.textContent = completo
-      ? `${nombre} (${tipo})`
-      : `(${tipo})`;
+    label.textContent = completo ? `${nombre} (${tipo})` : `(${tipo})`;
     li.appendChild(label);
 
     const servicioActivo = row.svc.estado === "ACTIVO";
@@ -830,7 +825,6 @@
   async function onSubmitForm(event) {
     event.preventDefault();
     const custodioId = (ui.custodioId?.value || "").trim();
-    const custodioIdNum = Number(custodioId);
     const nombre = (ui.nombreCustodio?.value || "").trim();
     const tipo = (ui.tipoCustodio?.value || "").trim();
     const servicioId = state.currentRow?.svc?.id || null;
@@ -855,7 +849,7 @@
       if (state.selfieDataUrl) {
         const base64 = state.selfieDataUrl.split(",")[1];
         const { error: selfieError } = await window.sb.rpc("guardar_selfie", {
-          p_servicio_custodio_id: custodioIdNum,
+          p_servicio_custodio_id: custodioId,
           p_mime_type: "image/jpeg",
           p_base64: base64,
         });
@@ -877,7 +871,7 @@
       }
       render();
       console.log("[custodia-guardar] ok", {
-        custodio_id: custodioIdNum,
+        custodio_id: custodioId,
         servicio_id: updatedRow?.servicio_id || servicioId,
       });
       console.log("[task][HU-REGISTRO-GUARDAR-FIX] done", {
@@ -888,7 +882,7 @@
       console.error("[custodia-guardar] error", {
         code: err?.code || err?.status || "unknown",
         message: err?.message,
-        payload: { custodio_id: custodioIdNum || custodioId, servicio_id: servicioId },
+        payload: { custodio_id: custodioId, servicio_id: servicioId },
       });
       showMessage("No se pudo guardar la informacion");
     } finally {
@@ -903,9 +897,11 @@
     ui.selfieModal.classList.add("show");
     ui.selfieModal.setAttribute("aria-hidden", "false");
     state.selfieDraftDataUrl = null;
-    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Solicitando camara...";
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent = "Solicitando camara...";
+    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
     resetSelfieCapture();
-    startSelfieCamera(true);
+    startSelfieCamera();
   }
 
   function closeSelfieModal() {
@@ -915,7 +911,7 @@
     resetSelfieCapture();
   }
 
-  async function startSelfieCamera(autoCapture = false) {
+  async function startSelfieCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
       showMessage("Camara no soportada en este dispositivo");
       return;
@@ -946,20 +942,18 @@
         } catch (_) {}
       }
       if (ui.selfieModalCanvas) ui.selfieModalCanvas.classList.remove("show");
-      ui.selfieModalAccept?.setAttribute("disabled", "disabled");
-      ui.selfieModalRetry?.setAttribute("disabled", "disabled");
-      if (autoCapture) {
-        await waitForVideoFrame(ui.selfieModalVideo);
-        captureSelfieFrame({ autoStop: true });
-      } else if (ui.selfieModalStatus) {
-        ui.selfieModalStatus.textContent = "Captura lista";
+      ui.selfieModalCapture?.removeAttribute("disabled");
+      if (ui.selfieModalStatus) {
+        ui.selfieModalStatus.textContent =
+          "Ubica tu rostro y presiona Capturar selfie.";
       }
     } catch (err) {
       console.warn("[permissions] camera:denied", err);
       if (ui.selfieModalStatus)
         ui.selfieModalStatus.textContent =
-          "No se pudo acceder a la camara. Usa Subir archivo.";
-      showMessage("No se pudo acceder a la camara. Usa el boton Subir archivo.");
+          "No se pudo acceder a la camara. Intenta nuevamente.";
+      ui.selfieModalCapture?.setAttribute("disabled", "disabled");
+      showMessage("No se pudo acceder a la camara. Intenta nuevamente.");
     }
   }
 
@@ -985,50 +979,41 @@
     });
   }
 
-  function captureSelfieFrame(options = {}) {
-    const autoStop = Boolean(options.autoStop);
+  function captureSelfieFrame() {
     if (!ui.selfieModalVideo || !ui.selfieModalCanvas) {
       showMessage("Camara no disponible para capturar");
-      return;
+      return null;
     }
     const width = ui.selfieModalVideo.videoWidth || 640;
     const height = ui.selfieModalVideo.videoHeight || 480;
     if (!width || !height) {
       showMessage("Aun no se obtiene imagen de la camara");
-      return;
+      return null;
     }
     const context = ui.selfieModalCanvas.getContext("2d");
     ui.selfieModalCanvas.width = width;
     ui.selfieModalCanvas.height = height;
     context.drawImage(ui.selfieModalVideo, 0, 0, width, height);
-    state.selfieDraftDataUrl = ui.selfieModalCanvas.toDataURL(
-      "image/jpeg",
-      0.85
-    );
+    const dataUrl = ui.selfieModalCanvas.toDataURL("image/jpeg", 0.85);
     ui.selfieModalCanvas.classList.add("show");
-    if (autoStop) {
-      stopSelfieStream();
-    }
-    ui.selfieModalAccept?.removeAttribute("disabled");
-    ui.selfieModalRetry?.removeAttribute("disabled");
-    const approxSizeKb = state.selfieDraftDataUrl
-      ? Math.round((state.selfieDraftDataUrl.length * 3) / 4 / 1024)
+    stopSelfieStream();
+    const approxSizeKb = dataUrl
+      ? Math.round((dataUrl.length * 3) / 4 / 1024)
       : 0;
     console.log("[selfie] captured", {
-      source: autoStop ? "auto" : "manual",
+      source: "manual",
       size_kb: approxSizeKb,
     });
     console.log("[task][HU-CAMERA-BLACK-FIX] done");
     if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent = "Revisa la selfie y confirma.";
+      ui.selfieModalStatus.textContent = "Selfie capturada correctamente.";
+    return dataUrl;
   }
 
-  function confirmSelfieSelection() {
-    if (!state.selfieDraftDataUrl) {
-      showMessage("Captura una selfie antes de confirmar.");
-      return;
-    }
-    state.selfieDataUrl = state.selfieDraftDataUrl;
+  function captureSelfieAndStore() {
+    const dataUrl = captureSelfieFrame();
+    if (!dataUrl) return;
+    state.selfieDataUrl = dataUrl;
     state.selfieDraftDataUrl = null;
     state.selfieHasRemote = false;
     state.selfieReady = true;
@@ -1036,33 +1021,6 @@
     updateGuardarState();
     closeSelfieModal();
     showMessage("Selfie almacenada. Recuerda guardar el registro.");
-  }
-
-  function handleSelfieFile(event) {
-    const file = event.target?.files?.[0];
-    if (!file) return;
-    if (!file.type?.startsWith("image/")) {
-      showMessage("Selecciona una imagen valida.");
-      if (ui.selfieFileInput) ui.selfieFileInput.value = "";
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.selfieDataUrl = reader.result;
-      state.selfieDraftDataUrl = null;
-      state.selfieHasRemote = false;
-      state.selfieReady = true;
-      refreshSelfiePreview();
-      updateGuardarState();
-      console.log("[selfie] captured", {
-        source: "upload",
-        size_kb: Math.round(file.size / 1024),
-      });
-      if (ui.selfieFileInput) {
-        ui.selfieFileInput.value = "";
-      }
-    };
-    reader.readAsDataURL(file);
   }
 
   function resetSelfieCapture() {
@@ -1084,9 +1042,10 @@
         );
       }
     }
-    ui.selfieModalAccept?.setAttribute("disabled", "disabled");
-    ui.selfieModalRetry?.setAttribute("disabled", "disabled");
-    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Tomar foto";
+    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent =
+        "Inicia la camara para capturar tu selfie.";
   }
 
   function stopSelfieStream() {
@@ -1273,4 +1232,3 @@
     }
   }
 })();
-

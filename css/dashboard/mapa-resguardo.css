@@ -82,12 +82,30 @@
   padding: 12px;
   height: calc(100vh - 64px);
   overflow:auto;
+  z-index: 1600;
+}
+.cust-sidebar.is-open {
+  display:block;
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  width: min(360px, 92vw);
+  max-height: calc(100vh - 120px);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 37, 68, 0.28);
 }
 .cust-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.cust-head__actions { display:flex; align-items:center; gap:8px; }
+.cust-close { width:32px; height:32px; border:none; border-radius:50%; background:#f3f5fb; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.cust-close .material-icons { font-size:18px; color:#3e4a5b; }
 .cust-sidebar h3 { margin: 6px 0 10px; font-size: 16px; }
 .add-btn { width:36px; height:36px; border-radius:10px; border:1px solid #e3e6ed; background:#fff; cursor:pointer; font-weight:700; }
-.cust-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 6px; border:1px solid #edf0f7; border-radius:8px; margin-bottom:8px; background:#fafbfd; }
+.cust-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 10px; border:1px solid #edf0f7; border-radius:10px; margin-bottom:10px; background:#fafbfd; }
+.cust-row--add { border-style:dashed; cursor:pointer; justify-content:center; font-weight:600; }
+.cust-row--add:hover { background:#f0f4ff; border-color:#c5d3ff; }
+.cust-info { display:flex; flex-direction:column; gap:4px; }
 .cust-name { font-size: 13px; font-weight: 600; color:#37474f; }
+.cust-meta { display:flex; gap:6px; flex-wrap:wrap; }
 .edit-btn { background:#fff; border:1px solid #e3e6ed; border-radius:8px; padding:4px 8px; cursor:pointer; }
 .edit-btn .material-icons { font-size:18px; }
 .chip { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
@@ -95,8 +113,22 @@
 .chip.ok { background:#e8f5e9; color:#2e7d32; }
 .chip.pend { background:#ffebee; color:#c62828; }
 
+.cust-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 12, 22, 0.55);
+  z-index: 1550;
+  display: none;
+}
+.cust-overlay.show {
+  display: block;
+}
+
 @media (min-width: 980px) {
-  .cust-sidebar { display:block; }
+  .cust-sidebar { display:block; position: static; border-radius:0; box-shadow:none; z-index:auto; }
+  .cust-sidebar.is-open { position: static; width:auto; max-height: calc(100vh - 64px); }
+  .cust-close { display:none; }
+  .cust-overlay { display:none !important; }
   .map-wrap.with-sidebar { height: calc(100vh - 64px); }
 }
 
@@ -104,12 +136,7 @@
 .edit-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
 .edit-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:12px; padding:18px; box-shadow: 0 12px 28px rgba(15,37,68,0.18); }
 .edit-modal .camara { display:grid; gap:12px; margin-top:12px; }
-.edit-modal .cam-actions { display:flex; gap:10px; flex-wrap:wrap; }
-.edit-modal .cam-action { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid #e3e6ed; background:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 3px rgba(15,37,68,0.08); transition:transform .12s ease, box-shadow .12s ease; }
-.edit-modal .cam-action:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,37,68,0.15); }
-.edit-modal .cam-action:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
-.edit-modal .cam-action i.material-icons { font-size:20px; color:#3f51b5; }
-.edit-modal .cam-action span { font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+.edit-modal .cam-actions { display:none; }
 .edit-modal .cam-estado { font-size:12px; color:#607d8b; min-height:18px; }
 .edit-modal .cam-media { border:1px dashed #d6dae5; border-radius:12px; background:#f5f7fb; position:relative; overflow:hidden; aspect-ratio:4/3; min-height:200px; }
 .edit-modal video,
@@ -121,18 +148,38 @@
 .add-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
 .add-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:12px; padding:18px; box-shadow: 0 12px 28px rgba(15,37,68,0.18); }
 .add-modal .camara { display:grid; gap:12px; margin-top:12px; }
-.add-modal .cam-actions { display:flex; gap:10px; flex-wrap:wrap; }
-.add-modal .cam-action { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid #e3e6ed; background:#fff; font-size:13px; cursor:pointer; box-shadow:0 1px 3px rgba(15,37,68,0.08); transition:transform .12s ease, box-shadow .12s ease; }
-.add-modal .cam-action:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,37,68,0.15); }
-.add-modal .cam-action:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
-.add-modal .cam-action i.material-icons { font-size:20px; color:#3f51b5; }
-.add-modal .cam-action span { font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+.add-modal .cam-actions { display:none; }
 .add-modal .cam-estado { font-size:12px; color:#607d8b; min-height:18px; }
 .add-modal .cam-media { border:1px dashed #d6dae5; border-radius:12px; background:#f5f7fb; position:relative; overflow:hidden; aspect-ratio:4/3; min-height:200px; }
 .add-modal video,
 .add-modal img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#e9eef6; display:none; }
 .add-modal canvas { display:none; }
 .add-modal .row-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+
+.cam-action--primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #e3e6ed;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 37, 68, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.cam-action--primary .material-icons {
+  font-size: 20px;
+  color: #3f51b5;
+}
+.cam-action--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 /* --- Panel flotante --- */
 .panel {
