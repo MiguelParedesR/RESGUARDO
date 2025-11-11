@@ -680,15 +680,16 @@
   }
 
   /* === BEGIN HU:HU-NO400-ALARM_EVENT trigger push (no tocar fuera) === */
+  const IS_LOCAL_DEV =
+    typeof window !== "undefined" &&
+    (window.location?.protocol === "file:" ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location?.hostname || ""));
+
   async function triggerPush(type, eventRecord, options) {
     const endpoint =
       options && options.endpoint ? options.endpoint : PUSH_ENDPOINT;
-    const isLocalDev =
-      typeof window !== "undefined" &&
-      (window.location?.protocol === "file:" ||
-        /^(localhost|127\.0\.0\.1)$/i.test(window.location?.hostname || ""));
     if (
-      isLocalDev &&
+      IS_LOCAL_DEV &&
       typeof endpoint === "string" &&
       endpoint.includes("/.netlify/")
     ) {
@@ -735,6 +736,17 @@
       audience,
       payload,
     };
+
+    const isRelativeEndpoint =
+      typeof endpoint === "string" && endpoint.startsWith("/");
+    const isLocalDev =
+      typeof window !== "undefined" &&
+      (window.location?.protocol === "file:" ||
+        /^(localhost|127\.0\.0\.1)$/i.test(window.location?.hostname || ""));
+    if (isRelativeEndpoint && isLocalDev) {
+      console.log("[push] skip local endpoint", endpoint);
+      return;
+    }
 
     try {
       const res = await fetch(endpoint, {
@@ -922,6 +934,12 @@
   /* === BEGIN HU:HU-PANICO-TTS activate panic (no tocar fuera) === */
   function activatePanic(record) {
     const key = panicKey(record);
+    const originMeta =
+      record?.metadata?.origin || record?.origin || record?.meta?.origin;
+    if (originMeta === "admin-local-ack") {
+      console.log("[panic] ack ignored");
+      return;
+    }
     if (state.admin.handled.has(key)) return;
     state.admin.currentPanicKey = key;
     state.admin.lastPanic = record;

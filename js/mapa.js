@@ -503,13 +503,14 @@ document.addEventListener("DOMContentLoaded", () => {
     lastRouteFetchAt = now;
     if (routeFetchInFlight) return;
     const params = `${lng},${lat};${destino.lng},${destino.lat}?overview=full&geometries=geojson&steps=false`;
-    routeAbortController = new AbortController();
-
-    const fetchRoute = async (baseUrl) => {
+    const fetchRoute = async (baseUrl, timeoutMs = 4500) => {
+      const controller = new AbortController();
+      routeAbortController = controller;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const url = `${baseUrl}/route/v1/driving/${params}`;
       const res = await fetch(url, {
-        signal: routeAbortController.signal,
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = await res.json();
       const route = payload?.routes?.[0];
@@ -533,7 +534,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (!route) {
         try {
-          route = await fetchRoute(ROUTE_PUBLIC_BASE);
+          route = await fetchRoute(ROUTE_PUBLIC_BASE, 8000);
           console.log("[routeOSRM] public ok", {
             distance: route.distance,
             duration: route.duration,
