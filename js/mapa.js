@@ -217,10 +217,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let markerDestino = null;
   let destino = null;
   // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
-  const ROUTE_LOCAL_BASE = "http://127.0.0.1:5000";
-  const ROUTE_USE_LOCAL =
-    ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-    window.APP_CONFIG?.OSRM_LOCAL === true;
+  const ROUTE_LOCAL_BASE =
+    window.APP_CONFIG?.OSRM_LOCAL_URL?.replace(/\/+$/, "") ||
+    "http://127.0.0.1:5000";
+  const ROUTE_USE_LOCAL = window.APP_CONFIG?.OSRM_LOCAL === true;
   const ROUTE_PUBLIC_BASE = "https://router.project-osrm.org";
   const ROUTE_THROTTLE_MS = 12_000;
   let routeLayer = null;
