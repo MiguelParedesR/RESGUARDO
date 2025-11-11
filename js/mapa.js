@@ -124,48 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const estadoTextoEl = document.getElementById("estado-texto");
   const destinoTextoEl = document.getElementById("destino-texto");
   const panicBtn = document.getElementById("alarma-panic-btn");
-  // === BEGIN HU:HU-HEADER-FIJO Header fijo mapa-resguardo (NO TOCAR FUERA) ===
-  let headerResizeTimer = null;
-  function applyHeaderOffset() {
-    const headerEl = document.getElementById("app-header");
-    const contentEl = document.querySelector(".mdl-layout__content");
-    const topbarEl = document.querySelector(".topbar");
-    const measuredHeader = headerEl?.offsetHeight || 0;
-    const headerHeight = Math.max(measuredHeader, 64);
-    const measuredToolbar = topbarEl?.offsetHeight || 0;
-    const toolbarHeight = Math.max(measuredToolbar, 56);
-    document.documentElement.style.setProperty(
-      "--map-header-offset",
-      `${headerHeight}px`
-    );
-    document.documentElement.style.setProperty(
-      "--map-toolbar-height",
-      `${toolbarHeight}px`
-    );
-    if (contentEl) {
-      contentEl.style.paddingTop = `${headerHeight}px`;
-    }
-    console.log("[ui][header] offset set", {
-      headerHeight,
-      toolbarHeight,
-    });
-  }
-
-  function initHeaderLayoutFix() {
-    const headerEl = document.getElementById("app-header");
-    if (!headerEl) return;
-    document.body.classList.add("mapa-header-fixed");
-    headerEl.classList.add("app-header--fixed-map");
-    applyHeaderOffset();
-    window.addEventListener("resize", () => {
-      clearTimeout(headerResizeTimer);
-      headerResizeTimer = setTimeout(applyHeaderOffset, 200);
-    });
-    setTimeout(applyHeaderOffset, 450);
-    console.log("[ui][header] fixed applied");
-  }
-  initHeaderLayoutFix();
-  // === END HU:HU-HEADER-FIJO ===
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";

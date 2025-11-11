@@ -16,27 +16,6 @@
     font-family: "Roboto", sans-serif;
 }
 
-/* === BEGIN HU:HU-HEADER-FIJO Header fijo mapa-resguardo (NO TOCAR FUERA) === */
-body.mapa-header-fixed {
-    background: #040b16;
-}
-
-#app-header.app-header--fixed-map {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 3200;
-    background: #0d1f33;
-    border-bottom: none;
-    box-shadow: 0 12px 30px rgba(4, 12, 20, 0.45);
-}
-
-.mdl-layout__content {
-    padding-top: var(--map-header-offset, 72px);
-    background: transparent;
-}
-/* === END HU:HU-HEADER-FIJO === */
 
 .topbar {
     display: flex;

@@ -1,4 +1,4 @@
-﻿document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async () => {
   try {
     const host = document.getElementById("app-header");
     if (!host) return;
@@ -7,7 +7,6 @@
     });
     const html = await resp.text();
     host.innerHTML = html;
-    // Title resolution
     const titleEl = document.getElementById("app-header-title");
     const explicit = host.getAttribute("data-page-title");
     let title = explicit || "";
@@ -30,7 +29,6 @@
     }
     if (titleEl) titleEl.textContent = title;
 
-    // Actions
     const btnHome = document.getElementById("app-header-home");
     const btnLogout = document.getElementById("app-header-logout");
     btnHome?.setAttribute("href", "/html/index.html");

@@ -146,8 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.warn("[session] save error", err);
     }
     try {
-      const ttl =
-        window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000 /* 4h */;
+      const ttl = window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000; /* 4h */
       const fallback = { ...payload, exp_ts: Date.now() + ttl };
       const key = window.CustodiaSession?.KEY || "custodia_session";
       window.localStorage.setItem(key, JSON.stringify(fallback));
@@ -912,10 +911,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error(errS);
           return showMsg("Error al guardar selfie");
         }
-        if (
-          !followSessionPayload &&
-          (!primaryBloque || b === primaryBloque)
-        ) {
+        if (!followSessionPayload && (!primaryBloque || b === primaryBloque)) {
           followSessionPayload = {
             servicio_id,
             servicio_custodio_id: cId,

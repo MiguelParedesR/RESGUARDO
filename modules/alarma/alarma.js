@@ -136,6 +136,7 @@
   const EVENT_TYPE_MAP = {
     start: "start",
     panic: "panic",
+    panic_ack: "panic_ack",
     heartbeat: "heartbeat",
     finalize: "finalize",
     checkin_ok: "checkin_ok",
@@ -1261,21 +1262,63 @@
 
   async function sendPanicAck(record) {
     if (state.mode !== "admin") return;
-    const key = panicKey(record);
-    if (!record || !key || /undefined$/.test(key)) return;
+    const source = record && typeof record === "object" ? record : {};
+    const fallback = state.admin.lastPanic || {};
+    const mergedMetadata = {
+      ...(fallback.metadata || {}),
+      ...(source.metadata || {}),
+    };
+    const merged = {
+      ...fallback,
+      ...source,
+      metadata: mergedMetadata,
+    };
+    const key = panicKey(merged);
+    if (!key || /undefined$/.test(key)) return;
     if (state.siren.lastAckKey === key) return;
+    const servicioId =
+      merged.servicio_id ||
+      merged.servicioId ||
+      mergedMetadata.servicio_id ||
+      mergedMetadata.servicioId ||
+      null;
+    const empresa = merged.empresa || mergedMetadata.empresa || null;
+    const cliente =
+      merged.cliente ||
+      mergedMetadata.cliente ||
+      mergedMetadata.customer ||
+      null;
+    const placa =
+      merged.placa ||
+      merged.placa_upper ||
+      mergedMetadata.placa ||
+      mergedMetadata.placa_upper ||
+      null;
+    const tipo = coerceDbServicioTipo(merged);
+    if (!servicioId || !empresa || !cliente || !placa || !tipo) {
+      console.warn("[panic] ack skipped missing fields", {
+        servicioId,
+        empresa,
+        cliente,
+        placa,
+        tipo,
+      });
+      return;
+    }
     state.siren.lastAckKey = key;
     const payload = {
-      servicio_id: record?.servicio_id || null,
-      empresa: record?.empresa || null,
-      cliente: record?.cliente || null,
-      placa: record?.placa || null,
-      tipo: record?.tipo || null,
+      servicio_id: servicioId,
+      empresa,
+      cliente,
+      placa,
+      tipo,
       servicio_custodio_id:
-        record?.servicio_custodio_id ||
-        record?.metadata?.servicio_custodio_id ||
+        merged.servicio_custodio_id ||
+        mergedMetadata.servicio_custodio_id ||
+        mergedMetadata.servicioCustodioId ||
         null,
       metadata: {
+        ...mergedMetadata,
         channel: "panic",
         origin: "admin-local-ack",
         estado: "ALERTA_ACTIVADA",
