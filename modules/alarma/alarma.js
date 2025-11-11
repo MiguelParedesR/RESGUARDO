@@ -112,6 +112,7 @@
     A: "TIPO A",
     B: "TIPO B",
   };
+  const BLOCKED_SERVICIO_TIPOS = new Set(["SIMPLE"]);
 
   function normalizeEventType(value) {
     if (!value) return null;
@@ -197,6 +198,7 @@
     if (sanitized.lat != null) metadata.lat = sanitized.lat;
     if (sanitized.lng != null) metadata.lng = sanitized.lng;
     if (sanitized.direccion) metadata.direccion = sanitized.direccion;
+    if (sanitized.tipo) metadata.servicio_tipo = sanitized.tipo;
     if (sanitized.metadata && typeof sanitized.metadata === "object") {
       Object.assign(metadata, sanitized.metadata);
     }
@@ -268,7 +270,7 @@
       empresa: record.empresa,
       cliente: record.cliente,
       placa: record.placa,
-      tipo: record.tipo,
+      tipo: coerceDbServicioTipo(record.tipo),
       lat: record.lat ?? null,
       lng: record.lng ?? null,
       direccion: record.direccion ?? null,
@@ -277,6 +279,18 @@
     return payload;
   }
   // === END HU:HU-NO400-ALARM_EVENT ===
+
+  function coerceDbServicioTipo(value) {
+    if (!value) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    const upper = str.toUpperCase();
+    if (BLOCKED_SERVICIO_TIPOS.has(upper)) {
+      console.warn("[alarm_event] tipo omitido para evitar enum invalido", str);
+      return null;
+    }
+    return str;
+  }
 
   function ensureSupabase() {
     if (!state.supabase && global.sb) state.supabase = global.sb;
