@@ -312,8 +312,8 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(420px, 92vw);
-  padding: 20px;
+  width: min(380px, 92vw);
+  padding: 18px;
   border-radius: 18px;
   background: #1e2a38;
   color: #fff;
@@ -324,7 +324,30 @@
 
 .alarma-checkin.is-open {
   display: grid;
-  gap: 16px;
+  gap: 14px;
+}
+
+.alarma-checkin__dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.alarma-checkin__header {
+  display: grid;
+  gap: 4px;
+}
+
+.alarma-checkin__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.alarma-checkin__context {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .alarma-checkin__overlay {
@@ -345,15 +368,61 @@ body.alarma-checkin-open {
 }
 
 .alarma-checkin__hint {
-  margin-top: 4px;
+  margin-top: 2px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.6);
 }
 
+.alarma-checkin__voice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
 
-.alarma-checkin__options {
-  display: grid;
-  gap: 14px;
+.alarma-checkin__voice-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alarma-checkin__voice-icon::after {
+  content: "";
+  width: 14px;
+  height: 18px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: -10px 0 0 rgba(255, 255, 255, 0.6),
+    10px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+.alarma-checkin__voice.is-listening .alarma-checkin__voice-icon {
+  animation: alarmaVoicePulse 0.8s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.alarma-checkin__voice-label {
+  flex: 1;
+  text-align: left;
+  font-size: 15px;
+}
+
+.alarma-checkin__text-toggle {
+  background: none;
+  border: none;
+  color: #8ee4d4;
+  text-decoration: underline;
+  font-size: 13px;
+  padding: 0;
+  text-align: left;
 }
 
 .alarma-checkin__field {
@@ -361,8 +430,12 @@ body.alarma-checkin-open {
   gap: 8px;
 }
 
+.alarma-checkin__field[hidden] {
+  display: none;
+}
+
 .alarma-checkin__field label {
-  font-size: 14px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -378,16 +451,24 @@ body.alarma-checkin-open {
   color: #fff;
 }
 
-.alarma-checkin__close {
-  justify-self: end;
-}
-
 .alarma-checkin__status {
   font-size: 14px;
   font-weight: 600;
   color: #8ee4d4;
   margin-top: 6px;
   min-height: 20px;
+}
+
+@keyframes alarmaVoicePulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.1);
+  }
 }
 /* === END HU:HU-CHECKIN-15M === */
 

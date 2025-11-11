@@ -139,6 +139,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (hasAlarma) {
     try {
       window.Alarma.initCustodia();
+      window.Alarma.requestNotifications?.({ reason: "mapa-resguardo" });
+      if (typeof window.Alarma.enableAlerts === "function") {
+        Promise.resolve(
+          window.Alarma.enableAlerts({ sound: true, haptics: true })
+        ).catch(() => {});
+      }
+      window.Alarma.preloadCheckinAudio?.();
       console.log("[task][HU-CHECKIN-15M] mapa init ok");
     } catch (err) {
       console.warn("[alarma] initCustodia mapa error", err);

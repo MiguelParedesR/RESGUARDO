@@ -63,6 +63,7 @@
       audioBuffer: null,
       audioSource: null,
       audioGain: null,
+      audioArrayBuffer: null,
     },
     /* === END HU:HU-CHECKIN-15M === */
     /* === BEGIN HU:HU-AUDIO-GESTO permissions state (no tocar fuera) === */
@@ -494,6 +495,8 @@
   function initCustodia(options) {
     initBase("custodia").catch(error);
     autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
+    requestNotificationsPermission({ reason: "init-custodia" }).catch(() => {});
+    preloadCheckinAudio();
     if (options && typeof options.onCheckin === "function") {
       state.custodia.onCheckin = options.onCheckin;
     }
@@ -997,17 +1000,31 @@
     console.log("[permissions] audio:ready", result);
     return result;
   }
+
+  async function requestNotificationsPermission(meta) {
+    if (typeof global.Notification === "undefined") return null;
+    if (typeof global.Notification.requestPermission !== "function") {
+      return global.Notification.permission || null;
+    }
+    if (global.Notification.permission !== "default") {
+      console.log("[permissions] notifications:" + global.Notification.permission);
+      return global.Notification.permission;
+    }
+    try {
+      const result = await global.Notification.requestPermission();
+      console.log("[permissions] notifications:" + result, {
+        reason: meta?.reason || "generic",
+      });
+      return result;
+    } catch (err) {
+      console.warn("[permissions] notifications:error", err);
+      return "denied";
+    }
+  }
   /* === END HU:HU-AUDIO-GESTO === */
 
   async function primeAdminPermissions(options = {}) {
-    if ("Notification" in global && Notification.permission === "default") {
-      try {
-        const perm = await Notification.requestPermission();
-        console.log(`[permissions] notifications:${perm}`);
-      } catch (err) {
-        console.warn("[permissions] notifications:error", err);
-      }
-    }
+    await requestNotificationsPermission({ reason: "admin-prime" });
     const perms = await enableAlerts({
       sound: options?.sound !== false,
       haptics: options?.haptics !== false,
@@ -1528,8 +1545,10 @@
     return overlay;
   }
 
-  function ensureCheckinAudioBuffer(ctx) {
-    if (state.checkin.audioBuffer) return Promise.resolve(state.checkin.audioBuffer);
+  function loadCheckinAudioArrayBuffer() {
+    if (state.checkin.audioArrayBuffer) {
+      return Promise.resolve(state.checkin.audioArrayBuffer.slice(0));
+    }
     if (typeof fetch === "undefined") {
       return Promise.reject(new Error("fetch no disponible"));
     }
@@ -1538,11 +1557,28 @@
         if (!resp.ok) throw new Error(`checkin audio ${resp.status}`);
         return resp.arrayBuffer();
       })
-      .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer))
+      .then((arrayBuffer) => {
+        state.checkin.audioArrayBuffer = arrayBuffer.slice(0);
+        return arrayBuffer;
+      });
+  }
+
+  function ensureCheckinAudioBuffer(ctx) {
+    if (state.checkin.audioBuffer) return Promise.resolve(state.checkin.audioBuffer);
+    if (!ctx) return Promise.reject(new Error("AudioContext no disponible"));
+    return loadCheckinAudioArrayBuffer()
+      .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer.slice(0)))
       .then((buffer) => {
         state.checkin.audioBuffer = buffer;
         return buffer;
       });
+  }
+
+  function preloadCheckinAudio() {
+    return loadCheckinAudioArrayBuffer().catch((err) => {
+      warn("No se pudo precargar audio de checkin", err);
+      return null;
+    });
   }
 
   function startCheckinSpeechFallback(panel) {
@@ -1689,13 +1725,17 @@
     if (state.mode !== "custodia") return;
     const panel = ensureCheckinPanel();
     ensureCheckinOverlay();
+    requestNotificationsPermission({ reason: "checkin-modal" }).catch(() => {});
+    if (!state.permissions.sound) {
+      enableAlerts({ sound: true, haptics: true }).catch(() => {});
+    }
     if (state.checkin.successTimer) {
       clearTimeout(state.checkin.successTimer);
       state.checkin.successTimer = null;
     }
     populateCheckinPanel(panel, payload);
     panel.classList.add("is-open");
-    panel.dataset.method = "text";
+    panel.dataset.method = "voice";
     try {
       panel.focus();
     } catch (_) {}
@@ -1770,7 +1810,7 @@
     if (state.checkin.panel) return state.checkin.panel;
     autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
     const panel = document.createElement("div");
-    panel.className = "alarma-checkin";
+    panel.className = "alarma-checkin alarma-checkin--compact";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-live", "assertive");
     panel.setAttribute("aria-modal", "true");
@@ -1778,70 +1818,68 @@
     panel.innerHTML = `
       <div class="alarma-checkin__dialog">
         <div class="alarma-checkin__header">
-          <div>
-            <div class="alarma-checkin__eyebrow">REPORTESE</div>
-            <h3 class="alarma-checkin__title">Servicio <span class="js-checkin-servicio">-</span></h3>
-            <p class="alarma-checkin__subtitle">Presione el botón y diga su ubicación actual.</p>
-          </div>
+          <p class="alarma-checkin__eyebrow">REPORTESE</p>
+          <h3 class="alarma-checkin__title">Donde te encuentras?</h3>
+          <p class="alarma-checkin__subtitle">Presiona el boton y di tu ubicacion actual.</p>
+          <p class="alarma-checkin__context">
+            <span class="js-checkin-cliente">-</span> - <span class="js-checkin-servicio">-</span>
+          </p>
         </div>
-        <div class="alarma-checkin__body">
-          <div class="alarma-checkin__client"><strong>Cliente:</strong> <span class="js-checkin-cliente">-</span></div>
-          <div class="alarma-checkin__placa"><strong>Placa:</strong> <span class="js-checkin-placa">-</span></div>
-          <div class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</div>
-          <p class="alarma-checkin__hint" hidden>Activa sonido para escuchar el recordatorio.</p>
-          <div class="alarma-checkin__options">
-            <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Presionar y hablar</button>
-            <div class="alarma-checkin__field">
-              <label for="alarma-checkin-input">Donde te encuentras?</label>
-              <textarea id="alarma-checkin-input" class="alarma-checkin__input" rows="3" placeholder="Ej. Ingresando a puerta 3, sin novedad."></textarea>
-            </div>
-          </div>
-          <p class="alarma-checkin__status js-checkin-status" aria-live="polite" hidden></p>
+        <p class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</p>
+        <p class="alarma-checkin__hint" hidden>Activa sonido para escuchar el recordatorio.</p>
+        <button type="button" class="alarma-btn alarma-btn--primary alarma-checkin__voice js-checkin-voice">
+          <span class="alarma-checkin__voice-icon" aria-hidden="true"></span>
+          <span class="alarma-checkin__voice-label">Presionar y hablar</span>
+        </button>
+        <button type="button" class="alarma-checkin__text-toggle js-checkin-text-toggle">No puedo hablar, escribire</button>
+        <div class="alarma-checkin__field" hidden>
+          <label for="alarma-checkin-input">Describe tu ubicacion</label>
+          <textarea
+            id="alarma-checkin-input"
+            class="alarma-checkin__input"
+            rows="3"
+            placeholder="Ej. Ingresando a puerta 3, sin novedad."
+          ></textarea>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-checkin-confirm" disabled>Enviar texto</button>
         </div>
-        <div class="alarma-checkin__actions">
-          <button type="button" class="alarma-btn alarma-btn--danger js-checkin-confirm">Confirmar y silenciar</button>
-        </div>
+        <p class="alarma-checkin__status js-checkin-status" aria-live="polite" hidden></p>
       </div>
     `;
     ensureCheckinOverlay();
     document.body.appendChild(panel);
-    panel
-      .querySelector(".js-checkin-confirm")
-      ?.addEventListener("click", () => confirmCheckin(panel));
-    panel
-      .querySelector(".js-checkin-voice")
-      ?.addEventListener("click", () => captureCheckinVoice(panel));
+    const confirmBtn = panel.querySelector(".js-checkin-confirm");
+    const voiceBtn = panel.querySelector(".js-checkin-voice");
+    const voiceLabel = panel.querySelector(".alarma-checkin__voice-label");
+    const toggleTextBtn = panel.querySelector(".js-checkin-text-toggle");
+    const textField = panel.querySelector(".alarma-checkin__field");
+    const input = panel.querySelector("#alarma-checkin-input");
+    confirmBtn?.addEventListener("click", () => confirmCheckin(panel));
+    voiceBtn?.addEventListener("click", () => captureCheckinVoice(panel));
+    if (toggleTextBtn && textField) {
+      toggleTextBtn.addEventListener("click", () => {
+        const hidden = textField.hasAttribute("hidden");
+        if (hidden) {
+          textField.removeAttribute("hidden");
+          panel.dataset.method = "text";
+          toggleTextBtn.textContent = "Cancelar texto";
+          input?.focus();
+        } else {
+          textField.setAttribute("hidden", "hidden");
+          panel.dataset.method = "voice";
+          toggleTextBtn.textContent = "No puedo hablar, escribire";
+        }
+      });
+    }
+    if (input && confirmBtn) {
+      input.addEventListener("input", () => {
+        const hasValue = input.value.trim().length > 0;
+        confirmBtn.disabled = !hasValue;
+      });
+    }
+    panel.dataset.method = "voice";
+    if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
     state.checkin.panel = panel;
     return panel;
-  }
-
-  function populateCheckinPanel(panel, payload) {
-    const data = payload?.event || payload || {};
-    const servicioId = data.servicio_id || payload?.servicio_id || "";
-    const cliente = data.cliente || payload?.cliente || "N/D";
-    const placa = data.placa || data.placa_upper || "S/N";
-    const attemptSource =
-      Number(data.metadata?.attempt || payload?.metadata?.attempt) || 1;
-    const attempt = attemptSource > 0 ? attemptSource : 1;
-    const serviceSpan = panel.querySelector(".js-checkin-servicio");
-    if (serviceSpan) serviceSpan.textContent = placa;
-    const clienteSpan = panel.querySelector(".js-checkin-cliente");
-    if (clienteSpan) clienteSpan.textContent = cliente;
-    const placaSpan = panel.querySelector(".js-checkin-placa");
-    if (placaSpan) placaSpan.textContent = placa;
-    const meta = panel.querySelector(".js-checkin-meta");
-    if (meta)
-      meta.textContent = `Intento ${attempt} - Reporta tu ubicacion actual.`;
-    panel.dataset.servicioId = servicioId ? String(servicioId) : "";
-    panel.dataset.empresa = data.empresa || "";
-    panel.dataset.cliente = cliente;
-    panel.dataset.placa = placa;
-    panel.dataset.tipo = data.tipo || "";
-    panel.dataset.attempt = attempt;
-    panel.dataset.method = "text";
-    const input = panel.querySelector("#alarma-checkin-input");
-    if (input) input.value = "";
-    clearCheckinStatus(panel);
   }
 
   async function captureCheckinVoice(panel) {
@@ -1852,10 +1890,12 @@
       return;
     }
     const button = panel.querySelector(".js-checkin-voice");
+    const voiceLabel = panel.querySelector(".alarma-checkin__voice-label");
     if (button) {
       button.disabled = true;
-      button.textContent = "Escuchando...";
+      button.classList.add("is-listening");
     }
+    if (voiceLabel) voiceLabel.textContent = "Escuchando...";
     stopCheckinAudioLoop("voice-button");
     try {
       if (navigator.mediaDevices?.getUserMedia) {
@@ -1872,8 +1912,9 @@
           );
           if (button) {
             button.disabled = false;
-            button.textContent = "Responder por voz";
+            button.classList.remove("is-listening");
           }
+          if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
           return;
         }
       }
@@ -1883,29 +1924,40 @@
       recog.interimResults = false;
       recog.maxAlternatives = 2;
       recog.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+        const transcript =
+          event.results?.[0]?.[0]?.transcript?.trim() || "";
         const input = panel.querySelector("#alarma-checkin-input");
-        if (input) input.value = transcript;
+        if (input) {
+          input.value = transcript;
+          const evt = typeof Event === "function" ? new Event("input", { bubbles: true }) : null;
+          if (evt) {
+            try {
+              input.dispatchEvent(evt);
+            } catch (_) {}
+          }
+        }
         panel.dataset.method = "voice";
         panel.dataset.transcript = transcript;
-        setCheckinStatus(panel, "Se registró tu voz. Revisa el texto antes de confirmar.");
+        setCheckinStatus(panel, "Procesando respuesta...");
         console.log("[checkin][voice]", {
           servicio_id: panel.dataset.servicioId || null,
           transcript,
         });
+        confirmCheckin(panel, { auto: true });
       };
       recog.onerror = () => {
         showToast("No se pudo capturar tu voz. Escribe la respuesta.");
         setCheckinStatus(
           panel,
-          "No se pudo capturar tu voz. Escribe tu ubicación actual."
+          "No se pudo capturar tu voz. Describe tu ubicacion."
         );
       };
       recog.onend = () => {
         if (button) {
           button.disabled = false;
-          button.textContent = "Responder por voz";
+          button.classList.remove("is-listening");
         }
+        if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
       };
       recog.start();
     } catch (err) {
@@ -1913,19 +1965,27 @@
       console.warn("[permissions] mic:error", err);
       if (button) {
         button.disabled = false;
-        button.textContent = "Responder por voz";
+        button.classList.remove("is-listening");
       }
+      if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
     }
   }
-
-  async function confirmCheckin(panelArg) {
+  async function confirmCheckin(panelArg, options = {}) {
     const panel = panelArg || state.checkin.panel;
     if (!panel) return;
     if (state.checkin.busy) return;
     const input = panel.querySelector("#alarma-checkin-input");
     const texto = clip((input && input.value) || "", MAX_STRING);
+    const auto = Boolean(options.auto);
     if (!texto) {
-      showToast("Ingresa tu ubicacion actual antes de confirmar.");
+      if (auto) {
+        setCheckinStatus(
+          panel,
+          "No se pudo captar la voz. Describe tu ubicacion en el campo de texto."
+        );
+      } else {
+        showToast("Ingresa tu ubicacion actual antes de confirmar.");
+      }
       return;
     }
     const last = state.custodia.lastLocation;
@@ -2003,6 +2063,8 @@
     enableAlerts,
     primeAdminPermissions,
     primeAlerts: attachAlertPrimer,
+    requestNotifications: requestNotificationsPermission,
+    preloadCheckinAudio,
     /* === BEGIN HU:HU-CHECKIN-15M checkin api (no tocar fuera) === */
     openCheckinPrompt: (payload) => {
       if (state.mode !== "custodia") return;
@@ -2046,6 +2108,9 @@
     }
   }
 })(window);
+
+
+
 
 
 
