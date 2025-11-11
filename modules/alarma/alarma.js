@@ -106,13 +106,12 @@
     checkin: "checkin",
   };
   const SERVICIO_TIPO_MAP = {
-    SIMPLE: "SIMPLE",
-    "TIPO A": "TIPO A",
-    "TIPO B": "TIPO B",
-    A: "TIPO A",
-    B: "TIPO B",
+    SIMPLE: "Simple",
+    "TIPO A": "Tipo A",
+    "TIPO B": "Tipo B",
+    A: "Tipo A",
+    B: "Tipo B",
   };
-  const BLOCKED_SERVICIO_TIPOS = new Set(["SIMPLE"]);
 
   function normalizeEventType(value) {
     if (!value) return null;
@@ -124,9 +123,11 @@
     if (!value) return null;
     const upper = String(value).toUpperCase().trim();
     if (SERVICIO_TIPO_MAP[upper]) return SERVICIO_TIPO_MAP[upper];
-    if (upper === "TIPO_A") return "TIPO A";
-    if (upper === "TIPO_B") return "TIPO B";
-    return upper;
+    if (upper === "TIPO_A") return "Tipo A";
+    if (upper === "TIPO_B") return "Tipo B";
+    return upper
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   function normalizeEmpresa(value) {
@@ -281,15 +282,11 @@
   // === END HU:HU-NO400-ALARM_EVENT ===
 
   function coerceDbServicioTipo(value) {
-    if (!value) return null;
-    const str = String(value).trim();
-    if (!str) return null;
-    const upper = str.toUpperCase();
-    if (BLOCKED_SERVICIO_TIPOS.has(upper)) {
-      console.warn("[alarm_event] tipo omitido para evitar enum invalido", str);
-      return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
     }
-    return str;
+    return "Tipo A";
   }
 
   function ensureSupabase() {
@@ -887,12 +884,7 @@
   }
 
   async function autoRequestAlerts(options) {
-    try {
-      const perms = await enableAlerts(options);
-      return perms;
-    } catch (err) {
-      return attachAlertPrimer(options);
-    }
+    return attachAlertPrimer(options);
   }
 
   async function enableAlerts(options) {
@@ -1611,7 +1603,7 @@
     confirmCheckin: confirmCheckin,
     flushQueue,
     enableAlerts,
-    primeAlerts: autoRequestAlerts,
+    primeAlerts: attachAlertPrimer,
     /* === BEGIN HU:HU-AUDIO-GESTO api permissions (no tocar fuera) === */
     getPermissions() {
       return { ...state.permissions };
