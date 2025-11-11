@@ -1173,13 +1173,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // Limpia capa anterior y dibuja ruta/POIs
     const start = [p.lat, p.lng];
     const hasDestino = s.destino_lat != null && s.destino_lng != null;
+    // === BEGIN HU:HU-TOOLTIP-NOMBRE-CUSTODIO foco (NO TOCAR FUERA) ===
+    const focusLabel =
+      s.custodios?.find((c) => c?.lastPing)?.nombre_custodio ||
+      s.custodios?.[0]?.nombre_custodio ||
+      "Custodia";
     L.marker(start, {
       icon: ICON.custodia,
-      title: "Partida/Actual",
+      title: focusLabel,
       zIndexOffset: 200,
     })
-      .bindTooltip("Partida/Actual")
+      .bindTooltip(focusLabel)
       .addTo(focusLayer);
+    console.log("[task][HU-TOOLTIP-NOMBRE-CUSTODIO] done", {
+      servicio: s.id,
+      label: focusLabel,
+    });
+    // === END HU:HU-TOOLTIP-NOMBRE-CUSTODIO ===
     if (hasDestino) {
       const dest = [s.destino_lat, s.destino_lng];
       L.marker(dest, {
