@@ -130,28 +130,13 @@
                             <p id="selfie-modal-status" class="cam-estado" aria-live="polite">Inicia la camara para
                                 capturar tu selfie.</p>
                         </div>
-                        <footer class="selfie-modal__actions">
-                            <div class="cam-actions">
-                                <button type="button" class="cam-action" id="selfie-modal-start"
-                                    title="Iniciar camara">
-                                    <i class="material-icons" aria-hidden="true">videocam</i>
-                                    <span>Iniciar</span>
-                                </button>
-                                <button type="button" class="cam-action" id="selfie-modal-capture"
-                                    title="Capturar selfie" disabled>
-                                    <i class="material-icons" aria-hidden="true">photo_camera</i>
-                                    <span>Capturar</span>
-                                </button>
-                                <button type="button" class="cam-action" id="selfie-modal-retry" title="Repetir selfie"
-                                    disabled>
-                                    <i class="material-icons" aria-hidden="true">autorenew</i>
-                                    <span>Repetir</span>
-                                </button>
-                            </div>
+                        <footer class="selfie-modal__actions selfie-modal__actions--compact">
+                            <button type="button" class="mdl-button mdl-js-button" data-close="selfie-modal">Cancelar</button>
                             <div class="selfie-modal__confirm">
-                                <button type="button" class="mdl-button mdl-js-button" data-close="selfie-modal">Cancelar</button>
+                                <button type="button" class="selfie-modal__retry" id="selfie-modal-retry"
+                                    title="Repetir captura" disabled>Repetir</button>
                                 <button type="button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"
-                                    id="selfie-modal-accept" disabled>Usar foto</button>
+                                    id="selfie-modal-accept" disabled>Confirmar</button>
                             </div>
                         </footer>
                     </div>

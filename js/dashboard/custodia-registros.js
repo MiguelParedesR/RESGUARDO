@@ -125,8 +125,6 @@
     ui.selfieModalVideo = document.getElementById("selfie-modal-video");
     ui.selfieModalCanvas = document.getElementById("selfie-modal-canvas");
     ui.selfieModalStatus = document.getElementById("selfie-modal-status");
-    ui.selfieModalStart = document.getElementById("selfie-modal-start");
-    ui.selfieModalCapture = document.getElementById("selfie-modal-capture");
     ui.selfieModalRetry = document.getElementById("selfie-modal-retry");
     ui.selfieModalAccept = document.getElementById("selfie-modal-accept");
     updateGuardarState();
@@ -157,9 +155,10 @@
     document
       .querySelectorAll('[data-close="selfie-modal"]')
       .forEach((btn) => btn.addEventListener("click", closeSelfieModal));
-    ui.selfieModalStart?.addEventListener("click", startSelfieCamera);
-    ui.selfieModalCapture?.addEventListener("click", captureSelfieFrame);
-    ui.selfieModalRetry?.addEventListener("click", resetSelfieCapture);
+    ui.selfieModalRetry?.addEventListener("click", () => {
+      resetSelfieCapture();
+      startSelfieCamera(true);
+    });
     ui.selfieModalAccept?.addEventListener("click", confirmSelfieSelection);
 
     ui.nombreCustodio?.addEventListener("input", (event) => {
@@ -913,9 +912,9 @@
     ui.selfieModal.setAttribute("aria-hidden", "false");
     state.selfieDraftDataUrl = null;
     if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent = "Inicia la camara para capturar tu selfie.";
+      ui.selfieModalStatus.textContent = "Preparando cámara...";
     resetSelfieCapture();
-    startSelfieCamera();
+    startSelfieCamera(true);
   }
 
   function closeSelfieModal() {
@@ -925,47 +924,83 @@
     resetSelfieCapture();
   }
 
-  function startSelfieCamera() {
+  function startSelfieCamera(autoCapture = false) {
     if (!navigator.mediaDevices?.getUserMedia) {
       showMessage("Camara no soportada en este dispositivo");
       return;
     }
-    ui.selfieModalStart?.setAttribute("disabled", "disabled");
-    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Solicitando permisos...";
+    stopSelfieStream();
+    state.selfieDraftDataUrl = null;
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent = "Solicitando permisos...";
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then((stream) => {
+      .then(async (stream) => {
         state.mediaStream = stream;
         if (ui.selfieModalVideo) {
           ui.selfieModalVideo.srcObject = stream;
           ui.selfieModalVideo.classList.add("on");
         }
         if (ui.selfieModalCanvas) ui.selfieModalCanvas.classList.remove("show");
-        ui.selfieModalCapture?.removeAttribute("disabled");
-        ui.selfieModalRetry?.setAttribute("disabled", "disabled");
         ui.selfieModalAccept?.setAttribute("disabled", "disabled");
+        ui.selfieModalRetry?.setAttribute("disabled", "disabled");
         if (ui.selfieModalStatus)
-          ui.selfieModalStatus.textContent = "Camara lista, captura cuando estes listo.";
+          ui.selfieModalStatus.textContent = "Enfocando...";
+        if (autoCapture) {
+          try {
+            await waitForVideoFrame(ui.selfieModalVideo);
+            captureSelfieFrame({ autoStop: true });
+          } catch (err) {
+            console.warn("[custodia-registros] captura automática", err);
+            ui.selfieModalRetry?.removeAttribute("disabled");
+            if (ui.selfieModalStatus)
+              ui.selfieModalStatus.textContent =
+                "No se pudo capturar. Usa Repetir para intentar nuevamente.";
+          }
+        }
       })
       .catch((err) => {
         console.error("[custodia-registros] camara error", err);
         if (ui.selfieModalStatus)
           ui.selfieModalStatus.textContent = "No se pudo acceder a la camara";
-        ui.selfieModalStart?.removeAttribute("disabled");
+        ui.selfieModalRetry?.removeAttribute("disabled");
       });
   }
 
-  function captureSelfieFrame() {
-    if (
-      !state.mediaStream ||
-      !ui.selfieModalVideo ||
-      !ui.selfieModalCanvas
-    ) {
-      showMessage("Inicia la camara antes de capturar");
+  function waitForVideoFrame(videoEl) {
+    return new Promise((resolve, reject) => {
+      if (!videoEl) {
+        reject(new Error("Video no disponible"));
+        return;
+      }
+      if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+        resolve();
+        return;
+      }
+      const onReady = () => {
+        videoEl.removeEventListener("loadeddata", onReady);
+        resolve();
+      };
+      videoEl.addEventListener("loadeddata", onReady, { once: true });
+      setTimeout(() => {
+        videoEl.removeEventListener("loadeddata", onReady);
+        reject(new Error("timeout video"));
+      }, 2500);
+    });
+  }
+
+  function captureSelfieFrame(options = {}) {
+    const autoStop = Boolean(options.autoStop);
+    if (!ui.selfieModalVideo || !ui.selfieModalCanvas) {
+      showMessage("Camara no disponible para capturar");
       return;
     }
     const width = ui.selfieModalVideo.videoWidth || 640;
     const height = ui.selfieModalVideo.videoHeight || 480;
+    if (!width || !height) {
+      showMessage("Aun no se obtiene imagen de la camara");
+      return;
+    }
     const context = ui.selfieModalCanvas.getContext("2d");
     ui.selfieModalCanvas.width = width;
     ui.selfieModalCanvas.height = height;
@@ -975,11 +1010,21 @@
       0.85
     );
     ui.selfieModalCanvas.classList.add("show");
-    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
-    ui.selfieModalRetry?.removeAttribute("disabled");
+    ui.selfieModalVideo.classList.remove("on");
+    if (autoStop) {
+      stopSelfieStream();
+    }
     ui.selfieModalAccept?.removeAttribute("disabled");
+    ui.selfieModalRetry?.removeAttribute("disabled");
+    console.assert(
+      !!state.selfieDraftDataUrl,
+      "[task][HU-CAMERA-COMPACT] captura sin datos"
+    );
     if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent = "Selfie capturada. Confirma para usarla.";
+      ui.selfieModalStatus.textContent = "Revisa la selfie y confirma.";
+    console.log("[task][HU-CAMERA-COMPACT] done", {
+      mode: autoStop ? "auto" : "manual",
+    });
   }
 
   function confirmSelfieSelection() {
@@ -1000,9 +1045,10 @@
   function resetSelfieCapture() {
     stopSelfieStream();
     state.selfieDraftDataUrl = null;
-    ui.selfieModalVideo &&
-      (ui.selfieModalVideo.srcObject = null,
-      ui.selfieModalVideo.classList.remove("on"));
+    if (ui.selfieModalVideo) {
+      ui.selfieModalVideo.srcObject = null;
+      ui.selfieModalVideo.classList.remove("on");
+    }
     if (ui.selfieModalCanvas) {
       ui.selfieModalCanvas.classList.remove("show");
       const ctx = ui.selfieModalCanvas.getContext("2d");
@@ -1015,10 +1061,11 @@
         );
       }
     }
-    ui.selfieModalStart?.removeAttribute("disabled");
-    ui.selfieModalCapture?.setAttribute("disabled", "disabled");
-    ui.selfieModalRetry?.setAttribute("disabled", "disabled");
     ui.selfieModalAccept?.setAttribute("disabled", "disabled");
+    ui.selfieModalRetry?.setAttribute("disabled", "disabled");
+    if (ui.selfieModalStatus)
+      ui.selfieModalStatus.textContent =
+        "Inicia la camara para capturar tu selfie.";
   }
 
   function stopSelfieStream() {
