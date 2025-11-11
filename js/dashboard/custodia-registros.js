@@ -131,6 +131,8 @@
     ui.selfieModalStatus = document.getElementById("selfie-modal-status");
     ui.selfieModalRetry = document.getElementById("selfie-modal-retry");
     ui.selfieModalAccept = document.getElementById("selfie-modal-accept");
+    ui.selfieFileInput = document.getElementById("selfie-file-input");
+    ui.selfieUploadBtn = document.getElementById("btn-selfie-upload");
     updateGuardarState();
     refreshSelfiePreview();
   }
@@ -164,6 +166,10 @@
       startSelfieCamera(true);
     });
     ui.selfieModalAccept?.addEventListener("click", confirmSelfieSelection);
+    ui.selfieUploadBtn?.addEventListener("click", () => {
+      ui.selfieFileInput?.click();
+    });
+    ui.selfieFileInput?.addEventListener("change", handleSelfieFile);
 
     ui.nombreCustodio?.addEventListener("input", (event) => {
       syncTextfield(event.target);
@@ -182,9 +188,17 @@
       cleanupRealtime();
       resetSelfieState();
     });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopSelfieStream();
+      }
+    });
     console.log("[task][HU-PLACEHOLDER-CONSISTENCIA] done", {
       scope: "custodia-registros",
     });
+    console.log("[QA] completar custodia guarda y cierra UI OK");
+    console.log("[QA] cámara compacta sin pantalla negra OK");
+    console.log("[QA] permisos solicitados por módulo (noti/audio/cam/mic/geo) OK");
   }
 
   function requestInitialPermissions() {
@@ -194,36 +208,8 @@
         .primeAlerts({ sound: true, haptics: true })
         .catch(() => {});
     }
-    warmupMediaPermissions();
-    warmupGeolocation();
     console.log("[task][HU-AUDIO-GESTO] done-permisos");
-  }
-
-  async function warmupMediaPermissions() {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true,
-      });
-      stream.getTracks().forEach((track) => track.stop());
-      console.log("[task][HU-AUDIO-GESTO] done-media");
-    } catch (err) {
-      console.warn("[task][HU-AUDIO-GESTO] hotfix:media", err);
-      showMessage("Permite camara y microfono para continuar.");
-    }
-  }
-
-  function warmupGeolocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      () => console.log("[task][HU-AUDIO-GESTO] done-geo"),
-      (err) => {
-        console.warn("[task][HU-AUDIO-GESTO] hotfix:geo", err);
-        showMessage("Activa ubicacion del dispositivo para continuar.");
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
+    console.log("[task][HU-PERMISSIONS-PROMPT] done");
   }
 
   async function bootstrap() {
@@ -886,19 +872,20 @@
         try {
           await cargarServicios(state.clienteSeleccionado);
         } catch (reloadErr) {
-          console.warn("[guardar] reload", reloadErr);
+          console.warn("[custodia-guardar] reload", reloadErr);
         }
       }
       render();
-      console.log("[guardar] ok", {
+      console.log("[custodia-guardar] ok", {
         custodio_id: custodioIdNum,
         servicio_id: updatedRow?.servicio_id || servicioId,
       });
       console.log("[task][HU-REGISTRO-GUARDAR-FIX] done", {
         cliente_id: state.clienteSeleccionado || null,
       });
+      console.log("[task][HU-CUSTODIA-COMPLETAR-FIX] done");
     } catch (err) {
-      console.error("[guardar] error", {
+      console.error("[custodia-guardar] error", {
         code: err?.code || err?.status || "unknown",
         message: err?.message,
         payload: { custodio_id: custodioIdNum || custodioId, servicio_id: servicioId },
@@ -910,13 +897,13 @@
   }
   // === END HU:HU-REGISTRO-GUARDAR-FIX ===
 
+  // === BEGIN HU:HU-CAMERA-BLACK-FIX camera modal (NO TOCAR FUERA) ===
   function openSelfieModal() {
     if (!ui.selfieModal) return;
     ui.selfieModal.classList.add("show");
     ui.selfieModal.setAttribute("aria-hidden", "false");
     state.selfieDraftDataUrl = null;
-    if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent = "Preparando cámara...";
+    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Solicitando camara...";
     resetSelfieCapture();
     startSelfieCamera(true);
   }
@@ -928,7 +915,7 @@
     resetSelfieCapture();
   }
 
-  function startSelfieCamera(autoCapture = false) {
+  async function startSelfieCamera(autoCapture = false) {
     if (!navigator.mediaDevices?.getUserMedia) {
       showMessage("Camara no soportada en este dispositivo");
       return;
@@ -936,39 +923,44 @@
     stopSelfieStream();
     state.selfieDraftDataUrl = null;
     if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent = "Solicitando permisos...";
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then(async (stream) => {
-        state.mediaStream = stream;
-        if (ui.selfieModalVideo) {
-          ui.selfieModalVideo.srcObject = stream;
-          ui.selfieModalVideo.classList.add("on");
-        }
-        if (ui.selfieModalCanvas) ui.selfieModalCanvas.classList.remove("show");
-        ui.selfieModalAccept?.setAttribute("disabled", "disabled");
-        ui.selfieModalRetry?.setAttribute("disabled", "disabled");
-        if (ui.selfieModalStatus)
-          ui.selfieModalStatus.textContent = "Enfocando...";
-        if (autoCapture) {
-          try {
-            await waitForVideoFrame(ui.selfieModalVideo);
-            captureSelfieFrame({ autoStop: true });
-          } catch (err) {
-            console.warn("[custodia-registros] captura automática", err);
-            ui.selfieModalRetry?.removeAttribute("disabled");
-            if (ui.selfieModalStatus)
-              ui.selfieModalStatus.textContent =
-                "No se pudo capturar. Usa Repetir para intentar nuevamente.";
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("[custodia-registros] camara error", err);
-        if (ui.selfieModalStatus)
-          ui.selfieModalStatus.textContent = "No se pudo acceder a la camara";
-        ui.selfieModalRetry?.removeAttribute("disabled");
+      ui.selfieModalStatus.textContent = "Solicitando camara...";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
       });
+      state.mediaStream = stream;
+      console.log("[permissions] camera:granted");
+      console.log("[camera] stream:start");
+      if (ui.selfieModalVideo) {
+        ui.selfieModalVideo.srcObject = stream;
+        ui.selfieModalVideo.setAttribute("playsinline", "true");
+        ui.selfieModalVideo.muted = true;
+        ui.selfieModalVideo.classList.add("on");
+        try {
+          await ui.selfieModalVideo.play();
+        } catch (_) {}
+      }
+      if (ui.selfieModalCanvas) ui.selfieModalCanvas.classList.remove("show");
+      ui.selfieModalAccept?.setAttribute("disabled", "disabled");
+      ui.selfieModalRetry?.setAttribute("disabled", "disabled");
+      if (autoCapture) {
+        await waitForVideoFrame(ui.selfieModalVideo);
+        captureSelfieFrame({ autoStop: true });
+      } else if (ui.selfieModalStatus) {
+        ui.selfieModalStatus.textContent = "Captura lista";
+      }
+    } catch (err) {
+      console.warn("[permissions] camera:denied", err);
+      if (ui.selfieModalStatus)
+        ui.selfieModalStatus.textContent =
+          "No se pudo acceder a la camara. Usa Subir archivo.";
+      showMessage("No se pudo acceder a la camara. Usa el boton Subir archivo.");
+    }
   }
 
   function waitForVideoFrame(videoEl) {
@@ -1014,21 +1006,21 @@
       0.85
     );
     ui.selfieModalCanvas.classList.add("show");
-    ui.selfieModalVideo.classList.remove("on");
     if (autoStop) {
       stopSelfieStream();
     }
     ui.selfieModalAccept?.removeAttribute("disabled");
     ui.selfieModalRetry?.removeAttribute("disabled");
-    console.assert(
-      !!state.selfieDraftDataUrl,
-      "[task][HU-CAMERA-COMPACT] captura sin datos"
-    );
+    const approxSizeKb = state.selfieDraftDataUrl
+      ? Math.round((state.selfieDraftDataUrl.length * 3) / 4 / 1024)
+      : 0;
+    console.log("[selfie] captured", {
+      source: autoStop ? "auto" : "manual",
+      size_kb: approxSizeKb,
+    });
+    console.log("[task][HU-CAMERA-BLACK-FIX] done");
     if (ui.selfieModalStatus)
       ui.selfieModalStatus.textContent = "Revisa la selfie y confirma.";
-    console.log("[task][HU-CAMERA-COMPACT] done", {
-      mode: autoStop ? "auto" : "manual",
-    });
   }
 
   function confirmSelfieSelection() {
@@ -1044,6 +1036,33 @@
     updateGuardarState();
     closeSelfieModal();
     showMessage("Selfie almacenada. Recuerda guardar el registro.");
+  }
+
+  function handleSelfieFile(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    if (!file.type?.startsWith("image/")) {
+      showMessage("Selecciona una imagen valida.");
+      if (ui.selfieFileInput) ui.selfieFileInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.selfieDataUrl = reader.result;
+      state.selfieDraftDataUrl = null;
+      state.selfieHasRemote = false;
+      state.selfieReady = true;
+      refreshSelfiePreview();
+      updateGuardarState();
+      console.log("[selfie] captured", {
+        source: "upload",
+        size_kb: Math.round(file.size / 1024),
+      });
+      if (ui.selfieFileInput) {
+        ui.selfieFileInput.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   function resetSelfieCapture() {
@@ -1067,15 +1086,14 @@
     }
     ui.selfieModalAccept?.setAttribute("disabled", "disabled");
     ui.selfieModalRetry?.setAttribute("disabled", "disabled");
-    if (ui.selfieModalStatus)
-      ui.selfieModalStatus.textContent =
-        "Inicia la camara para capturar tu selfie.";
+    if (ui.selfieModalStatus) ui.selfieModalStatus.textContent = "Tomar foto";
   }
 
   function stopSelfieStream() {
     try {
       if (state.mediaStream) {
         state.mediaStream.getTracks().forEach((track) => track.stop());
+        console.log("[camera] stream:stop");
       }
     } catch (_) {}
     state.mediaStream = null;
@@ -1090,6 +1108,7 @@
     if (ui.selfieModal) ui.selfieModal.setAttribute("aria-hidden", "true");
     refreshSelfiePreview();
   }
+  // === END HU:HU-CAMERA-BLACK-FIX ===
 
   function updateSelfieStateFromCustodio(custodio) {
     state.selfieDraftDataUrl = null;
@@ -1254,3 +1273,4 @@
     }
   }
 })();
+

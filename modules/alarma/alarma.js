@@ -44,9 +44,12 @@
     },
     siren: {
       audioCtx: null,
-      interval: null,
-      voices: [],
-      lastStart: 0,
+      loopSource: null,
+      loopGain: null,
+      buffer: null,
+      ttsTimer: null,
+      vibrateTimer: null,
+      lastPhrase: null,
     },
     /* === BEGIN HU:HU-CHECKIN-15M checkin state (no tocar fuera) === */
     checkin: {
@@ -485,8 +488,7 @@
   function setupEscShortcuts() {
     document.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape") {
-        sirenaOff();
-        closePanicModal();
+        closePanicModal("escape");
       }
     });
   }
@@ -840,17 +842,12 @@
       cliente: record?.cliente || null,
     });
     if (state.permissions.sound) {
-      try {
-        tts(frase, { lang: "es-PE" });
-      } catch (err) {
-        warn("No se pudo reproducir TTS de panico", err);
-      }
+      startPanicTTSLoop(frase);
     }
     if (state.permissions.haptics) {
-      try {
-        navigator.vibrate?.([360, 160, 360, 160, 520]);
-      } catch (_) {}
+      startPanicVibrationLoop();
     }
+    console.log("[task][HU-PANICO-AUDIO-LOOP] done");
     notify({ type: "panic", record });
   }
 
@@ -861,12 +858,9 @@
     const frase = state.admin.lastPanic.cliente
       ? `ALERTA \u2014 ${state.admin.lastPanic.cliente}`
       : "ALERTA DE PANICO";
-    try {
-      sirenaOn({ loop: true });
-      tts(frase, { lang: "es-PE" });
-    } catch (err) {
-      warn("No se pudo reactivar audio de panico", err);
-    }
+    sirenaOn({ loop: true });
+    startPanicTTSLoop(frase);
+    startPanicVibrationLoop();
   }
   /* === END HU:HU-PANICO-TTS === */
 
@@ -962,6 +956,96 @@
   }
   /* === END HU:HU-AUDIO-GESTO === */
 
+  // === BEGIN HU:HU-PANICO-AUDIO-LOOP helpers (NO TOCAR FUERA) ===
+  function ensureSirenBuffer() {
+    if (state.siren.buffer) return state.siren.buffer;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return null;
+    const duration = 1.6;
+    const sampleRate = ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      const t = i / sampleRate;
+      const progress = t / duration;
+      const envelope = Math.max(0.05, Math.sin(Math.PI * progress));
+      const freq = 480 + 420 * Math.sin(progress * Math.PI);
+      data[i] = Math.sin(2 * Math.PI * freq * t) * envelope;
+    }
+    state.siren.buffer = buffer;
+    return buffer;
+  }
+
+  function startPanicTTSLoop(frase) {
+    if (!state.permissions.sound) return;
+    if (!("speechSynthesis" in global)) return;
+    state.siren.lastPhrase = frase;
+    if (state.siren.ttsTimer) return;
+    const speak = () => {
+      try {
+        if (global.speechSynthesis.speaking) {
+          global.speechSynthesis.cancel();
+        }
+      } catch (_) {}
+      try {
+        const utter = new SpeechSynthesisUtterance(frase);
+        utter.lang = "es-PE";
+        global.speechSynthesis.speak(utter);
+      } catch (err) {
+        warn("[tts] error", err);
+      }
+    };
+    console.log("[tts] start", { text: frase });
+    speak();
+    state.siren.ttsTimer = global.setInterval(speak, 3600);
+  }
+
+  function stopPanicTTSLoop() {
+    if (state.siren.ttsTimer) {
+      clearInterval(state.siren.ttsTimer);
+      state.siren.ttsTimer = null;
+      console.log("[tts] stop");
+    }
+    try {
+      global.speechSynthesis?.cancel();
+    } catch (_) {}
+  }
+
+  function startPanicVibrationLoop() {
+    if (!state.permissions.haptics || !global.navigator?.vibrate) return;
+    if (state.siren.vibrateTimer) return;
+    const run = () => {
+      try {
+        global.navigator.vibrate([350, 150, 350]);
+      } catch (err) {
+        warn("[audio] Vibracion fallo", err);
+        stopPanicVibrationLoop();
+      }
+    };
+    run();
+    state.siren.vibrateTimer = global.setInterval(run, 3200);
+  }
+
+  function stopPanicVibrationLoop() {
+    if (state.siren.vibrateTimer) {
+      clearInterval(state.siren.vibrateTimer);
+      state.siren.vibrateTimer = null;
+    }
+    try {
+      global.navigator?.vibrate?.(0);
+    } catch (_) {}
+  }
+
+  function silencePanicOutputs(reason) {
+    sirenaOff();
+    stopPanicTTSLoop();
+    stopPanicVibrationLoop();
+    if (reason) {
+      console.log("[panic] modal:silence", { reason });
+    }
+  }
+  // === END HU:HU-PANICO-AUDIO-LOOP ===
+
   function sirenaOn(options) {
     const opts = options || {};
     if (!state.permissions.sound) {
@@ -971,58 +1055,49 @@
     }
     const ctx = ensureAudioCtx();
     if (!ctx) return;
-    if (state.siren.interval) return;
-    document.body.classList.add("alarma-siren-active");
-    const voices = state.siren.voices;
-    function playCycle() {
-      try {
-        const now = ctx.currentTime + 0.01;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(520, now);
-        osc.frequency.linearRampToValueAtTime(880, now + 0.5);
-        osc.frequency.linearRampToValueAtTime(440, now + 1.0);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.45, now + 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.05);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 1.05);
-        voices.push({ osc, gain });
-        osc.onended = () => {
-          const idx = voices.findIndex((v) => v.osc === osc);
-          if (idx >= 0) voices.splice(idx, 1);
-        };
-      } catch (err) {
-        warn("No se pudo generar sirena", err);
-      }
+    if (state.siren.loopSource) return;
+    const buffer = ensureSirenBuffer();
+    if (!buffer) return;
+    try {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = opts.loop !== false;
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      source.onended = () => {
+        if (state.siren.loopSource === source) {
+          state.siren.loopSource = null;
+          state.siren.loopGain = null;
+        }
+      };
+      source.start();
+      state.siren.loopSource = source;
+      state.siren.loopGain = gain;
+      document.body.classList.add("alarma-siren-active");
+      console.log("[audio] siren:start");
+    } catch (err) {
+      warn("No se pudo iniciar sirena", err);
     }
-    playCycle();
-    state.siren.interval = setInterval(playCycle, opts.intervalMs || 1100);
-    state.siren.lastStart = Date.now();
   }
 
   function sirenaOff() {
-    if (state.siren.interval) {
-      clearInterval(state.siren.interval);
-      state.siren.interval = null;
+    if (state.siren.loopSource) {
+      try {
+        state.siren.loopSource.stop();
+      } catch (_) {}
+      state.siren.loopSource.disconnect?.();
+      state.siren.loopSource = null;
     }
-    state.siren.voices.forEach(({ osc, gain }) => {
+    if (state.siren.loopGain) {
       try {
-        if (gain)
-          gain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            (gain.context || osc.context).currentTime + 0.05
-          );
+        state.siren.loopGain.disconnect?.();
       } catch (_) {}
-      try {
-        osc.stop();
-      } catch (_) {}
-    });
-    state.siren.voices = [];
+      state.siren.loopGain = null;
+    }
     document.body.classList.remove("alarma-siren-active");
+    console.log("[audio] siren:stop");
   }
 
   function tts(text, options) {
@@ -1082,11 +1157,10 @@
       focus: backdrop.querySelector(".js-alarma-focus"),
     };
     buttons.close?.addEventListener("click", () => {
-      closePanicModal();
+      closePanicModal("close-btn");
     });
     buttons.silence?.addEventListener("click", () => {
-      sirenaOff();
-      closePanicModal();
+      closePanicModal("silence-btn");
       markPanicHandled();
       notify({ type: "panic-ack" });
     });
@@ -1098,10 +1172,11 @@
     return backdrop;
   }
 
-  function closePanicModal() {
+  function closePanicModal(reason) {
     const modal = state.admin.modalBackdrop;
     if (!modal) return;
     modal.classList.remove("is-open");
+    silencePanicOutputs(reason || "modal-close");
     stopVoiceRecognition();
   }
 
@@ -1114,7 +1189,7 @@
         { label: "Cliente", value: cliente },
         { label: "Placa", value: record?.placa || "-" },
         { label: "Empresa", value: record?.empresa || "-" },
-        { label: "Ubicación", value: record?.direccion || "-" },
+        { label: "Ubicacion", value: formatPanicLocation(record) },
       ];
       const fieldsMarkup = rows
         .map(
@@ -1135,6 +1210,19 @@
       `;
     }
     modal.classList.add("is-open");
+  }
+
+  function formatPanicLocation(record) {
+    if (record?.direccion) return record.direccion;
+    if (record?.lat != null && record?.lng != null) {
+      return `${Number(record.lat).toFixed(4)}, ${Number(record.lng).toFixed(4)}`;
+    }
+    if (record?.metadata?.lat && record?.metadata?.lng) {
+      return `${Number(record.metadata.lat).toFixed(4)}, ${Number(
+        record.metadata.lng
+      ).toFixed(4)}`;
+    }
+    return "Sin ubicacion";
   }
 
   function markPanicHandled(record) {
@@ -1235,8 +1323,11 @@
       if (!navigator.serviceWorker)
         throw new Error("Service worker requerido para push");
       const perm = await Notification.requestPermission();
-      if (perm !== "granted")
+      if (perm !== "granted") {
+        console.warn("[permissions] notifications:denied");
         throw new Error("Permiso de notificaciones denegado");
+      }
+      console.log("[permissions] notifications:granted");
       const reg = await ensureSW();
       if (!reg) throw new Error("Service worker no listo");
       const vapid = state.config.vapidPublicKey;
@@ -1513,7 +1604,7 @@
     if (input) input.value = "";
   }
 
-  function captureCheckinVoice(panel) {
+  async function captureCheckinVoice(panel) {
     const Recognition =
       global.SpeechRecognition || global.webkitSpeechRecognition;
     if (!Recognition) {
@@ -1526,6 +1617,21 @@
       button.textContent = "Escuchando...";
     }
     try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mic.getTracks().forEach((track) => track.stop());
+          console.log("[permissions] mic:granted");
+        } catch (micErr) {
+          console.warn("[permissions] mic:denied", micErr);
+          showToast("Permite acceso al microfono para responder por voz.");
+          if (button) {
+            button.disabled = false;
+            button.textContent = "Responder por voz";
+          }
+          return;
+        }
+      }
       const recog = new Recognition();
       recog.lang = "es-PE";
       recog.continuous = false;
@@ -1551,6 +1657,7 @@
       recog.start();
     } catch (err) {
       warn("Error al iniciar reconocimiento de voz para check-in", err);
+      console.warn("[permissions] mic:error", err);
       if (button) {
         button.disabled = false;
         button.textContent = "Responder por voz";

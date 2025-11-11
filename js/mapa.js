@@ -139,6 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
+  let geoPermissionLogged = false;
 
   function distanciaM(lat1, lng1, lat2, lng2) {
     const R = 6371000; // metros
@@ -300,17 +301,33 @@ document.addEventListener("DOMContentLoaded", () => {
       iconAnchor: [12, 24],
     });
     const watchId = navigator.geolocation.watchPosition(
-      (pos) =>
-        onPos(pos.coords.latitude, pos.coords.longitude, pinUser, pos.coords),
+      (pos) => {
+        if (!geoPermissionLogged) {
+          geoPermissionLogged = true;
+          console.log("[permissions] geo:granted");
+        }
+        onPos(pos.coords.latitude, pos.coords.longitude, pinUser, pos.coords);
+      },
       (err) => {
+        if (!geoPermissionLogged) {
+          geoPermissionLogged = true;
+          console.warn("[permissions] geo:denied", err?.code || err?.message || err);
+        }
         console.warn("[mapa] geolocalizacion (watch) error", err);
         onInterval();
         const fallback = setInterval(onInterval, 30_000);
         function onInterval() {
           navigator.geolocation.getCurrentPosition(
-            (p) =>
-              onPos(p.coords.latitude, p.coords.longitude, pinUser, p.coords),
-            () => {},
+            (p) => {
+              if (!geoPermissionLogged) {
+                geoPermissionLogged = true;
+                console.log("[permissions] geo:granted");
+              }
+              onPos(p.coords.latitude, p.coords.longitude, pinUser, p.coords);
+            },
+            (geoErr) => {
+              console.warn("[permissions] geo:denied", geoErr?.code || geoErr?.message || geoErr);
+            },
             { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 }
           );
         }

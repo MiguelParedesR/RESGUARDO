@@ -93,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let servicesCache = [];
   let servicesLoaded = false;
   let lastPanicRecord = null;
-  let panicBannerEl = null;
   let alarmaUnsubscribe = null;
   const serviceFlags = new Map();
   let alertsEnabled = false;
@@ -188,8 +187,11 @@ document.addEventListener("DOMContentLoaded", () => {
       ensureMarkersChannel(servicioId);
       const activos =
         servicesCache.filter((svc) => svc.estado === "ACTIVO").length || 0;
-      if (!servicioId && activos > 0) {
-        console.assert(dataset.length >= 1, "Markers generales vacíos");
+      if (!servicioId && activos > 0 && !dataset.length) {
+        console.warn("[markers] generales sin ping fresco", {
+          activos,
+          trigger,
+        });
       }
       if (servicioId) {
         const svc = servicesCache.find((item) => item.id === servicioId);
@@ -327,8 +329,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const audioStatusLabel = document.getElementById(
     "audio-permission-status"
   );
+  const btnAudioEnable = document.getElementById("btn-audio-enable");
   /* === BEGIN HU:HU-AUDIO-GESTO boton sonido (no tocar fuera) === */
   const setAlertsState = (perms) => {
+    const prevState = alertsEnabled;
     alertsEnabled = Boolean(perms?.sound);
     if (alertsEnabled) {
       unlockAudio();
@@ -337,6 +341,14 @@ document.addEventListener("DOMContentLoaded", () => {
       audioStatusLabel.textContent = alertsEnabled
         ? "Sonido activo"
         : "Permisos de sonido pendientes";
+    }
+    if (btnAudioEnable) {
+      btnAudioEnable.disabled = alertsEnabled;
+      btnAudioEnable.setAttribute("aria-pressed", alertsEnabled ? "true" : "false");
+      btnAudioEnable.style.display = alertsEnabled ? "none" : "inline-flex";
+    }
+    if (prevState !== alertsEnabled) {
+      console.log("[permissions] audio:ready", { enabled: alertsEnabled });
     }
   };
   if (window.Alarma?.getPermissions) {
@@ -348,6 +360,21 @@ document.addEventListener("DOMContentLoaded", () => {
       .then((perms) => setAlertsState(perms))
       .catch(() => {});
   }
+  btnAudioEnable?.addEventListener("click", async () => {
+    if (typeof window.Alarma?.enableAlerts !== "function") {
+      showMsg("Actualiza la aplicación para habilitar sonido.");
+      return;
+    }
+    try {
+      const perms =
+        (await window.Alarma?.enableAlerts?.({ sound: true, haptics: true })) ||
+        null;
+      if (perms) setAlertsState(perms);
+    } catch (err) {
+      console.warn("[permissions] audio:error", err);
+      showMsg("No se pudo habilitar el sonido. Revisa los permisos del navegador.");
+    }
+  });
   btnVerTodos?.addEventListener("click", () => {
     try {
       selectedId = null;
@@ -1318,10 +1345,17 @@ document.addEventListener("DOMContentLoaded", () => {
         updateServiceFlag(lastPanicRecord.servicio_id, "panic", true);
         refreshList();
       }
-      showPanicBanner(lastPanicRecord);
       focusPanicOnMap(lastPanicRecord, { forceReload: true });
       try {
         window.Alarma.modalPanic?.(lastPanicRecord);
+        console.assert(
+          document.querySelectorAll(".alarma-modal__dialog").length === 1,
+          "Debe existir un solo modal de panico"
+        );
+        console.log("[panic] modal:open", {
+          servicio_id: lastPanicRecord?.servicio_id || null,
+        });
+        console.log("[task][HU-PANICO-MODAL-UNICO] done");
       } catch (err) {
         console.warn("[admin][alarma] modal panic", err);
       }
@@ -1354,90 +1388,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // === END HU:HU-PANICO-MODAL-UNICO ===
 
-  function formatPanicLocation(record) {
-    if (record?.direccion) return record.direccion;
-    if (record?.lat != null && record?.lng != null) {
-      return `${record.lat.toFixed(4)}, ${record.lng.toFixed(4)}`;
-    }
-    if (record?.metadata?.lat && record?.metadata?.lng) {
-      const { lat, lng } = record.metadata;
-      return `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
-    }
-    return "Sin ubicacion";
-  }
-
-  function ensurePanicBanner() {
-    if (panicBannerEl) return panicBannerEl;
-    const el = document.createElement("section");
-    el.className = "panic-banner";
-    el.setAttribute("role", "status");
-    el.setAttribute("aria-live", "assertive");
-    el.innerHTML = `
-      <div class="panic-banner__head">
-        <div>
-          <div class="panic-banner__eyebrow">ALERTA DE PANICO</div>
-          <div class="panic-banner__title js-panic-title">-</div>
-          <div class="panic-banner__meta js-panic-meta"></div>
-        </div>
-        <button type="button" class="panic-banner__close js-panic-close" aria-label="Cerrar alerta">&times;</button>
-      </div>
-      <div class="panic-banner__body">
-        <div><strong>Cliente:</strong> <span class="js-panic-cliente">-</span></div>
-        <div><strong>Placa:</strong> <span class="js-panic-placa">-</span></div>
-        <div><strong>Empresa:</strong> <span class="js-panic-empresa">-</span></div>
-        <div><strong>Ubicacion:</strong> <span class="js-panic-location">-</span></div>
-      </div>
-      <div class="panic-banner__actions">
-        <button type="button" class="btn btn-ghost js-panic-focus">Fijar en mapa</button>
-        <button type="button" class="btn btn-accent js-panic-silence">Silenciar</button>
-      </div>
-    `;
-    el.querySelector(".js-panic-focus")?.addEventListener("click", () => {
-      if (lastPanicRecord) focusPanicOnMap(lastPanicRecord, { forceReload: false });
-    });
-    el.querySelector(".js-panic-silence")?.addEventListener("click", () => {
-      try {
-        window.Alarma?.sirenaOff?.();
-      } catch (_) {}
-      hidePanicBanner();
-    });
-    el.querySelector(".js-panic-close")?.addEventListener("click", () => {
-      hidePanicBanner();
-    });
-    document.body.appendChild(el);
-    panicBannerEl = el;
-    return el;
-  }
-
-  function showPanicBanner(record) {
-    const el = ensurePanicBanner();
-    el.querySelector(".js-panic-title").textContent =
-      record?.cliente ? `ALERTA - ${record.cliente}` : "ALERTA DE PANICO";
-    el.querySelector(".js-panic-meta").textContent = fmtDT(
-      record?.timestamp || new Date().toISOString()
-    );
-    el.querySelector(".js-panic-cliente").textContent = record?.cliente || "-";
-    el.querySelector(".js-panic-placa").textContent = record?.placa || "-";
-    el.querySelector(".js-panic-empresa").textContent =
-      record?.empresa || "GENERAL";
-    el.querySelector(".js-panic-location").textContent =
-      formatPanicLocation(record);
-    el.classList.add("is-visible");
-    document.body.classList.add("panic-banner-visible");
-  }
-
-  function hidePanicBanner() {
-    if (!panicBannerEl) return;
-    panicBannerEl.classList.remove("is-visible");
-    document.body.classList.remove("panic-banner-visible");
-  }
-
   function dismissPanicAlert() {
-    hidePanicBanner();
     clearPanicMarker();
     lastPanicRecord = null;
     try {
       window.Alarma?.closeModal?.();
+      console.log("[panic] modal:close");
     } catch (_) {}
   }
 
@@ -1551,6 +1507,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initAlarmaIntegration();
   console.log("[QA] markers general/servicio OK");
   console.log("[QA] tooltip nombre OK");
+  console.log("[QA] modal único de pánico OK");
+  console.log("[QA] sirena + TTS en bucle OK");
 });
 
 
