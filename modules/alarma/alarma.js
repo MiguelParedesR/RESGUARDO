@@ -1892,8 +1892,8 @@
     if (typeof global.speechSynthesis === "undefined") return;
     const phrase =
       panel?.dataset?.cliente && panel.dataset.cliente !== "-"
-        ? `Repórtese ahora, ${panel.dataset.cliente}. Indique su ubicación.`
-        : "Repórtese ahora. Indique su ubicación.";
+        ? `Reporte se ahora ${panel.dataset.cliente}`
+        : "Reporte se ahora";
     const speak = () => {
       try {
         const utter = new SpeechSynthesisUtterance(phrase);
