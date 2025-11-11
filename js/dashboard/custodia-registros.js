@@ -826,6 +826,10 @@
   async function onSubmitForm(event) {
     event.preventDefault();
     const custodioId = (ui.custodioId?.value || "").trim();
+    const custodioIdNum = Number(custodioId);
+    const custodioFilter = Number.isNaN(custodioIdNum)
+      ? custodioId
+      : custodioIdNum;
     const nombre = (ui.nombreCustodio?.value || "").trim();
     const tipo = (ui.tipoCustodio?.value || "").trim();
     const servicioId = state.currentRow?.svc?.id || null;
@@ -842,7 +846,7 @@
       const { data: updatedRow, error: updateError } = await window.sb
         .from("servicio_custodio")
         .update(updatePayload)
-        .eq("id", custodioId)
+        .eq("id", custodioFilter)
         .select("id, servicio_id")
         .maybeSingle();
       if (updateError) throw updateError;
@@ -850,7 +854,9 @@
       if (state.selfieDataUrl) {
         const base64 = state.selfieDataUrl.split(",")[1];
         const { error: selfieError } = await window.sb.rpc("guardar_selfie", {
-          p_servicio_custodio_id: custodioId,
+          p_servicio_custodio_id: Number.isNaN(custodioIdNum)
+            ? custodioId
+            : custodioIdNum,
           p_mime_type: "image/jpeg",
           p_base64: base64,
         });
@@ -863,16 +869,18 @@
         !ui.drawer?.classList.contains("open"),
         "[task][HU-REGISTRO-GUARDAR-FIX] drawer persiste abierto"
       );
-      if (state.clienteSeleccionado) {
+      const targetCliente =
+        state.clienteSeleccionado || state.currentRow?.svc?.clienteId || null;
+      if (targetCliente) {
         try {
-          await cargarServicios(state.clienteSeleccionado);
+          await cargarServicios(targetCliente);
         } catch (reloadErr) {
           console.warn("[custodia-guardar] reload", reloadErr);
         }
       }
       render();
       console.log("[custodia-guardar] ok", {
-        custodio_id: custodioId,
+        custodio_id: custodioFilter,
         servicio_id: updatedRow?.servicio_id || servicioId,
       });
       console.log("[task][HU-REGISTRO-GUARDAR-FIX] done", {
@@ -1108,6 +1116,8 @@
     updateGuardarState();
     stopSelfieStream();
     closeSelfieModal();
+    selfieCaptureMode = "idle";
+    updateSelfieCaptureButton("Iniciar camara", false);
   }
 
   function refreshSelfiePreview() {

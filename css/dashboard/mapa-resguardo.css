@@ -2,14 +2,41 @@
    Mapa de Seguimiento de Custodia
    ================================ */
 
+:root {
+    --map-header-offset: 72px;
+    --map-toolbar-height: 64px;
+}
+
 /* --- Layout general --- */
 .page {
     display: grid;
     grid-template-rows: auto 1fr;
-    height: 100vh;
+    height: calc(100vh - var(--map-header-offset, 72px));
     background: #f7f8fb;
     font-family: "Roboto", sans-serif;
 }
+
+/* === BEGIN HU:HU-HEADER-FIJO Header fijo mapa-resguardo (NO TOCAR FUERA) === */
+body.mapa-header-fixed {
+    background: #040b16;
+}
+
+#app-header.app-header--fixed-map {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3200;
+    background: #0d1f33;
+    border-bottom: none;
+    box-shadow: 0 12px 30px rgba(4, 12, 20, 0.45);
+}
+
+.mdl-layout__content {
+    padding-top: var(--map-header-offset, 72px);
+    background: transparent;
+}
+/* === END HU:HU-HEADER-FIJO === */
 
 .topbar {
     display: flex;
@@ -57,7 +84,7 @@
 /* --- Contenedor del mapa --- */
 .map-wrap {
     position: relative;
-    height: calc(100vh - 64px);
+    height: calc(100vh - var(--map-header-offset, 72px) - var(--map-toolbar-height, 64px));
 }
 
 .topbar .actions { display:flex; align-items:center; gap:12px; }
@@ -80,17 +107,17 @@
   background:#fff;
   border-right:1px solid #e3e6ed;
   padding: 12px;
-  height: calc(100vh - 64px);
+  height: calc(100vh - var(--map-header-offset, 72px) - var(--map-toolbar-height, 64px));
   overflow:auto;
   z-index: 1600;
 }
 .cust-sidebar.is-open {
   display:block;
   position: fixed;
-  top: 80px;
+  top: calc(var(--map-header-offset, 72px) + 16px);
   right: 16px;
   width: min(360px, 92vw);
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - var(--map-header-offset, 72px) - 48px);
   border-radius: 18px;
   box-shadow: 0 24px 60px rgba(15, 37, 68, 0.28);
 }
@@ -115,7 +142,7 @@
 
 .cust-overlay {
   position: fixed;
-  inset: 0;
+  inset: var(--map-header-offset, 72px) 0 0 0;
   background: rgba(6, 12, 22, 0.55);
   z-index: 1550;
   display: none;
@@ -276,3 +303,13 @@
 }
 /* Map labels readability */
 .leaflet-tooltip { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 8px; }
+/* === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) === */
+.leaflet-tooltip.custodia-marker-tooltip {
+    background: #0f1b2e;
+    color: #fff;
+    border: none;
+    box-shadow: 0 6px 18px rgba(4, 10, 22, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+/* === END HU:HU-MAPA-CARRITO === */

@@ -124,10 +124,66 @@ document.addEventListener("DOMContentLoaded", () => {
   const estadoTextoEl = document.getElementById("estado-texto");
   const destinoTextoEl = document.getElementById("destino-texto");
   const panicBtn = document.getElementById("alarma-panic-btn");
+  // === BEGIN HU:HU-HEADER-FIJO Header fijo mapa-resguardo (NO TOCAR FUERA) ===
+  let headerResizeTimer = null;
+  function applyHeaderOffset() {
+    const headerEl = document.getElementById("app-header");
+    const contentEl = document.querySelector(".mdl-layout__content");
+    const topbarEl = document.querySelector(".topbar");
+    const measuredHeader = headerEl?.offsetHeight || 0;
+    const headerHeight = Math.max(measuredHeader, 64);
+    const measuredToolbar = topbarEl?.offsetHeight || 0;
+    const toolbarHeight = Math.max(measuredToolbar, 56);
+    document.documentElement.style.setProperty(
+      "--map-header-offset",
+      `${headerHeight}px`
+    );
+    document.documentElement.style.setProperty(
+      "--map-toolbar-height",
+      `${toolbarHeight}px`
+    );
+    if (contentEl) {
+      contentEl.style.paddingTop = `${headerHeight}px`;
+    }
+    console.log("[ui][header] offset set", {
+      headerHeight,
+      toolbarHeight,
+    });
+  }
+
+  function initHeaderLayoutFix() {
+    const headerEl = document.getElementById("app-header");
+    if (!headerEl) return;
+    document.body.classList.add("mapa-header-fixed");
+    headerEl.classList.add("app-header--fixed-map");
+    applyHeaderOffset();
+    window.addEventListener("resize", () => {
+      clearTimeout(headerResizeTimer);
+      headerResizeTimer = setTimeout(applyHeaderOffset, 200);
+    });
+    setTimeout(applyHeaderOffset, 450);
+    console.log("[ui][header] fixed applied");
+  }
+  initHeaderLayoutFix();
+  // === END HU:HU-HEADER-FIJO ===
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
   const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+  // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
+  const ICON = {
+    carrito: L.icon({
+      iconUrl: "/assets/icons/custodia-current.svg",
+      iconRetinaUrl: "/assets/icons/custodia-current.svg",
+      iconSize: [30, 30],
+      iconAnchor: [15, 28],
+      popupAnchor: [0, -28],
+    }),
+  };
+  let markerYoKey = null;
+  const buildMarkerKey = () =>
+    servicioCustodioId ? `sc-${servicioCustodioId}` : `svc-${servicioId}`;
+  // === END HU:HU-MAPA-CARRITO ===
   /* === BEGIN HU:HU-CHECKIN-15M mapa timers (NO TOCAR FUERA) === */
   const CHECKIN_INTERVAL_MS = 15 * 60 * 1000;
   let checkinTimerId = null;
@@ -160,6 +216,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let markerYo = null;
   let markerDestino = null;
   let destino = null;
+  // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+  const ROUTE_LOCAL_BASE = "http://127.0.0.1:5000";
+  const ROUTE_PUBLIC_BASE = "https://router.project-osrm.org";
+  const ROUTE_THROTTLE_MS = 12_000;
+  let routeLayer = null;
+  let routeAbortController = null;
+  let routeFetchInFlight = null;
+  let lastRouteHash = "";
+  let lastRouteFetchAt = 0;
+  let routeAutoFitDone = false;
+  let routeToastShown = false;
+  // === END HU:HU-RUTA-TRAZADO ===
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
@@ -202,6 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : null;
       localCheckinAttempt = 0;
       destino = null;
+      clearRouteLayer("destino-reset");
 
       if (
         typeof data.destino_lat === "number" &&
@@ -255,6 +324,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       map.setView([-12.0464, -77.0428], 12); // Lima
     }
+    // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+    map.on("movestart", () => {
+      routeAutoFitDone = true;
+    });
+    // === END HU:HU-RUTA-TRAZADO ===
 
     setupPanicButton();
     iniciarTracking();
@@ -323,12 +397,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("[mapa] Geolocalizacion no soportada");
       return;
     }
-    const pinUser = L.divIcon({
-      className: "pin-user",
-      html: "&#128205;",
-      iconSize: [24, 24],
-      iconAnchor: [12, 24],
-    });
+    // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
+    const pinUser = ICON.carrito;
+    // === END HU:HU-MAPA-CARRITO ===
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!geoPermissionLogged) {
@@ -408,7 +479,128 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function cleanupChannels() {
     cleanupServicioChannel();
+    // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+    clearRouteLayer("channels-cleanup");
+    // === END HU:HU-RUTA-TRAZADO ===
   }
+
+  // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+  function clearRouteLayer(reason = "manual") {
+    if (routeAbortController) {
+      try {
+        routeAbortController.abort();
+      } catch {}
+      routeAbortController = null;
+    }
+    if (routeLayer && map) {
+      try {
+        map.removeLayer(routeLayer);
+      } catch {}
+    }
+    routeLayer = null;
+    if (reason === "destino-reset") {
+      lastRouteHash = "";
+      routeAutoFitDone = false;
+    }
+  }
+
+  function notifyRouteDown() {
+    if (routeToastShown) return;
+    routeToastShown = true;
+    showMsg("Ruta no disponible (OSRM desconectado)");
+  }
+
+  function buildRouteHash(lat, lng) {
+    if (!destino) return "";
+    return `${lat.toFixed(4)},${lng.toFixed(
+      4
+    )}|${destino.lat.toFixed(4)},${destino.lng.toFixed(4)}`;
+  }
+
+  async function ensureRoute(lat, lng) {
+    if (!destino || !map) return;
+    const now = Date.now();
+    if (now - lastRouteFetchAt < ROUTE_THROTTLE_MS) return;
+    const routeHash = buildRouteHash(lat, lng);
+    if (routeHash && routeHash === lastRouteHash && routeLayer) {
+      return;
+    }
+    lastRouteFetchAt = now;
+    if (routeFetchInFlight) return;
+    const params = `${lng},${lat};${destino.lng},${destino.lat}?overview=full&geometries=geojson&steps=false`;
+    routeAbortController = new AbortController();
+
+    const fetchRoute = async (baseUrl) => {
+      const url = `${baseUrl}/route/v1/driving/${params}`;
+      const res = await fetch(url, {
+        signal: routeAbortController.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = await res.json();
+      const route = payload?.routes?.[0];
+      if (!route?.geometry) throw new Error("Ruta sin geometria");
+      return route;
+    };
+
+    routeFetchInFlight = (async () => {
+      let route = null;
+      try {
+        route = await fetchRoute(ROUTE_LOCAL_BASE);
+        console.log("[routeOSRM] local ok", {
+          distance: route.distance,
+          duration: route.duration,
+        });
+      } catch (localErr) {
+        console.warn("[routeOSRM] local failed -> trying public", localErr);
+        try {
+          route = await fetchRoute(ROUTE_PUBLIC_BASE);
+          console.log("[routeOSRM] public ok", {
+            distance: route.distance,
+            duration: route.duration,
+          });
+        } catch (publicErr) {
+          console.warn("[routeOSRM] public failed -> route disabled", publicErr);
+          notifyRouteDown();
+          return;
+        }
+      } finally {
+        routeAbortController = null;
+      }
+
+      if (!route?.geometry) return;
+      lastRouteHash = routeHash;
+      applyRouteGeometry(route);
+    })().finally(() => {
+      routeFetchInFlight = null;
+    });
+  }
+
+  function applyRouteGeometry(route) {
+    if (!map || !route?.geometry) return;
+    if (routeLayer) {
+      try {
+        map.removeLayer(routeLayer);
+      } catch {}
+    }
+    const feature = { type: "Feature", geometry: route.geometry };
+    routeLayer = L.geoJSON(feature, {
+      style: {
+        color: "#ff5722",
+        weight: 5,
+        opacity: 0.85,
+      },
+    }).addTo(map);
+    if (!routeAutoFitDone) {
+      const bounds = routeLayer.getBounds();
+      if (bounds?.isValid && bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.15), {
+          padding: [60, 80],
+        });
+      }
+      routeAutoFitDone = true;
+    }
+  }
+  // === END HU:HU-RUTA-TRAZADO ===
 
   /* === BEGIN HU:HU-CHECKIN-15M mapa fallback (NO TOCAR FUERA) === */
   function initCheckinMonitoring(reason = "init") {
@@ -571,6 +763,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (row.estado === "FINALIZADO") {
       cleanupCheckinMonitoring("servicio-finalizado");
+      // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+      clearRouteLayer("servicio-finalizado");
+      // === END HU:HU-RUTA-TRAZADO ===
     }
     if (row.finished_at) {
       if (row.finished_by_sc_id === servicioCustodioId) {
@@ -622,16 +817,41 @@ document.addEventListener("DOMContentLoaded", () => {
   async function onPos(lat, lng, pinUser, coords = null) {
     if (!map) return;
     extendSession();
-    if (!markerYo) {
+    // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
+    const desiredKey = buildMarkerKey();
+    if (!markerYo || markerYoKey !== desiredKey) {
+      if (markerYo) {
+        try {
+          map.removeLayer(markerYo);
+        } catch {}
+      }
       markerYo = L.marker([lat, lng], {
-        title: "Ubicacion actual",
-        icon: pinUser,
+        title: custodioNombre,
+        icon: ICON.carrito,
       }).addTo(map);
-      markerYo.bindPopup("Ubicacion actual");
+      markerYoKey = desiredKey;
+      if (custodioNombre) {
+        markerYo.bindTooltip(custodioNombre, {
+          direction: "top",
+          offset: [0, -18],
+          permanent: true,
+          className: "custodia-marker-tooltip",
+        });
+      }
+      console.log("[mapa][icon] set carrito", {
+        servicio_custodio_id: servicioCustodioId,
+        servicio_id: servicioId,
+      });
       if (!destino) map.setView([lat, lng], 14);
     } else {
       markerYo.setLatLng([lat, lng]);
     }
+    // === END HU:HU-MAPA-CARRITO ===
+    // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
+    if (destino) {
+      ensureRoute(lat, lng);
+    }
+    // === END HU:HU-RUTA-TRAZADO ===
 
     if (panicBtn && hasAlarma) {
       panicBtn.disabled = false;
