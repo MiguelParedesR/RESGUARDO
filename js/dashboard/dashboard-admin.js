@@ -98,6 +98,200 @@ document.addEventListener("DOMContentLoaded", () => {
   const serviceFlags = new Map();
   let alertsEnabled = false;
 
+  // === BEGIN HU:HU-MAP-MARKERS-ALL realtime state (NO TOCAR FUERA) ===
+  const MARKER_COLUMNS =
+    "servicio_custodio_id,servicio_id,lat,lng,ultimo_ping_at,cliente,placa";
+  const markersRealtime = {
+    channel: null,
+    channelServicioId: null,
+    refreshTimer: null,
+    loading: false,
+    queuedTrigger: null,
+    mode: "general",
+    lastPayload: [],
+  };
+  function cleanupMarkersChannel() {
+    if (markersRealtime.channel && window.sb?.removeChannel) {
+      try {
+        window.sb.removeChannel(markersRealtime.channel);
+      } catch (err) {
+        console.warn("[markers] cleanup channel error", err);
+      }
+    }
+    markersRealtime.channel = null;
+    markersRealtime.channelServicioId = null;
+    if (markersRealtime.refreshTimer) {
+      clearTimeout(markersRealtime.refreshTimer);
+      markersRealtime.refreshTimer = null;
+    }
+  }
+  function ensureMarkersChannel(servicioId) {
+    if (!window.sb?.channel) return;
+    if (markersRealtime.channel && markersRealtime.channelServicioId === servicioId)
+      return;
+    cleanupMarkersChannel();
+    const channelName = servicioId
+      ? `admin-markers-servicio-${servicioId}`
+      : "admin-markers-general";
+    try {
+      const channel = window.sb.channel(channelName);
+      channel
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "ubicacion",
+            ...(servicioId
+              ? { filter: `servicio_id=eq.${servicioId}` }
+              : {}),
+          },
+          () => {
+            scheduleMarkersRefresh("realtime");
+          }
+        )
+        .subscribe((status) => {
+          console.log("[markers] channel", status, channelName);
+        });
+      markersRealtime.channel = channel;
+      markersRealtime.channelServicioId = servicioId;
+    } catch (err) {
+      console.warn("[markers] channel error", err);
+    }
+  }
+  function scheduleMarkersRefresh(trigger = "realtime") {
+    if (markersRealtime.refreshTimer) {
+      clearTimeout(markersRealtime.refreshTimer);
+    }
+    markersRealtime.refreshTimer = setTimeout(() => {
+      refreshMarkersState(trigger).catch((err) =>
+        console.warn("[markers] refresh error", err)
+      );
+    }, 420);
+  }
+  async function refreshMarkersState(trigger = "manual") {
+    if (!window.sb) return;
+    if (markersRealtime.loading) {
+      markersRealtime.queuedTrigger = trigger;
+      return;
+    }
+    markersRealtime.loading = true;
+    const servicioId = selectedId || null;
+    markersRealtime.mode = servicioId ? "servicio" : "general";
+    try {
+      const dataset = await fetchMarkerDataset(servicioId);
+      markersRealtime.lastPayload = dataset;
+      updateMarkers(dataset, {
+        scopedToService: Boolean(servicioId),
+        servicioId,
+      });
+      ensureMarkersChannel(servicioId);
+      const activos =
+        servicesCache.filter((svc) => svc.estado === "ACTIVO").length || 0;
+      if (!servicioId && activos > 0) {
+        console.assert(dataset.length >= 1, "Markers generales vacíos");
+      }
+      if (servicioId) {
+        const svc = servicesCache.find((item) => item.id === servicioId);
+        const expected =
+          svc && Array.isArray(svc.custodios)
+            ? svc.custodios.filter(
+                (c) => c?.lastPing?.lat != null && c?.lastPing?.lng != null
+              ).length
+            : null;
+        if (expected != null) {
+          console.assert(
+            dataset.length === expected,
+            `[markers] servicio ${servicioId} esperado ${expected} got ${dataset.length}`
+          );
+        }
+      }
+      console.log("[task][HU-MAP-MARKERS-ALL] done", {
+        mode: markersRealtime.mode,
+        count: dataset.length,
+        trigger,
+      });
+    } catch (err) {
+      console.warn("[markers] dataset error", err);
+    } finally {
+      markersRealtime.loading = false;
+      const queued = markersRealtime.queuedTrigger;
+      markersRealtime.queuedTrigger = null;
+      if (queued) {
+        scheduleMarkersRefresh(queued);
+      }
+    }
+  }
+  async function fetchMarkerDataset(servicioId = null) {
+    if (!window.sb) return [];
+    try {
+      let query = window.sb.from("v_ultimo_ping_por_custodia").select(
+        MARKER_COLUMNS
+      );
+      if (servicioId) {
+        query = query.eq("servicio_id", servicioId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      const now = new Date();
+      const usable = [];
+      const custIds = new Set();
+      (data || []).forEach((row) => {
+        if (!row?.servicio_custodio_id) return;
+        if (row.lat == null || row.lng == null) return;
+        const pingMinutes = row.ultimo_ping_at
+          ? minDiff(now, new Date(row.ultimo_ping_at))
+          : Number.POSITIVE_INFINITY;
+        if (!servicioId && pingMinutes > PING_FRESH_MIN) return;
+        usable.push({ row, pingMinutes });
+        custIds.add(row.servicio_custodio_id);
+      });
+      const meta = await fetchCustodiosMetaByIds(Array.from(custIds));
+      return usable.map(({ row, pingMinutes }) => {
+        const info = meta.get(row.servicio_custodio_id) || {};
+        return {
+          servicioId: row.servicio_id,
+          servicio_custodio_id: row.servicio_custodio_id,
+          nombre: info.nombre_custodio || "Custodia",
+          cliente: row.cliente || "",
+          placa: row.placa || "",
+          tipo: info.tipo_custodia || "",
+          pingMinutes,
+          lastPing: {
+            lat: row.lat,
+            lng: row.lng,
+            captured_at: row.ultimo_ping_at,
+          },
+        };
+      });
+    } catch (err) {
+      console.warn("[markers] fetch error", err);
+      return [];
+    }
+  }
+  async function fetchCustodiosMetaByIds(ids) {
+    const metaMap = new Map();
+    const filtered = Array.isArray(ids)
+      ? Array.from(new Set(ids.filter(Boolean)))
+      : [];
+    if (!filtered.length || !window.sb) return metaMap;
+    try {
+      const { data, error } = await window.sb
+        .from("servicio_custodio")
+        .select("id,nombre_custodio,tipo_custodia")
+        .in("id", filtered);
+      if (error) throw error;
+      (data || []).forEach((row) => metaMap.set(row.id, row));
+    } catch (err) {
+      console.warn("[markers] meta error", err);
+    }
+    return metaMap;
+  }
+  window.addEventListener("beforeunload", () => {
+    cleanupMarkersChannel();
+  });
+  // === END HU:HU-MAP-MARKERS-ALL ===
+
   // Vistas: desktop muestra ambos paneles; mobile alterna
   const root = document.body;
   const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
@@ -656,10 +850,9 @@ document.addEventListener("DOMContentLoaded", () => {
       servicesCache = enrichedNorm;
       servicesLoaded = true;
       renderList(enrichedNorm);
-      const markerItems = selectedId
-        ? collectCustodiasForMap(selectedId, true)
-        : collectCustodiasForMap(null, false);
-      updateMarkers(markerItems, { scopedToService: Boolean(selectedId) });
+      // === BEGIN HU:HU-MAP-MARKERS-ALL marker refresh hook (NO TOCAR FUERA) ===
+      await refreshMarkersState("services-load");
+      // === END HU:HU-MAP-MARKERS-ALL ===
       // Mantener seguimiento centrado en el admin: si hay seleccionado, actualizar foco y ruta
       if (selectedId) {
         const cur = enrichedNorm.find((x) => x.id === selectedId);
@@ -742,36 +935,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return tipo ? `${nombre} (${tipo})` : nombre;
       })
       .join(", ");
-  }
-
-  function collectCustodiasForMap(servicioIdFilter = null, includeInactive = false) {
-    const items = [];
-    const now = new Date();
-    for (const svc of servicesCache || []) {
-      if (!includeInactive && svc.estado !== "ACTIVO") continue;
-      if (servicioIdFilter && svc.id !== servicioIdFilter) continue;
-      const clienteNombre = svc.cliente?.nombre || "";
-      const placa = svc.placa_upper || svc.placa || "";
-      (svc.custodios || []).forEach((cust) => {
-        const ping = cust.lastPing;
-        if (!ping?.lat || !ping?.lng) return;
-        const pingMinutes = ping.captured_at
-          ? minDiff(now, new Date(ping.captured_at))
-          : Number.POSITIVE_INFINITY;
-        if (!servicioIdFilter && pingMinutes > PING_FRESH_MIN) return;
-        items.push({
-          servicioId: svc.id,
-          servicio_custodio_id: cust.id,
-          nombre: cust.nombre_custodio || "Custodia",
-          cliente: clienteNombre,
-          placa,
-          tipo: cust.tipo_custodia || "",
-          lastPing: ping,
-          pingMinutes,
-        });
-      });
-    }
-    return items;
   }
 
   function updateServiceFlag(servicioId, flag, value) {
@@ -899,6 +1062,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Mobile UX: keep Servicios + Filtros visible; do not switch views
     focusMarker(s);
     showDetails(s);
+    // === BEGIN HU:HU-MAP-MARKERS-ALL select refresh (NO TOCAR FUERA) ===
+    refreshMarkersState("select-service").catch(() => {});
+    // === END HU:HU-MAP-MARKERS-ALL ===
     if (!isDesktop()) {
       // Asegura que el mapa sea visible en movil quitando vistas exclusivas
       try {
@@ -916,19 +1082,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Markers + fitBounds
+  // === BEGIN HU:HU-MAP-MARKERS-ALL markers render (NO TOCAR FUERA) ===
   function updateMarkers(custodias, options = {}) {
     ensureMap();
     if (!map) return;
     const scoped = Boolean(options.scopedToService);
-    try {
-      overviewLayer?.clearLayers();
-    } catch {}
     const keepIds = new Set(custodias.map((c) => c.servicio_custodio_id));
-    for (const id of Array.from(markers.keys())) {
+    for (const [id, marker] of Array.from(markers.entries())) {
       if (!keepIds.has(id)) {
-        markers.get(id)?.remove();
+        try {
+          overviewLayer?.removeLayer(marker);
+        } catch (e) {}
+        try {
+          marker.remove?.();
+        } catch (e) {}
         markers.delete(id);
+        console.log("[markers] remove", {
+          id,
+          mode: scoped ? "servicio" : "general",
+        });
       }
     }
     const bounds = [];
@@ -944,19 +1116,26 @@ document.addEventListener("DOMContentLoaded", () => {
         : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} - ${h(
             item.placa
           )}`;
-      const targetLayer = overviewLayer;
       let marker = markers.get(item.servicio_custodio_id);
       if (!marker) {
         marker = L.marker([ping.lat, ping.lng], {
           title: label,
           icon: ICON.custodia,
           zIndexOffset: scoped ? 220 : 180,
-        }).addTo(targetLayer);
+        }).addTo(overviewLayer);
         marker.bindPopup(popup);
         markers.set(item.servicio_custodio_id, marker);
+        console.log("[markers] add", {
+          id: item.servicio_custodio_id,
+          mode: scoped ? "servicio" : "general",
+        });
       } else {
         marker.setLatLng([ping.lat, ping.lng]);
         marker.setPopupContent(popup);
+        console.log("[markers] update", {
+          id: item.servicio_custodio_id,
+          mode: scoped ? "servicio" : "general",
+        });
       }
     }
     if (scoped && bounds.length) {
@@ -967,12 +1146,14 @@ document.addEventListener("DOMContentLoaded", () => {
         map.fitBounds(b, { padding: [40, 40], maxZoom: 16 });
       }
     }
-    console.log("[markers]", scoped ? "scoped" : "overview", {
+    const modeLabel = scoped
+      ? `servicio:${selectedId || options.servicioId || "?"}`
+      : "general";
+    console.log(`[markers] mode:${modeLabel}`, {
       count: custodias.length,
-      servicio: scoped ? custodias[0]?.servicioId || null : null,
     });
   }
-  // === END HU:HU-MARCADORES-CUSTODIA ===
+  // === END HU:HU-MAP-MARKERS-ALL ===
 
   let selectionLayer = null;
   let lastRouteSig = "";
