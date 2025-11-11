@@ -206,7 +206,9 @@ document.addEventListener("DOMContentLoaded", () => {
     group.innerHTML = `
       <header class="cliente-header">
         <h3 class="cliente-title">${h(selectedText)}</h3>
-        <div class="cliente-subtitle">${servicios.length} servicio(s) - ${totalPlacas} placa(s)</div>
+        <div class="cliente-subtitle">${
+          servicios.length
+        } servicio(s) - ${totalPlacas} placa(s)</div>
       </header>
       <div class="placas-grid" id="cliente-cards"></div>
     `;
@@ -225,7 +227,9 @@ document.addEventListener("DOMContentLoaded", () => {
       header.innerHTML = `
         <div class="placa-title">
           <span class="chip">${placa}</span>
-          <div class="placa-meta">${h((clienteSeleccionado && clienteSeleccionado.nombre) || '')} - ${ultima.tipo || ''}</div>
+          <div class="placa-meta">${h(
+            (clienteSeleccionado && clienteSeleccionado.nombre) || ""
+          )} - ${ultima.tipo || ""}</div>
         </div>
         <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Expandir">
           <i class="material-icons expand-icon">expand_more</i>
@@ -259,21 +263,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-    function formatServicioCardTitle(svc) {
-    const placa = (svc.placa || '').toUpperCase();
+  function formatServicioCardTitle(svc) {
+    const placa = (svc.placa || "").toUpperCase();
     const clienteNombre =
-      (clienteSeleccionado && clienteSeleccionado.nombre) || '';
+      (clienteSeleccionado && clienteSeleccionado.nombre) || "";
     const cliente = clienteNombre.toUpperCase();
-    const tipo = svc.tipo || '';
-    return [placa, cliente, tipo].filter(Boolean).join(' - ');
+    const tipo = svc.tipo || "";
+    return [placa, cliente, tipo].filter(Boolean).join(" - ");
   }
 
   // === BEGIN HU:HU-MARCADORES-CUSTODIA consulta cards (no tocar fuera) ===
   async function renderServicioCard(svc) {
-    const card = document.createElement('div');
-    card.className = 'mdl-card mdl-shadow--2dp servicio-card';
+    const card = document.createElement("div");
+    card.className = "mdl-card mdl-shadow--2dp servicio-card";
     const estadoClass =
-      svc.estado === 'FINALIZADO' ? 'estado-finalizado' : 'estado-activo';
+      svc.estado === "FINALIZADO" ? "estado-finalizado" : "estado-activo";
 
     card.innerHTML = `
       <div class="mdl-card__title">
@@ -569,10 +573,3 @@ const scheduleClienteRefresh = debounce(async () => {
     });
   } catch {}
 })();
-
-
-
-
-
-
-
