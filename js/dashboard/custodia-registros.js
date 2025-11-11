@@ -283,6 +283,7 @@
         .from("servicio")
         .select("cliente_id, cliente:cliente_id(id, nombre)")
         .eq("empresa", state.empresa)
+        .eq("estado", "ACTIVO")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const map = new Map();
@@ -337,6 +338,7 @@
       )
       .eq("empresa", state.empresa)
       .eq("cliente_id", clienteId)
+      .eq("estado", "ACTIVO")
       .order("created_at", { ascending: false });
     if (error) throw error;
     const base = Array.isArray(data) ? data : [];

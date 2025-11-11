@@ -1,4 +1,4 @@
-﻿// @hu HU-MARCADORES-CUSTODIA
+// @hu HU-MARCADORES-CUSTODIA
 // @author Codex
 // @date 2025-02-15
 // @rationale Ajustar etiquetas y pings segun HU.
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Anti-exfiltraciÃƒÂ³n bÃƒÂ¡sica (disuasiva)
+  // Anti-exfiltraciÃ³n bÃ¡sica (disuasiva)
   const antiOverlay = document.getElementById("anti-capture-overlay");
   document.addEventListener("contextmenu", (e) => {
     if (e.target.closest(".sensitive")) {
@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!window.sb) {
     console.error("[consulta] Supabase no inicializado (config.js)");
-    showMsg("Error de inicializaciÃƒÂ³n");
+    showMsg("Error de inicializaciÃ³n");
     return;
   }
 
@@ -177,6 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .from("servicio")
         .select("id, placa, destino_texto, estado, tipo, created_at")
         .eq("cliente_id", clienteId)
+        .eq("estado", "ACTIVO")
         .order("created_at", { ascending: false });
       if (error) throw error;
       renderPlacasAgrupadas(data || []);
@@ -229,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="chip">${placa}</span>
           <div class="placa-meta">${h(
             (clienteSeleccionado && clienteSeleccionado.nombre) || ""
-          )} - ${ultima.tipo || ""}</div>
+          )} · ${lista.length} servicio(s)</div>
         </div>
         <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Expandir">
           <i class="material-icons expand-icon">expand_more</i>
@@ -263,150 +264,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function formatServicioCardTitle(svc) {
-    const placa = (svc.placa || "").toUpperCase();
-    const clienteNombre =
-      (clienteSeleccionado && clienteSeleccionado.nombre) || "";
-    const cliente = clienteNombre.toUpperCase();
-    const tipo = svc.tipo || "";
-    return [placa, cliente, tipo].filter(Boolean).join(" - ");
-  }
-
   // === BEGIN HU:HU-MARCADORES-CUSTODIA consulta cards (no tocar fuera) ===
   async function renderServicioCard(svc) {
     const card = document.createElement("div");
-    card.className = "mdl-card mdl-shadow--2dp servicio-card";
-    const estadoClass =
-      svc.estado === "FINALIZADO" ? "estado-finalizado" : "estado-activo";
-
+    card.className = "servicio-card";
     card.innerHTML = `
-      <div class="mdl-card__title">
-        <h2 class="mdl-card__title-text">${h(formatServicioCardTitle(svc))}</h2>
-      </div>
-      <div class="mdl-card__supporting-text servicio-body">
-        <div class="servicio-info">
-          <p><strong>Placa:</strong> ${svc.placa || ""}</p>
-          <p><strong>Tipo:</strong> ${svc.tipo || ""}</p>
-          <p><strong>Destino:</strong> ${svc.destino_texto || ""}</p>
-          <p><strong>Fecha:</strong> ${fmtFecha(svc.created_at)}</p>
-          <p class="estado ${estadoClass}"><strong>Estado:</strong> ${
-      svc.estado
-    }</p>
+      <div class="servicio-chip">${h((svc.placa || "S/N").toUpperCase())}</div>
+      <div class="servicio-lines">
+        <div class="servicio-line">
+          <span class="label">Tipo</span>
+          <span class="value" data-field="tipo">${h(svc.tipo || "-")}</span>
         </div>
-        <div class="custodios" id="custodios-${svc.id}"></div>
+        <div class="servicio-line">
+          <span class="label">Destino</span>
+          <span class="value">${h(svc.destino_texto || "Sin destino")}</span>
+        </div>
       </div>
     `;
 
     try {
-      const { data: custodios, error: errC } = await window.sb
+      const { data: custodios, error } = await window.sb
         .from("servicio_custodio")
-        .select("id, nombre_custodio, tipo_custodia")
+        .select("id, tipo_custodia")
         .eq("servicio_id", svc.id);
-      if (errC) throw errC;
-
-      const cont = card.querySelector(`#custodios-${svc.id}`);
-      if (!cont) return card;
-      cont.innerHTML = "";
-
-      if (!custodios || !custodios.length) {
-        cont.innerHTML = `<div class="hint">Sin custodios registrados en este servicio.</div>`;
-      } else {
-        const ids = custodios.map((c) => c.id);
-        const { data: selfies, error: errS } = await window.sb
-          .from("selfie")
-          .select("servicio_custodio_id, mime_type, bytes")
-          .in("servicio_custodio_id", ids);
-        if (errS) throw errS;
-
-        const selfiesMap = new Map();
-        (selfies || []).forEach((s) =>
-          selfiesMap.set(s.servicio_custodio_id, s)
-        );
-
-        for (const c of custodios) {
-          const s = selfiesMap.get(c.id);
-          const b64 = s ? toBase64(s.data_base64 || s.bytes) : "";
-          const imgSrc = b64 ? `data:${s.mime_type};base64,${b64}` : "";
-          const nombreCustodio = c.nombre_custodio || "";
-          const custEl = document.createElement("div");
-          custEl.className = "custodio-card";
-          if (imgSrc) {
-            const img = document.createElement("img");
-            img.setAttribute("draggable", "false");
-            img.alt = `Selfie de ${nombreCustodio}`;
-            img.src = imgSrc;
-            custEl.appendChild(img);
-          } else {
-            const noImg = document.createElement("div");
-            noImg.className = "hint";
-            noImg.textContent = "Sin selfie";
-            custEl.appendChild(noImg);
-          }
-          const h4 = document.createElement("h4");
-          h4.textContent = nombreCustodio || "-";
-          custEl.appendChild(h4);
-          const tipoDiv = document.createElement("div");
-          tipoDiv.className = "tipo";
-          tipoDiv.textContent = c.tipo_custodia || "";
-          custEl.appendChild(tipoDiv);
-          cont.appendChild(custEl);
-        }
-
-        const hasSelfies = (selfies || []).length > 0;
-        if (hasSelfies) {
-          const actions = document.createElement("div");
-          actions.className = "mdl-card__actions";
-          const btn = document.createElement("button");
-          btn.className = "mdl-button mdl-js-button";
-          btn.textContent = "Mostrar fotos de custodia";
-          btn.addEventListener("click", () => {
-            const items = [];
-            for (const c of custodios) {
-              const s = selfiesMap.get(c.id);
-              if (!s) continue;
-              const b64 = toBase64(s.data_base64 || s.bytes);
-              if (!b64) continue;
-              items.push({
-                src: `data:${s.mime_type};base64,${b64}`,
-                label: c.nombre_custodio || "",
-              });
-            }
-            if (items.length) showFotosCustodia(items);
-            else showMsg("Sin fotos de custodia");
-          });
-          actions.appendChild(btn);
-          card.appendChild(actions);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      showMsg("No se pudieron cargar custodios/selfies");
+      if (error) throw error;
+      const resumen = buildTipoResumen(custodios || []);
+      const tipoEl = card.querySelector("[data-field='tipo']");
+      if (tipoEl) tipoEl.textContent = resumen;
+    } catch (err) {
+      console.warn("[consulta] custodios resumen error", err);
     }
 
-    if (window.componentHandler && window.componentHandler.upgradeElement)
-      window.componentHandler.upgradeElement(card);
-    try {
-      const { data: ping, error: pingErr } = await window.sb
-        .from("ubicacion")
-        .select("captured_at")
-        .eq("servicio_id", svc.id)
-        .order("captured_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!pingErr && ping?.captured_at) {
-        const info = card.querySelector(".servicio-info");
-        if (info) {
-          const pingEl = document.createElement("p");
-          pingEl.innerHTML = `<strong>Ultimo ping:</strong> ${fmtFecha(
-            ping.captured_at
-          )}`;
-          info.appendChild(pingEl);
-        }
-      }
-    } catch (e) {
-      console.warn("[consulta] ultimo ping error", e);
-    }
     return card;
+  }
+
+  function buildTipoResumen(custodios) {
+    if (!custodios || !custodios.length) return "Sin custodios";
+    const counts = new Map();
+    custodios.forEach((c) => {
+      const tipo = (c.tipo_custodia || "Sin tipo").trim() || "Sin tipo";
+      counts.set(tipo, (counts.get(tipo) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([tipo, total]) => `${tipo} x${total}`)
+      .join(" · ");
   }
   // === END HU:HU-MARCADORES-CUSTODIA ===
 

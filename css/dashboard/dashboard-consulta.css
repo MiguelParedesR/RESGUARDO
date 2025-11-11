@@ -184,7 +184,7 @@ z-index: 700;
 }
 
 /* Panel de servicios por placa */
-.servicios-panel { padding: 8px 16px 16px; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .2s ease, opacity .2s ease; }
+.servicios-panel { padding: 10px 16px 16px; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .2s ease, opacity .2s ease; }
 .servicios-panel.open { max-height: 1200px; opacity: 1; }
 
 /* Animación simple de apertura */
