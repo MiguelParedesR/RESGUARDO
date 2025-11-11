@@ -51,6 +51,17 @@
       ttsTimer: null,
       vibrateTimer: null,
       lastPhrase: null,
+      // === BEGIN HU:HU-PANICO-SIRENA-SISMATE state (NO TOCAR FUERA) ===
+      autoStopTimer: null,
+      sequenceToken: 0,
+      sismateActive: false,
+      blockSeq: 0,
+      activeNodes: new Set(),
+      lastAckKey: null,
+      ackInFlight: null,
+      polySupported: true,
+      loopPromise: null,
+      // === END HU:HU-PANICO-SIRENA-SISMATE ===
     },
     /* === BEGIN HU:HU-CHECKIN-15M checkin state (no tocar fuera) === */
     checkin: {
@@ -131,6 +142,9 @@
     "checkin-missed": "checkin_missed",
     checkin_missed: "checkin_missed",
     checkin: "checkin",
+    // === BEGIN HU:HU-PANICO-SIRENA-SISMATE eventos ack (NO TOCAR FUERA) ===
+    panic_ack: "panic_ack",
+    // === END HU:HU-PANICO-SIRENA-SISMATE ===
   };
   const SERVICIO_TIPO_MAP = {
     SIMPLE: "Simple",
@@ -859,31 +873,21 @@
     if (state.admin.handled.has(key)) return;
     state.admin.currentPanicKey = key;
     state.admin.lastPanic = record;
-    if (!state.permissions.sound) {
+    if (!state.permissions.sound || !state.permissions.haptics) {
       enableAlerts({ sound: true, haptics: true }).catch((err) => {
         warn("[audio] enableAlerts panic", err);
       });
+    } else {
+      try {
+        ensureAudioCtx()?.resume?.();
+      } catch (_) {}
     }
-    try {
-      const ctx = ensureAudioCtx();
-      ctx?.resume?.();
-    } catch (_) {}
-    sirenaOn({ loop: true });
-    const frase =
-      record && record.cliente
-        ? `ALERTA \u2014 ${record.cliente}`
-        : "ALERTA DE PANICO";
     console.log("[panic] evento recibido", {
       servicio_id: record?.servicio_id || null,
       cliente: record?.cliente || null,
     });
-    if (state.permissions.sound) {
-      startPanicTTSLoop(frase);
-    }
-    if (state.permissions.haptics) {
-      startPanicVibrationLoop();
-    }
-    console.log("[task][HU-PANICO-AUDIO-LOOP] done");
+    startSismateAlarm(record);
+    console.log("[task][HU-PANICO-SIRENA-SISMATE] done");
     notify({ type: "panic", record });
   }
 
@@ -895,15 +899,9 @@
     }
     if (!state.admin.currentPanicKey || !state.admin.lastPanic) return;
     try {
-      const ctx = ensureAudioCtx();
-      ctx?.resume?.();
+      ensureAudioCtx()?.resume?.();
     } catch (_) {}
-    const frase = state.admin.lastPanic.cliente
-      ? `ALERTA \u2014 ${state.admin.lastPanic.cliente}`
-      : "ALERTA DE PANICO";
-    sirenaOn({ loop: true });
-    startPanicTTSLoop(frase);
-    startPanicVibrationLoop();
+    startSismateAlarm(state.admin.lastPanic);
   }
   /* === END HU:HU-PANICO-TTS === */
 
@@ -966,6 +964,8 @@
     const opts = options || {};
     const wantSound = opts.sound !== false;
     const wantHaptics = opts.haptics !== false;
+    const prevSound = state.permissions.sound;
+    const prevHaptics = state.permissions.haptics;
     let soundOk = state.permissions.sound;
     if (wantSound) {
       console.assert(
@@ -985,7 +985,7 @@
       }
       state.permissions.sound = soundOk;
     }
-    if (wantHaptics) {
+    if (wantHaptics && global.navigator?.vibrate) {
       state.permissions.haptics = true;
     }
     if (state.permissions.sound) {
@@ -996,10 +996,26 @@
       sound: state.permissions.sound,
       haptics: state.permissions.haptics,
     };
+    if (state.permissions.sound && !prevSound) {
+      console.log("[audio] enabled");
+    }
+    if (!prevHaptics && state.permissions.haptics) {
+      console.log("[vibrate] enabled");
+    }
+    if (global.Alarma && typeof global.Alarma === "object") {
+      global.Alarma.soundEnabled = state.permissions.sound;
+      global.Alarma.allowHaptics = state.permissions.haptics;
+    }
     console.log("[task][HU-AUDIO-GESTO] done", result);
     console.log("[permissions] audio:ready", result);
     return result;
   }
+
+  // === BEGIN HU:HU-AUDIO-GESTO ensureAudio helper (NO TOCAR FUERA) ===
+  async function ensureAudioGesture(opts = { sound: true, haptics: true }) {
+    return enableAlerts(opts);
+  }
+  // === END HU:HU-AUDIO-GESTO ===
 
   async function requestNotificationsPermission(meta) {
     if (typeof global.Notification === "undefined") return null;
@@ -1038,153 +1054,331 @@
     return perms;
   }
 
-  // === BEGIN HU:HU-PANICO-AUDIO-LOOP helpers (NO TOCAR FUERA) ===
-  function ensureSirenBuffer() {
-    if (state.siren.buffer) return state.siren.buffer;
-    const ctx = ensureAudioCtx();
-    if (!ctx) return null;
-    const duration = 1.6;
-    const sampleRate = ctx.sampleRate;
-    const buffer = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      const t = i / sampleRate;
-      const progress = t / duration;
-      const envelope = Math.max(0.05, Math.sin(Math.PI * progress));
-      const freq = 480 + 420 * Math.sin(progress * Math.PI);
-      data[i] = Math.sin(2 * Math.PI * freq * t) * envelope;
+  // === BEGIN HU:HU-PANICO-SIRENA-SISMATE motor (NO TOCAR FUERA) ===
+  const SISMATE_PATTERN = [
+    { type: "tone", duration: 2000 },
+    { type: "pause", duration: 500 },
+    { type: "tone", duration: 1000 },
+    { type: "pause", duration: 500 },
+    { type: "tone", duration: 1000 },
+    { type: "pause", duration: 500 },
+  ];
+  const SISMATE_VIBRATION_PATTERN = [
+    2000, 500, 1000, 500, 1000, 500, 2000, 500, 1000, 500, 1000, 500,
+  ];
+  const SISMATE_AUTO_STOP_MS = 3 * 60 * 1000;
+  const SISMATE_INTER_BLOCK_PAUSE_MS = 500;
+  const SISMATE_LOOP_GAP_MS = 300;
+  const FALLBACK_TTS_MS = 140;
+  const FALLBACK_TTS_FREQ = 1200;
+  const wait = (ms = 0) =>
+    new Promise((resolve) => global.setTimeout(resolve, Math.max(0, ms)));
+
+  function registerActiveNode(node) {
+    if (!node) return;
+    if (!state.siren.activeNodes) {
+      state.siren.activeNodes = new Set();
     }
-    state.siren.buffer = buffer;
-    return buffer;
+    state.siren.activeNodes.add(node);
   }
 
-  function startPanicTTSLoop(frase) {
+  function cleanupNodes(nodes) {
+    if (!nodes) return;
+    nodes.forEach((node) => {
+      if (!node) return;
+      try {
+        node.stop?.(0);
+      } catch (_) {}
+      try {
+        node.disconnect?.();
+      } catch (_) {}
+      state.siren.activeNodes?.delete(node);
+    });
+  }
+
+  function flushActiveNodes() {
+    if (!state.siren.activeNodes) return;
+    for (const node of state.siren.activeNodes) {
+      try {
+        node.stop?.(0);
+      } catch (_) {}
+      try {
+        node.disconnect?.();
+      } catch (_) {}
+    }
+    state.siren.activeNodes.clear();
+  }
+
+  function nextSismateToken() {
+    state.siren.sequenceToken = (state.siren.sequenceToken || 0) + 1;
+    return state.siren.sequenceToken;
+  }
+
+  function isSismateActive(token) {
+    return (
+      state.siren.sismateActive &&
+      token != null &&
+      state.siren.sequenceToken === token
+    );
+  }
+
+  async function playSismateTone(durationMs, preferPoly, token) {
+    const ctx = ensureAudioCtx();
+    if (!ctx || !state.permissions.sound || !isSismateActive(token)) {
+      await wait(durationMs);
+      return;
+    }
+    const nodes = [];
+    const gain = ctx.createGain();
+    gain.gain.value = 0.9;
+    gain.connect(ctx.destination);
+    registerActiveNode(gain);
+    nodes.push(gain);
+
+    const createOsc = (freq) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      osc.start();
+      registerActiveNode(osc);
+      nodes.push(osc);
+    };
+
+    let attemptedPoly = false;
+    if (preferPoly && state.siren.polySupported !== false) {
+      try {
+        attemptedPoly = true;
+        createOsc(853);
+        createOsc(960);
+      } catch (err) {
+        state.siren.polySupported = false;
+        warn("[audio] polifonia no soportada, fallback a canal unico", err);
+        cleanupNodes(nodes);
+        await playSismateTone(durationMs, false, token);
+        return;
+      }
+    }
+    if (!attemptedPoly) {
+      createOsc(960);
+    }
+
+    await wait(durationMs);
+    cleanupNodes(nodes);
+  }
+
+  async function runSismateBlock(token, preferPoly) {
+    for (const step of SISMATE_PATTERN) {
+      if (!isSismateActive(token)) return;
+      if (step.type === "tone") {
+        await playSismateTone(step.duration, preferPoly, token);
+      } else {
+        await wait(step.duration);
+      }
+    }
+  }
+
+  function triggerSismateVibration() {
+    if (!state.permissions.haptics || !global.navigator?.vibrate) return;
+    try {
+      global.navigator.vibrate(SISMATE_VIBRATION_PATTERN);
+      console.log("[vibrate] pattern", {
+        pulses: SISMATE_VIBRATION_PATTERN.length,
+      });
+    } catch (err) {
+      warn("[vibrate] error", err);
+    }
+  }
+
+  async function runSismateLoop(token, record) {
+    const preferPoly = state.siren.polySupported !== false;
+    while (isSismateActive(token)) {
+      state.siren.blockSeq += 1;
+      console.log("[audio] sismate:block", { block: state.siren.blockSeq });
+      triggerSismateVibration();
+      await runSismateBlock(token, preferPoly);
+      if (!isSismateActive(token)) break;
+      await wait(SISMATE_INTER_BLOCK_PAUSE_MS);
+      await runSismateBlock(token, preferPoly);
+      if (!isSismateActive(token)) break;
+      await speakPanicInterval(record);
+      await wait(SISMATE_LOOP_GAP_MS);
+    }
+  }
+
+  function startSismateAlarm(record) {
+    const payload = record || state.admin.lastPanic || {};
+    const ctx = ensureAudioCtx();
+    if (ctx) {
+      try {
+        ctx.resume?.();
+      } catch (_) {}
+    }
+    if (!state.permissions.sound) {
+      showToast("Habilita el sonido para escuchar la alerta de pánico.");
+    }
+    stopSismateAlarm("restart");
+    state.siren.sismateActive = true;
+    const token = nextSismateToken();
+    state.siren.blockSeq = 0;
+    document.body.classList.add("alarma-siren-active");
+    console.log("[audio] siren:start", { token });
+    console.log("[panic] start", {
+      servicio_id: payload?.servicio_id || null,
+      cliente: payload?.cliente || null,
+    });
+    state.siren.autoStopTimer = global.setTimeout(() => {
+      console.log("[panic] auto-stop 180000ms");
+      stopSismateAlarm("auto-stop");
+      try {
+        closePanicModal("auto-stop");
+      } catch (_) {}
+    }, SISMATE_AUTO_STOP_MS);
+    state.siren.loopPromise = runSismateLoop(token, payload).catch((err) =>
+      warn("[audio] sismate loop error", err)
+    );
+    sendPanicAck(payload);
+  }
+
+  function stopSismateAlarm(reason) {
+    if (!state.siren.sismateActive && !state.siren.autoStopTimer) {
+      return;
+    }
+    state.siren.sismateActive = false;
+    nextSismateToken();
+    if (state.siren.autoStopTimer) {
+      clearTimeout(state.siren.autoStopTimer);
+      state.siren.autoStopTimer = null;
+    }
+    flushActiveNodes();
+    cancelPanicSpeech();
+    try {
+      global.navigator?.vibrate?.(0);
+    } catch (_) {}
+    document.body.classList.remove("alarma-siren-active");
+    console.log("[audio] siren:stop", { reason });
+  }
+
+  async function sendPanicAck(record) {
+    if (state.mode !== "admin") return;
+    const key = panicKey(record);
+    if (!record || !key || /undefined$/.test(key)) return;
+    if (state.siren.lastAckKey === key) return;
+    state.siren.lastAckKey = key;
+    const payload = {
+      servicio_id: record?.servicio_id || null,
+      empresa: record?.empresa || null,
+      cliente: record?.cliente || null,
+      placa: record?.placa || null,
+      tipo: record?.tipo || null,
+      servicio_custodio_id:
+        record?.servicio_custodio_id ||
+        record?.metadata?.servicio_custodio_id ||
+        null,
+      metadata: {
+        channel: "panic",
+        origin: "admin-local-ack",
+        estado: "ALERTA_ACTIVADA",
+      },
+    };
+    try {
+      await emit("panic_ack", payload);
+      console.log("[panic] ack sent", {
+        servicio_id: payload.servicio_id,
+        cliente: payload.cliente,
+      });
+    } catch (err) {
+      warn("[panic] ack failed", err);
+    }
+  }
+  // === END HU:HU-PANICO-SIRENA-SISMATE ===
+
+  // === BEGIN HU:HU-PANICO-TTS intervalos (NO TOCAR FUERA) ===
+  function buildPanicPhrase(record) {
+    const cliente = record?.cliente
+      ? String(record.cliente).trim()
+      : "CLIENTE";
+    return `ALERTA \u2014 ${cliente}`.trim();
+  }
+
+  async function speakPanicInterval(record) {
     if (!state.permissions.sound) return;
-    if (!("speechSynthesis" in global)) return;
-    state.siren.lastPhrase = frase;
-    if (state.siren.ttsTimer) return;
-    const speak = () => {
+    const frase = buildPanicPhrase(record || {});
+    const spoken = await speakSystemPhrase(frase);
+    if (!spoken) {
+      await playFallbackBeep();
+    }
+  }
+
+  function cancelPanicSpeech() {
+    try {
+      global.speechSynthesis?.cancel();
+    } catch (_) {}
+  }
+
+  function speakSystemPhrase(text) {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in global)) {
+        resolve(false);
+        return;
+      }
       try {
         if (global.speechSynthesis.speaking) {
           global.speechSynthesis.cancel();
         }
       } catch (_) {}
       try {
-        const utter = new SpeechSynthesisUtterance(frase);
+        const utter = new SpeechSynthesisUtterance(text);
         utter.lang = "es-PE";
+        utter.rate = 1;
+        utter.pitch = 1;
+        utter.volume = 1;
+        utter.onend = () => resolve(true);
+        utter.onerror = () => resolve(false);
         global.speechSynthesis.speak(utter);
+        console.log("[tts] speak", { text });
       } catch (err) {
-        warn("[tts] error", err);
+        warn("[tts] failed", err);
+        resolve(false);
       }
-    };
-    console.log("[tts] start", { text: frase });
-    speak();
-    state.siren.ttsTimer = global.setInterval(speak, 3600);
+    });
   }
 
-  function stopPanicTTSLoop() {
-    if (state.siren.ttsTimer) {
-      clearInterval(state.siren.ttsTimer);
-      state.siren.ttsTimer = null;
-      console.log("[tts] stop");
+  async function playFallbackBeep() {
+    const ctx = ensureAudioCtx();
+    if (!ctx || !state.permissions.sound) {
+      await wait(FALLBACK_TTS_MS);
+      return;
     }
-    try {
-      global.speechSynthesis?.cancel();
-    } catch (_) {}
+    const gain = ctx.createGain();
+    gain.gain.value = 0.6;
+    gain.connect(ctx.destination);
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = FALLBACK_TTS_FREQ;
+    osc.connect(gain);
+    registerActiveNode(gain);
+    registerActiveNode(osc);
+    osc.start();
+    await wait(FALLBACK_TTS_MS);
+    cleanupNodes([osc, gain]);
   }
-
-  function startPanicVibrationLoop() {
-    if (!state.permissions.haptics || !global.navigator?.vibrate) return;
-    if (state.siren.vibrateTimer) return;
-    const run = () => {
-      try {
-        global.navigator.vibrate([350, 150, 350]);
-      } catch (err) {
-        warn("[audio] Vibracion fallo", err);
-        stopPanicVibrationLoop();
-      }
-    };
-    run();
-    state.siren.vibrateTimer = global.setInterval(run, 3200);
-  }
-
-  function stopPanicVibrationLoop() {
-    if (state.siren.vibrateTimer) {
-      clearInterval(state.siren.vibrateTimer);
-      state.siren.vibrateTimer = null;
-    }
-    try {
-      global.navigator?.vibrate?.(0);
-    } catch (_) {}
-  }
+  // === END HU:HU-PANICO-TTS ===
 
   function silencePanicOutputs(reason) {
-    sirenaOff();
-    stopPanicTTSLoop();
-    stopPanicVibrationLoop();
+    stopSismateAlarm(reason || "manual");
     if (reason) {
       console.log("[panic] modal:silence", { reason });
     }
   }
-  // === END HU:HU-PANICO-AUDIO-LOOP ===
 
   function sirenaOn(options) {
-    const opts = options || {};
-    if (!state.permissions.sound) {
-      console.warn("[audio] Sirena bloqueada por falta de permiso");
-      showToast("Revisa permisos del navegador para escuchar la sirena.");
-      return;
-    }
-    const ctx = ensureAudioCtx();
-    if (!ctx) return;
-    try {
-      if (ctx.state === "suspended" && ctx.resume) {
-        ctx.resume();
-      }
-    } catch (_) {}
-    if (state.siren.loopSource) return;
-    const buffer = ensureSirenBuffer();
-    if (!buffer) return;
-    try {
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = opts.loop !== false;
-      const gain = ctx.createGain();
-      gain.gain.value = 1;
-      source.connect(gain);
-      gain.connect(ctx.destination);
-      source.onended = () => {
-        if (state.siren.loopSource === source) {
-          state.siren.loopSource = null;
-          state.siren.loopGain = null;
-        }
-      };
-      source.start();
-      state.siren.loopSource = source;
-      state.siren.loopGain = gain;
-      document.body.classList.add("alarma-siren-active");
-      console.log("[audio] siren:start");
-    } catch (err) {
-      warn("No se pudo iniciar sirena", err);
-    }
+    const payload = (options && options.record) || state.admin.lastPanic || {};
+    startSismateAlarm(payload);
   }
 
-  function sirenaOff() {
-    if (state.siren.loopSource) {
-      try {
-        state.siren.loopSource.stop();
-      } catch (_) {}
-      state.siren.loopSource.disconnect?.();
-      state.siren.loopSource = null;
-    }
-    if (state.siren.loopGain) {
-      try {
-        state.siren.loopGain.disconnect?.();
-      } catch (_) {}
-      state.siren.loopGain = null;
-    }
-    document.body.classList.remove("alarma-siren-active");
-    console.log("[audio] siren:stop");
+  function sirenaOff(reason) {
+    stopSismateAlarm(reason || "sirenaOff");
   }
 
   function tts(text, options) {
@@ -2061,6 +2255,7 @@
     confirmCheckin: confirmCheckin,
     flushQueue,
     enableAlerts,
+    ensureAudio: ensureAudioGesture,
     primeAdminPermissions,
     primeAlerts: attachAlertPrimer,
     requestNotifications: requestNotificationsPermission,
@@ -2091,6 +2286,8 @@
   });
 
   global.Alarma = api;
+  api.soundEnabled = state.permissions.sound;
+  api.allowHaptics = state.permissions.haptics;
   runQAProbes();
 
   function runQAProbes() {

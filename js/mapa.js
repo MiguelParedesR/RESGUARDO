@@ -218,6 +218,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let destino = null;
   // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
   const ROUTE_LOCAL_BASE = "http://127.0.0.1:5000";
+  const ROUTE_USE_LOCAL =
+    ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
+    window.APP_CONFIG?.OSRM_LOCAL === true;
   const ROUTE_PUBLIC_BASE = "https://router.project-osrm.org";
   const ROUTE_THROTTLE_MS = 12_000;
   let routeLayer = null;
@@ -227,6 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastRouteFetchAt = 0;
   let routeAutoFitDone = false;
   let routeToastShown = false;
+  let routeLocalDown = !ROUTE_USE_LOCAL;
   // === END HU:HU-RUTA-TRAZADO ===
   let lastSent = 0;
   let servicioChannel = null;
@@ -544,14 +548,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     routeFetchInFlight = (async () => {
       let route = null;
-      try {
-        route = await fetchRoute(ROUTE_LOCAL_BASE);
-        console.log("[routeOSRM] local ok", {
-          distance: route.distance,
-          duration: route.duration,
-        });
-      } catch (localErr) {
-        console.warn("[routeOSRM] local failed -> trying public", localErr);
+      if (!routeLocalDown) {
+        try {
+          route = await fetchRoute(ROUTE_LOCAL_BASE);
+          console.log("[routeOSRM] local ok", {
+            distance: route.distance,
+            duration: route.duration,
+          });
+        } catch (localErr) {
+          routeLocalDown = true;
+          console.warn("[routeOSRM] local failed -> trying public", localErr);
+        }
+      }
+      if (!route) {
         try {
           route = await fetchRoute(ROUTE_PUBLIC_BASE);
           console.log("[routeOSRM] public ok", {
@@ -563,16 +572,18 @@ document.addEventListener("DOMContentLoaded", () => {
           notifyRouteDown();
           return;
         }
-      } finally {
-        routeAbortController = null;
       }
-
       if (!route?.geometry) return;
       lastRouteHash = routeHash;
       applyRouteGeometry(route);
-    })().finally(() => {
-      routeFetchInFlight = null;
-    });
+    })()
+      .catch((err) => {
+        console.warn("[routeOSRM] fetch sequence error", err);
+      })
+      .finally(() => {
+        routeFetchInFlight = null;
+        routeAbortController = null;
+      });
   }
 
   function applyRouteGeometry(route) {
