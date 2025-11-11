@@ -683,6 +683,18 @@
   async function triggerPush(type, eventRecord, options) {
     const endpoint =
       options && options.endpoint ? options.endpoint : PUSH_ENDPOINT;
+    const isLocalDev =
+      typeof window !== "undefined" &&
+      (window.location?.protocol === "file:" ||
+        /^(localhost|127\.0\.0\.1)$/i.test(window.location?.hostname || ""));
+    if (
+      isLocalDev &&
+      typeof endpoint === "string" &&
+      endpoint.includes("/.netlify/")
+    ) {
+      console.log("[push] skip local endpoint", endpoint);
+      return;
+    }
     const expanded = expandEventRecord(eventRecord);
     const rawMeta =
       expanded.metadata && typeof expanded.metadata === "object"

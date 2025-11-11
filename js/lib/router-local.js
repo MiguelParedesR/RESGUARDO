@@ -146,13 +146,17 @@
     }
 
     try {
-      const res = await fetchWithTimeout(`${OSRM_REMOTE}${path}`, 2500);
+      const res = await fetchWithTimeout(`${OSRM_REMOTE}${path}`, 6000);
       if (!res.ok) throw new Error(`remote status ${res.status}`);
       const json = await res.json();
       console.log("[router] remote OK", OSRM_REMOTE);
       return normalizeOSRMLatLngs(json);
     } catch (err) {
-      console.error("[router] remote failed", err);
+      if (err?.name === "AbortError") {
+        console.warn("[router] remote timeout", err);
+      } else {
+        console.error("[router] remote failed", err);
+      }
       return buildNoRoute(err?.message || "remote-error");
     }
   }
