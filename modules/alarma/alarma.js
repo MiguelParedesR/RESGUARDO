@@ -112,6 +112,11 @@
     A: "Tipo A",
     B: "Tipo B",
   };
+  const SERVICIO_TIPO_DB_ALLOWED = new Map([
+    ["TIPOA", "Tipo A"],
+    ["TIPOB", "Tipo B"],
+  ]);
+  const SERVICIO_TIPO_DB_FALLBACK = "Tipo A";
 
   function normalizeEventType(value) {
     if (!value) return null;
@@ -271,7 +276,7 @@
       empresa: record.empresa,
       cliente: record.cliente,
       placa: record.placa,
-      tipo: coerceDbServicioTipo(record.tipo),
+      tipo: coerceDbServicioTipo(record),
       lat: record.lat ?? null,
       lng: record.lng ?? null,
       direccion: record.direccion ?? null,
@@ -281,12 +286,41 @@
   }
   // === END HU:HU-NO400-ALARM_EVENT ===
 
-  function coerceDbServicioTipo(value) {
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed) return trimmed;
+  function coerceDbServicioTipo(source) {
+    const resolved =
+      typeof source === "string" || source == null || typeof source === "number"
+        ? normalizeDbServicioTipoCandidate(source)
+        : null;
+    if (resolved) return resolved;
+    const record =
+      source && typeof source === "object" ? source : { tipo: source || null };
+    const metadata =
+      record.metadata && typeof record.metadata === "object"
+        ? record.metadata
+        : null;
+    const candidates = [
+      record.tipo,
+      metadata?.servicio_tipo,
+      metadata?.servicioTipo,
+      metadata?.tipo,
+    ];
+    for (const candidate of candidates) {
+      const normalized = normalizeDbServicioTipoCandidate(candidate);
+      if (normalized) return normalized;
     }
-    return "Tipo A";
+    return SERVICIO_TIPO_DB_FALLBACK;
+  }
+
+  function normalizeDbServicioTipoCandidate(value) {
+    if (value == null) return null;
+    const normalized = normalizeServicioTipo(value);
+    if (!normalized) return null;
+    const collapsed = normalized.toUpperCase().replace(/\s+/g, "");
+    if (collapsed === "SIMPLE") return SERVICIO_TIPO_DB_FALLBACK;
+    if (SERVICIO_TIPO_DB_ALLOWED.has(collapsed)) {
+      return SERVICIO_TIPO_DB_ALLOWED.get(collapsed);
+    }
+    return null;
   }
 
   function ensureSupabase() {
