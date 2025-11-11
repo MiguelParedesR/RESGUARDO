@@ -16,6 +16,7 @@
   const TOAST_TIMEOUT = 4200;
   /* === BEGIN HU:HU-CHECKIN-15M checkin constants (no tocar fuera) === */
   const CHECKIN_REMIND_MS = 5 * 60 * 1000;
+  const CHECKIN_AUDIO_URL = "/assets/audio/checkin-reporte.mp3";
   /* === END HU:HU-CHECKIN-15M === */
   const REVERSE_GEOCODE_URL = "https://us1.locationiq.com/v1/reverse";
 
@@ -54,8 +55,14 @@
     /* === BEGIN HU:HU-CHECKIN-15M checkin state (no tocar fuera) === */
     checkin: {
       panel: null,
+      overlay: null,
       busy: false,
       rePromptTimers: new Map(),
+      audioTimer: null,
+      successTimer: null,
+      audioBuffer: null,
+      audioSource: null,
+      audioGain: null,
     },
     /* === END HU:HU-CHECKIN-15M === */
     /* === BEGIN HU:HU-AUDIO-GESTO permissions state (no tocar fuera) === */
@@ -63,9 +70,25 @@
       sound: false,
       haptics: false,
       primerPromise: null,
+      pendingSoundPrompt: false,
     },
     /* === END HU:HU-AUDIO-GESTO === */
   };
+
+  function isMobileDevice() {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || navigator.vendor || "";
+    return /android|iphone|ipad|ipod/i.test(ua);
+  }
+
+  if (typeof document !== "undefined" && !global.__alarmaVisibilityHooked) {
+    global.__alarmaVisibilityHooked = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        retryPanicAudioIfNeeded();
+      }
+    });
+  }
 
   function log() {
     try {
@@ -479,6 +502,7 @@
   function initAdmin(options) {
     initBase("admin").catch(error);
     autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
+    primeAdminPermissions({ reason: "init-admin" }).catch(() => {});
     setupRealtimeChannel();
     setupEscShortcuts();
     if (options && typeof options.enrichEvent === "function")
@@ -806,7 +830,7 @@
         state.checkin.panel?.dataset?.servicioId ===
           String(record?.servicio_id || "")
       ) {
-        state.checkin.panel.classList.remove("is-open");
+        closeCheckinPanel("remote-ack");
       }
       notify({ type: "checkin_ok", record });
     /* === END HU:HU-CHECKIN-15M === */
@@ -832,6 +856,15 @@
     if (state.admin.handled.has(key)) return;
     state.admin.currentPanicKey = key;
     state.admin.lastPanic = record;
+    if (!state.permissions.sound) {
+      enableAlerts({ sound: true, haptics: true }).catch((err) => {
+        warn("[audio] enableAlerts panic", err);
+      });
+    }
+    try {
+      const ctx = ensureAudioCtx();
+      ctx?.resume?.();
+    } catch (_) {}
     sirenaOn({ loop: true });
     const frase =
       record && record.cliente
@@ -853,8 +886,15 @@
 
   function retryPanicAudioIfNeeded() {
     if (state.mode !== "admin") return;
-    if (!state.permissions.sound) return;
+    if (!state.permissions.sound) {
+      enableAlerts({ sound: true, haptics: true }).catch(() => {});
+      return;
+    }
     if (!state.admin.currentPanicKey || !state.admin.lastPanic) return;
+    try {
+      const ctx = ensureAudioCtx();
+      ctx?.resume?.();
+    } catch (_) {}
     const frase = state.admin.lastPanic.cliente
       ? `ALERTA \u2014 ${state.admin.lastPanic.cliente}`
       : "ALERTA DE PANICO";
@@ -872,6 +912,9 @@
       return null;
     }
     state.siren.audioCtx = new AudioCtx();
+    if (global.Alarma) {
+      global.Alarma.audioCtx = state.siren.audioCtx;
+    }
     return state.siren.audioCtx;
   }
 
@@ -945,16 +988,38 @@
     if (state.permissions.sound) {
       retryPanicAudioIfNeeded();
     }
-    console.log("[task][HU-AUDIO-GESTO] done", {
-      sound: state.permissions.sound,
-      haptics: state.permissions.haptics,
-    });
-    return {
+    state.permissions.pendingSoundPrompt = !state.permissions.sound;
+    const result = {
       sound: state.permissions.sound,
       haptics: state.permissions.haptics,
     };
+    console.log("[task][HU-AUDIO-GESTO] done", result);
+    console.log("[permissions] audio:ready", result);
+    return result;
   }
   /* === END HU:HU-AUDIO-GESTO === */
+
+  async function primeAdminPermissions(options = {}) {
+    if ("Notification" in global && Notification.permission === "default") {
+      try {
+        const perm = await Notification.requestPermission();
+        console.log(`[permissions] notifications:${perm}`);
+      } catch (err) {
+        console.warn("[permissions] notifications:error", err);
+      }
+    }
+    const perms = await enableAlerts({
+      sound: options?.sound !== false,
+      haptics: options?.haptics !== false,
+    });
+    if (!perms?.sound) {
+      state.permissions.pendingSoundPrompt = true;
+      throw new Error("AudioContext bloqueado por el navegador");
+    }
+    state.permissions.pendingSoundPrompt = false;
+    console.log("[task][HU-PERMISSIONS-PROMPT] done");
+    return perms;
+  }
 
   // === BEGIN HU:HU-PANICO-AUDIO-LOOP helpers (NO TOCAR FUERA) ===
   function ensureSirenBuffer() {
@@ -1055,6 +1120,11 @@
     }
     const ctx = ensureAudioCtx();
     if (!ctx) return;
+    try {
+      if (ctx.state === "suspended" && ctx.resume) {
+        ctx.resume();
+      }
+    } catch (_) {}
     if (state.siren.loopSource) return;
     const buffer = ensureSirenBuffer();
     if (!buffer) return;
@@ -1447,10 +1517,182 @@
     return data.display_name || data.address?.road || "";
   }
 
+  function ensureCheckinOverlay() {
+    if (state.checkin.overlay) return state.checkin.overlay;
+    if (typeof document === "undefined") return null;
+    const overlay = document.createElement("div");
+    overlay.className = "alarma-checkin__overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.appendChild(overlay);
+    state.checkin.overlay = overlay;
+    return overlay;
+  }
+
+  function ensureCheckinAudioBuffer(ctx) {
+    if (state.checkin.audioBuffer) return Promise.resolve(state.checkin.audioBuffer);
+    if (typeof fetch === "undefined") {
+      return Promise.reject(new Error("fetch no disponible"));
+    }
+    return fetch(CHECKIN_AUDIO_URL, { cache: "force-cache" })
+      .then((resp) => {
+        if (!resp.ok) throw new Error(`checkin audio ${resp.status}`);
+        return resp.arrayBuffer();
+      })
+      .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer))
+      .then((buffer) => {
+        state.checkin.audioBuffer = buffer;
+        return buffer;
+      });
+  }
+
+  function startCheckinSpeechFallback(panel) {
+    if (typeof global.speechSynthesis === "undefined") return;
+    const phrase =
+      panel?.dataset?.cliente && panel.dataset.cliente !== "-"
+        ? `REPORTESE ${panel.dataset.cliente}`
+        : "REPORTESE";
+    const speak = () => {
+      try {
+        const utter = new SpeechSynthesisUtterance(phrase);
+        utter.lang = "es-PE";
+        utter.pitch = 1;
+        utter.rate = 0.85;
+        global.speechSynthesis.speak(utter);
+      } catch (err) {
+        warn("No se pudo reproducir audio de checkin", err);
+      }
+    };
+    speak();
+    state.checkin.audioTimer = global.setInterval(speak, 3200);
+    console.log("[audio][checkin] start (tts)");
+  }
+
+  function startCheckinAudioLoop(panel) {
+    if (!state.permissions.sound) return;
+    stopCheckinAudioLoop("restart");
+    const ctx = ensureAudioCtx();
+    if (!ctx) {
+      startCheckinSpeechFallback(panel);
+      return;
+    }
+    try {
+      ctx.resume?.();
+    } catch (_) {}
+    ensureCheckinAudioBuffer(ctx)
+      .then((buffer) => {
+        const gain = ctx.createGain();
+        gain.gain.value = 1;
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        src.connect(gain).connect(ctx.destination);
+        src.start();
+        state.checkin.audioSource = src;
+        state.checkin.audioGain = gain;
+        if (global.Alarma) {
+          global.Alarma.currentCheckinSrc = src;
+        }
+        console.log("[audio][checkin] start");
+        src.onended = () => {
+          if (state.checkin.audioSource === src) {
+            state.checkin.audioSource = null;
+            state.checkin.audioGain = null;
+          }
+        };
+      })
+      .catch((err) => {
+        warn("No se pudo reproducir audio de checkin", err);
+        startCheckinSpeechFallback(panel);
+      });
+  }
+
+  function stopCheckinAudioLoop(reason) {
+    if (state.checkin.audioSource) {
+      try {
+        state.checkin.audioSource.stop();
+      } catch (_) {}
+      try {
+        state.checkin.audioSource.disconnect();
+      } catch (_) {}
+      state.checkin.audioSource = null;
+    }
+    if (state.checkin.audioGain) {
+      try {
+        state.checkin.audioGain.disconnect();
+      } catch (_) {}
+      state.checkin.audioGain = null;
+    }
+    if (state.checkin.audioTimer) {
+      clearInterval(state.checkin.audioTimer);
+      state.checkin.audioTimer = null;
+    }
+    if (global.Alarma) {
+      global.Alarma.currentCheckinSrc = null;
+    }
+    try {
+      global.speechSynthesis?.cancel();
+    } catch (_) {}
+    if (reason) {
+      console.log("[audio][checkin] stop", reason);
+    }
+  }
+
+  function setCheckinStatus(panel, message) {
+    if (!panel) return;
+    const statusEl = panel.querySelector(".js-checkin-status");
+    if (!statusEl) return;
+    statusEl.textContent = message || "";
+    statusEl.hidden = !message;
+  }
+
+  function clearCheckinStatus(panel) {
+    setCheckinStatus(panel, "");
+  }
+
+  function closeCheckinPanel(reason = "manual") {
+    const panel = state.checkin.panel;
+    if (!panel) return;
+    panel.classList.remove("is-open");
+    document.body.classList.remove("alarma-checkin-open");
+    state.checkin.overlay?.classList.remove("is-visible");
+    stopCheckinAudioLoop(reason);
+    if (state.checkin.successTimer) {
+      clearTimeout(state.checkin.successTimer);
+      state.checkin.successTimer = null;
+    }
+    state.checkin.busy = false;
+    clearCheckinStatus(panel);
+    const input = panel.querySelector("#alarma-checkin-input");
+    if (input) input.value = "";
+    console.log("[modal][checkin] close", {
+      servicio_id: panel.dataset.servicioId || null,
+      reason,
+    });
+  }
+
+  function updateCheckinSoundButton(panel) {
+    if (!panel) return;
+    const btn = panel.querySelector(".js-checkin-voice");
+    if (!btn) return;
+    btn.disabled = !state.permissions.sound;
+  }
+
+  function toggleCheckinSoundHint(panel, show) {
+    if (!panel) return;
+    const hint = panel.querySelector(".alarma-checkin__hint");
+    if (!hint) return;
+    hint.hidden = !show;
+  }
+
   /* === BEGIN HU:HU-CHECKIN-15M checkin ui (no tocar fuera) === */
   function openCheckinPrompt(payload) {
     if (state.mode !== "custodia") return;
     const panel = ensureCheckinPanel();
+    ensureCheckinOverlay();
+    if (state.checkin.successTimer) {
+      clearTimeout(state.checkin.successTimer);
+      state.checkin.successTimer = null;
+    }
     populateCheckinPanel(panel, payload);
     panel.classList.add("is-open");
     panel.dataset.method = "text";
@@ -1461,20 +1703,13 @@
     toggleCheckinSoundHint(panel, !state.permissions.sound);
     if (state.permissions.haptics) {
       try {
-        navigator.vibrate?.([240, 120, 240]);
+        navigator.vibrate?.([350, 150, 350]);
       } catch (_) {}
     }
-    if (state.permissions.sound) {
-      try {
-        const frase = panel.dataset.cliente
-          ? `Reportese ${panel.dataset.cliente}`
-          : "Reportese ahora";
-        tts(frase, { lang: "es-PE" });
-      } catch (err) {
-        warn("No se pudo reproducir TTS", err);
-      }
-    }
-    console.log("[checkin] panel abierto", {
+    document.body.classList.add("alarma-checkin-open");
+    state.checkin.overlay?.classList.add("is-visible");
+    startCheckinAudioLoop(panel);
+    console.log("[modal][checkin] open", {
       servicio_id: panel.dataset.servicioId || null,
       attempt: panel.dataset.attempt || 1,
     });
@@ -1538,6 +1773,7 @@
     panel.className = "alarma-checkin";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-live", "assertive");
+    panel.setAttribute("aria-modal", "true");
     panel.tabIndex = -1;
     panel.innerHTML = `
       <div class="alarma-checkin__dialog">
@@ -1545,26 +1781,29 @@
           <div>
             <div class="alarma-checkin__eyebrow">REPORTESE</div>
             <h3 class="alarma-checkin__title">Servicio <span class="js-checkin-servicio">-</span></h3>
-            <p class="alarma-checkin__subtitle">Confirma tu ubicacion actual y avisa por WhatsApp.</p>
+            <p class="alarma-checkin__subtitle">Presione el botón y diga su ubicación actual.</p>
           </div>
         </div>
         <div class="alarma-checkin__body">
           <div class="alarma-checkin__client"><strong>Cliente:</strong> <span class="js-checkin-cliente">-</span></div>
           <div class="alarma-checkin__placa"><strong>Placa:</strong> <span class="js-checkin-placa">-</span></div>
           <div class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</div>
+          <p class="alarma-checkin__hint" hidden>Activa sonido para escuchar el recordatorio.</p>
           <div class="alarma-checkin__options">
-            <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Grabar voz</button>
+            <button type="button" class="alarma-btn alarma-btn--primary js-checkin-voice">Presionar y hablar</button>
             <div class="alarma-checkin__field">
               <label for="alarma-checkin-input">Donde te encuentras?</label>
               <textarea id="alarma-checkin-input" class="alarma-checkin__input" rows="3" placeholder="Ej. Ingresando a puerta 3, sin novedad."></textarea>
             </div>
           </div>
+          <p class="alarma-checkin__status js-checkin-status" aria-live="polite" hidden></p>
         </div>
         <div class="alarma-checkin__actions">
           <button type="button" class="alarma-btn alarma-btn--danger js-checkin-confirm">Confirmar y silenciar</button>
         </div>
       </div>
     `;
+    ensureCheckinOverlay();
     document.body.appendChild(panel);
     panel
       .querySelector(".js-checkin-confirm")
@@ -1602,6 +1841,7 @@
     panel.dataset.method = "text";
     const input = panel.querySelector("#alarma-checkin-input");
     if (input) input.value = "";
+    clearCheckinStatus(panel);
   }
 
   async function captureCheckinVoice(panel) {
@@ -1616,6 +1856,7 @@
       button.disabled = true;
       button.textContent = "Escuchando...";
     }
+    stopCheckinAudioLoop("voice-button");
     try {
       if (navigator.mediaDevices?.getUserMedia) {
         try {
@@ -1625,6 +1866,10 @@
         } catch (micErr) {
           console.warn("[permissions] mic:denied", micErr);
           showToast("Permite acceso al microfono para responder por voz.");
+          setCheckinStatus(
+            panel,
+            "No se pudo acceder al microfono. Usa el campo de texto."
+          );
           if (button) {
             button.disabled = false;
             button.textContent = "Responder por voz";
@@ -1643,10 +1888,18 @@
         if (input) input.value = transcript;
         panel.dataset.method = "voice";
         panel.dataset.transcript = transcript;
-        showToast("Se registro tu voz. Revisa el texto antes de confirmar.");
+        setCheckinStatus(panel, "Se registró tu voz. Revisa el texto antes de confirmar.");
+        console.log("[checkin][voice]", {
+          servicio_id: panel.dataset.servicioId || null,
+          transcript,
+        });
       };
       recog.onerror = () => {
         showToast("No se pudo capturar tu voz. Escribe la respuesta.");
+        setCheckinStatus(
+          panel,
+          "No se pudo capturar tu voz. Escribe tu ubicación actual."
+        );
       };
       recog.onend = () => {
         if (button) {
@@ -1708,16 +1961,20 @@
           console.warn("[checkin] update servicio fallo", err);
         }
       }
-      panel.classList.remove("is-open");
-      showToast(
-        "Conforme. Ahora reportate en el grupal de WhatsApp con las evidencias."
+      setCheckinStatus(
+        panel,
+        "Gracias, ahora reporta las evidencias en el grupo de WhatsApp."
       );
+      stopCheckinAudioLoop("success");
       panel.dataset.method = "text";
-      console.log("[checkin] confirmado", {
+      console.log("[checkin][success]", {
         servicio_id: servicioId || null,
         method,
         attempt,
       });
+      state.checkin.successTimer = global.setTimeout(() => {
+        closeCheckinPanel("success");
+      }, 3000);
     } catch (err) {
       console.warn("[checkin] Error al registrar check-in", err);
       showToast("No se pudo registrar. Se guardara offline.");
@@ -1744,7 +2001,20 @@
     confirmCheckin: confirmCheckin,
     flushQueue,
     enableAlerts,
+    primeAdminPermissions,
     primeAlerts: attachAlertPrimer,
+    /* === BEGIN HU:HU-CHECKIN-15M checkin api (no tocar fuera) === */
+    openCheckinPrompt: (payload) => {
+      if (state.mode !== "custodia") return;
+      openCheckinPrompt(payload);
+    },
+    closeCheckinPrompt: (reason) => {
+      closeCheckinPanel(reason || "external");
+    },
+    stopCheckinAudio: (reason) => {
+      stopCheckinAudioLoop(reason || "external");
+    },
+    /* === END HU:HU-CHECKIN-15M === */
     /* === BEGIN HU:HU-AUDIO-GESTO api permissions (no tocar fuera) === */
     getPermissions() {
       return { ...state.permissions };

@@ -330,6 +330,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "audio-permission-status"
   );
   const btnAudioEnable = document.getElementById("btn-audio-enable");
+  const isMobileDevice = /android|iphone|ipad|ipod/i.test(
+    navigator.userAgent || ""
+  );
+  console.log("[permissions] device", { mobile: isMobileDevice });
   /* === BEGIN HU:HU-AUDIO-GESTO boton sonido (no tocar fuera) === */
   const setAlertsState = (perms) => {
     const prevState = alertsEnabled;
@@ -1325,6 +1329,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!hasAlarma || typeof window.Alarma?.initAdmin !== "function") return;
     try {
       window.Alarma.initAdmin();
+      window.Alarma
+        .primeAdminPermissions?.({
+          reason: isMobileDevice ? "mobile-init" : "admin-init",
+        })
+        .catch((err) => console.warn("[permissions] audio:auto", err));
+      if (isMobileDevice) {
+        setTimeout(() => {
+          window.Alarma
+            .primeAdminPermissions?.({ reason: "mobile-retry" })
+            .catch(() => {});
+        }, 1500);
+      }
       alarmaUnsubscribe = window.Alarma.subscribe(handleAlarmaEvent);
     } catch (err) {
       console.warn("[admin][alarma] init error", err);

@@ -1,7 +1,7 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
 // === BEGIN HU:HU-SW-UPDATE sw-versioning (NO TOCAR FUERA) ===
-const VERSION = "v1.1.39";
+const VERSION = "v1.1.40";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -236,12 +236,30 @@ async function trimCache(cacheName, maxItems) {
 // === BEGIN HU:HU-SW-UPDATE sw-push-broadcast (NO TOCAR FUERA) ===
 self.addEventListener("push", (event) => {
   if (!event) return;
-  const payload = parsePushData(event.data);
+  let rawPayload = null;
+  if (event.data) {
+    try {
+      rawPayload = event.data.json();
+    } catch (err) {
+      console.warn("[sw] push payload invalido", err);
+    }
+  }
+  const payload = parsePushData(rawPayload);
   if (!payload) return;
   const pushType = payload.type || payload.options?.data?.type || "desconocido";
   event.waitUntil(
     (async () => {
       try {
+        if (pushType === "checkin") {
+          payload.title = "REPORTESE";
+          if (!payload.options.body) {
+            payload.options.body =
+              "Presione el botón y diga su ubicación actual";
+          }
+          payload.options.requireInteraction = true;
+          payload.options.vibrate = [300, 100, 300, 100, 300];
+          payload.options.tag = payload.options.tag || "checkin-alert";
+        }
         await self.registration.showNotification(
           payload.title,
           payload.options
@@ -249,12 +267,19 @@ self.addEventListener("push", (event) => {
       } catch (err) {
         console.warn("[sw] showNotification fallo", err);
       }
-      console.log("[sw] push", pushType);
+      if (pushType === "checkin") {
+        console.log("[sw][checkin] push recibido");
+      } else {
+        console.log("[sw] push", pushType);
+      }
       await broadcastAlarma({
         kind: "push",
         type: pushType,
         event: payload.options?.data?.event || null,
-        payload: payload.options?.data || {},
+        payload:
+          pushType === "checkin"
+            ? rawPayload || {}
+            : payload.options?.data || {},
       });
     })()
   );
@@ -306,10 +331,9 @@ self.addEventListener("pushsubscriptionchange", () => {
   broadcastAlarma({ kind: "pushsubscriptionchange" });
 });
 
-function parsePushData(data) {
-  if (!data) return null;
+function parsePushData(raw) {
+  if (!raw) return null;
   try {
-    const raw = data.json();
     const type = raw.type || raw.data?.type || null;
     const options = {
       body: raw.body || "",

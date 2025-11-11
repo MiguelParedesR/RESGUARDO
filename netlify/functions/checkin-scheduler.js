@@ -160,6 +160,9 @@ async function sendReminder(svc, attempt) {
     const text = await response.text();
     throw new Error(`push status ${response.status} ${text}`);
   }
+  console.log(
+    `[checkin][scheduler] push enviado servicio=${svc.id} intento=${attempt}`
+  );
   await recordCheckinEvent(svc, attempt, metadata);
 }
 

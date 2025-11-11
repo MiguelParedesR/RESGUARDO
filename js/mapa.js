@@ -128,6 +128,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
   const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+  /* === BEGIN HU:HU-CHECKIN-15M mapa timers (NO TOCAR FUERA) === */
+  const CHECKIN_INTERVAL_MS = 15 * 60 * 1000;
+  let checkinTimerId = null;
+  let checkinSubStop = null;
+  let lastCheckinAt = null;
+  let localCheckinAttempt = 0;
+  /* === END HU:HU-CHECKIN-15M === */
+  // === BEGIN HU:HU-CHECKIN-15M mapa init (NO TOCAR FUERA) ===
+  if (hasAlarma) {
+    try {
+      window.Alarma.initCustodia();
+      console.log("[task][HU-CHECKIN-15M] mapa init ok");
+    } catch (err) {
+      console.warn("[alarma] initCustodia mapa error", err);
+    }
+  }
+  // === END HU:HU-CHECKIN-15M ===
   const empresaActual = (
     sessionStorage.getItem("auth_empresa") || ""
   ).toUpperCase();
@@ -160,7 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const { data, error } = await window.sb
         .from("servicio")
         .select(
-          "id, empresa, placa, tipo, destino_lat, destino_lng, destino_texto, estado, cliente:cliente_id(nombre)"
+          "id, empresa, placa, tipo, destino_lat, destino_lng, destino_texto, estado, last_checkin_at, cliente:cliente_id(nombre)"
         )
         .eq("id", servicioId)
         .single();
@@ -173,6 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       servicioInfo = data;
+      lastCheckinAt = data.last_checkin_at
+        ? Date.parse(data.last_checkin_at)
+        : null;
+      localCheckinAttempt = 0;
       destino = null;
 
       if (
@@ -191,6 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       initMap();
       subscribeServicio();
+      initCheckinMonitoring();
     } catch (err) {
       console.error("[mapa] cargarServicio error", err);
       showMsg("No se pudo cargar el servicio");
@@ -381,6 +403,148 @@ document.addEventListener("DOMContentLoaded", () => {
     cleanupServicioChannel();
   }
 
+  /* === BEGIN HU:HU-CHECKIN-15M mapa fallback (NO TOCAR FUERA) === */
+  function initCheckinMonitoring(reason = "init") {
+    if (
+      !hasAlarma ||
+      typeof window.Alarma?.openCheckinPrompt !== "function" ||
+      servicioInfo?.estado === "FINALIZADO"
+    ) {
+      return;
+    }
+    if (!checkinSubStop && typeof window.Alarma?.subscribe === "function") {
+      try {
+        checkinSubStop = window.Alarma.subscribe(handleCheckinEvent);
+      } catch (err) {
+        console.warn("[session][checkin] no se pudo suscribir", err);
+      }
+    }
+    scheduleLocalCheckin(reason);
+  }
+
+  function handleCheckinEvent(evt) {
+    if (!evt) return;
+    const record = evt.record || evt.payload || {};
+    const evtServicioId =
+      record.servicio_id || record.servicioId || evt.servicio_id;
+    if (evtServicioId && String(evtServicioId) !== servicioId) return;
+    if (evt.type === "checkin_ok") {
+      lastCheckinAt = Date.now();
+      localCheckinAttempt = 0;
+      scheduleLocalCheckin("checkin_ok");
+      return;
+    }
+    if (evt.type === "checkin") {
+      const attempt =
+        Number(record.metadata?.attempt || record.metadata?.intento) || 1;
+      localCheckinAttempt = Math.max(localCheckinAttempt, attempt);
+      lastCheckinAt = Date.now();
+      scheduleLocalCheckin("push");
+    }
+  }
+
+  function scheduleLocalCheckin(reason) {
+    if (
+      !hasAlarma ||
+      typeof window.Alarma?.openCheckinPrompt !== "function" ||
+      servicioInfo?.estado === "FINALIZADO"
+    ) {
+      return;
+    }
+    clearLocalCheckinTimer("reschedule");
+    const delay = computeCheckinDelay();
+    if (delay <= 0) {
+      triggerLocalCheckin("timer");
+      return;
+    }
+    checkinTimerId = setTimeout(() => {
+      checkinTimerId = null;
+      triggerLocalCheckin("timer");
+    }, delay);
+    console.log("[session][checkin] temporizador activo", { reason, delay });
+  }
+
+  function computeCheckinDelay() {
+    if (!lastCheckinAt) return CHECKIN_INTERVAL_MS;
+    const elapsed = Date.now() - lastCheckinAt;
+    const remaining = CHECKIN_INTERVAL_MS - elapsed;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  function triggerLocalCheckin(source) {
+    if (
+      !hasAlarma ||
+      typeof window.Alarma?.openCheckinPrompt !== "function" ||
+      servicioInfo?.estado === "FINALIZADO"
+    ) {
+      return;
+    }
+    lastCheckinAt = Date.now();
+    if (document.body.classList.contains("alarma-checkin-open")) {
+      scheduleLocalCheckin("panel-open");
+      return;
+    }
+    const attempt = Math.min(localCheckinAttempt + 1, 3);
+    localCheckinAttempt = attempt;
+    const payload = buildLocalCheckinPayload(attempt);
+    try {
+      window.Alarma.openCheckinPrompt(payload);
+      console.log("[session][checkin] disparo local", { source, attempt });
+    } catch (err) {
+      console.warn("[session][checkin] no se pudo abrir modal", err);
+      scheduleLocalCheckin("retry");
+      return;
+    }
+    scheduleLocalCheckin("loop");
+  }
+
+  function buildLocalCheckinPayload(attempt) {
+    return {
+      servicio_id: servicioId,
+      empresa: servicioInfo?.empresa || empresaActual || "",
+      cliente: servicioInfo?.cliente?.nombre || custSession?.cliente || "",
+      placa:
+        servicioInfo?.placa ||
+        servicioInfo?.placa_upper ||
+        custSession?.placa ||
+        "S/N",
+      tipo: servicioInfo?.tipo || custSession?.tipo_custodia || "",
+      metadata: {
+        channel: "checkin-local",
+        attempt,
+      },
+    };
+  }
+
+  function clearLocalCheckinTimer(reason) {
+    if (!checkinTimerId) return;
+    clearTimeout(checkinTimerId);
+    checkinTimerId = null;
+    if (reason) {
+      console.log("[session][checkin] temporizador reset", { reason });
+    }
+  }
+
+  function cleanupCheckinMonitoring(reason = "cleanup") {
+    clearLocalCheckinTimer(reason);
+    if (checkinSubStop) {
+      try {
+        checkinSubStop();
+      } catch (_) {}
+      checkinSubStop = null;
+    }
+    try {
+      window.Alarma?.stopCheckinAudio?.(reason);
+      window.Alarma?.closeCheckinPrompt?.(reason);
+    } catch (err) {
+      console.warn("[session][checkin] cleanup error", err);
+    }
+    if (reason && reason.includes("finalizado")) {
+      console.log("[checkin] servicio finalizado", { reason });
+    }
+  }
+  /* === END HU:HU-CHECKIN-15M === */
+
   function handleServicioUpdate(row) {
     if (!row) return;
     servicioInfo = { ...(servicioInfo || {}), ...row };
@@ -391,6 +555,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (row.destino_texto && destinoTextoEl) {
       destinoTextoEl.textContent = row.destino_texto;
+    }
+    if (Object.prototype.hasOwnProperty.call(row, "last_checkin_at")) {
+      lastCheckinAt = row.last_checkin_at
+        ? Date.parse(row.last_checkin_at)
+        : null;
+      scheduleLocalCheckin("db-update");
+    }
+    if (row.estado === "FINALIZADO") {
+      cleanupCheckinMonitoring("servicio-finalizado");
     }
     if (row.finished_at) {
       if (row.finished_by_sc_id === servicioCustodioId) {
@@ -403,6 +576,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function showFinishModal(byCustodioId) {
     window.CustodiaSession?.clear?.();
+    cleanupCheckinMonitoring("finalizado-remoto");
     if (finishModal) return;
     let nombre = "otro custodio";
     if (byCustodioId) {
@@ -533,6 +707,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.CustodiaSession?.clear?.();
         showMsg("Servicio finalizado correctamente.");
         btnFinalizar.disabled = true;
+        cleanupCheckinMonitoring("finalizado-manual");
         setTimeout(() => {
           location.href = DASHBOARD_URL;
         }, REDIRECT_DELAY);
@@ -543,7 +718,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  window.addEventListener("beforeunload", cleanupChannels);
+  window.addEventListener("beforeunload", () => {
+    cleanupChannels();
+    cleanupCheckinMonitoring("unload");
+  });
   cargarServicio();
 });
 
