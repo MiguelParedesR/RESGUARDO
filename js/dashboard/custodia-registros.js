@@ -30,6 +30,55 @@
 
   const ui = {};
 
+  // === BEGIN HU:HU-SEGUIR-REDIRECT sesiones (NO TOCAR FUERA) ===
+  function persistCustodiaSession(payload, source = "seguir") {
+    console.assert(
+      payload?.servicio_id && payload?.servicio_custodio_id,
+      "[task][HU-SEGUIR-REDIRECT] payload inválido",
+      { source, payload }
+    );
+    if (
+      !payload ||
+      !payload.servicio_id ||
+      !payload.servicio_custodio_id ||
+      !window.localStorage
+    ) {
+      console.warn("[session] payload inválido", { source, payload });
+      return null;
+    }
+    try {
+      if (window.CustodiaSession?.save) {
+        const saved = window.CustodiaSession.save(payload);
+        console.log("[session] ready", { source, servicio: saved?.servicio_id });
+        return saved;
+      }
+    } catch (err) {
+      console.warn("[session] save error", err);
+    }
+    try {
+      const ttl =
+        window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000; /* 4h */
+      const fallback = { ...payload, exp_ts: Date.now() + ttl };
+      const key = window.CustodiaSession?.KEY || "custodia_session";
+      window.localStorage.setItem(key, JSON.stringify(fallback));
+      console.log("[session] fallback ready", { source, servicio: payload.servicio_id });
+      return fallback;
+    } catch (err) {
+      console.warn("[session] fallback error", err);
+      return null;
+    }
+  }
+  function redirectToMapa(servicioId, source = "seguir") {
+    try {
+      sessionStorage.setItem("servicio_id_actual", servicioId);
+    } catch {}
+    console.log("[task][HU-SEGUIR-REDIRECT] done", { source, servicioId });
+    setTimeout(() => {
+      location.href = "/html/dashboard/mapa-resguardo.html";
+    }, 200);
+  }
+  // === END HU:HU-SEGUIR-REDIRECT ===
+
   function init() {
     const role = (sessionStorage.getItem("auth_role") || "").toUpperCase();
     state.empresa = (
@@ -604,29 +653,23 @@
     return li;
   }
 
+  // === BEGIN HU:HU-SEGUIR-REDIRECT seguir (NO TOCAR FUERA) ===
   function seguirCustodia(row, custodio) {
-    if (!window.CustodiaSession?.save) {
-      showMessage("No se pudo preparar la sesion.");
-      return;
-    }
     const payload = {
       servicio_id: row.svc.id,
       servicio_custodio_id: custodio.id,
       nombre_custodio: custodio.nombre_custodio || "",
       tipo_custodia: custodio.tipo_custodia || "",
     };
-    const saved = window.CustodiaSession.save(payload);
+    const saved = persistCustodiaSession(payload, "seguir");
     if (!saved) {
-      showMessage("No se pudo guardar la sesion local.");
+      showMessage("No se pudo preparar la sesion local.");
       return;
     }
-    console.log("[session] seguir", payload);
-    sessionStorage.setItem("servicio_id_actual", row.svc.id);
-    showMessage("Sesion reanudada. Abriendo mapa...");
-    setTimeout(() => {
-      location.href = "/html/dashboard/mapa-resguardo.html";
-    }, 300);
+    showMessage("Sesion preparada. Abriendo mapa...");
+    redirectToMapa(row.svc.id, "seguir");
   }
+  // === END HU:HU-SEGUIR-REDIRECT ===
 
   function buildMissingSlots(slotSummary, custodios) {
     if (!slotSummary) return [];

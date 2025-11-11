@@ -3,13 +3,32 @@
 // La pagina debe tener: <div id="map-track"></div>, <span id="distancia-label"></span>, <button id="btn-finalizar"></button>
 
 document.addEventListener("DOMContentLoaded", () => {
+  const SEND_EVERY_MS = 30_000;
+  const ARRIVE_M = 50;
+  const REDIRECT_DELAY = 2000;
+  const DASHBOARD_URL = "/html/dashboard/custodia-registros.html";
+
+  const showMsg = (message) => {
+    const snackbar = document.getElementById("app-snackbar");
+    try {
+      if (snackbar && snackbar.MaterialSnackbar) {
+        snackbar.MaterialSnackbar.showSnackbar({ message });
+      } else {
+        alert(message);
+      }
+    } catch {
+      alert(message);
+    }
+  };
+
   const servicioId = sessionStorage.getItem("servicio_id_actual");
   if (!servicioId) {
-    console.warn("[mapa] servicio_id_actual no encontrado en sessionStorage");
+    showMsg("Ingresa desde Mis servicios y usa SEGUIR para abrir el mapa.");
+    location.replace(DASHBOARD_URL);
     return;
   }
   if (!window.sb) {
-    console.warn("[mapa] Supabase no inicializado (config.js)");
+    showMsg("Supabase no inicializado");
     return;
   }
 
@@ -21,18 +40,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   if (!custSession || custSession.servicio_id !== servicioId) {
-    alert(
-      "Necesitas seleccionar un custodio usando la opcion SEGUIR antes de abrir el seguimiento."
-    );
-    location.replace("/html/dashboard/custodia-registros.html");
+    showMsg("La sesion caduco. Vuelve a SEGUIR el servicio para continuar.");
+    location.replace(DASHBOARD_URL);
     return;
   }
   const servicioCustodioId = custSession.servicio_custodio_id;
   if (!servicioCustodioId) {
-    alert(
-      "No se detecto custodio asignado al servicio. Vuelve a seleccionar SEGUIR antes de continuar."
-    );
-    location.replace("/html/dashboard/custodia-registros.html");
+    showMsg("Selecciona SEGUIR para asignar un custodio antes de continuar.");
+    location.replace(DASHBOARD_URL);
     return;
   }
   const custodioNombre = custSession.nombre_custodio || "Custodia";
@@ -124,24 +139,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
-
-  const SEND_EVERY_MS = 30_000;
-  const ARRIVE_M = 50;
-  const REDIRECT_DELAY = 2000;
-  const DASHBOARD_URL = "/html/dashboard/custodia-registros.html";
-
-  const showMsg = (message) => {
-    const snackbar = document.getElementById("app-snackbar");
-    try {
-      if (snackbar && snackbar.MaterialSnackbar) {
-        snackbar.MaterialSnackbar.showSnackbar({ message });
-      } else {
-        alert(message);
-      }
-    } catch {
-      alert(message);
-    }
-  };
 
   function distanciaM(lat1, lng1, lat2, lng2) {
     const R = 6371000; // metros

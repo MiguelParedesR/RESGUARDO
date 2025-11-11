@@ -89,6 +89,62 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeCustodios = []; // custodios del servicio activo
   let forceNew = false; // si el usuario elige "Nuevo"
 
+  // === BEGIN HU:HU-SEGUIR-REDIRECT sesiones (NO TOCAR FUERA) ===
+  function primeCustodiaSession(payload, source = "registro") {
+    console.assert(
+      payload?.servicio_id && payload?.servicio_custodio_id,
+      "[task][HU-SEGUIR-REDIRECT] payload inválido",
+      { source, payload }
+    );
+    if (
+      !payload ||
+      !payload.servicio_id ||
+      !payload.servicio_custodio_id ||
+      !window.localStorage
+    ) {
+      console.warn("[session] payload inválido", { source, payload });
+      return null;
+    }
+    try {
+      if (window.CustodiaSession?.save) {
+        const saved = window.CustodiaSession.save(payload);
+        console.log("[session] ready", {
+          source,
+          servicio: saved?.servicio_id,
+          custodio: saved?.servicio_custodio_id,
+        });
+        return saved;
+      }
+    } catch (err) {
+      console.warn("[session] save error", err);
+    }
+    try {
+      const ttl =
+        window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000 /* 4h */;
+      const fallback = { ...payload, exp_ts: Date.now() + ttl };
+      const key = window.CustodiaSession?.KEY || "custodia_session";
+      window.localStorage.setItem(key, JSON.stringify(fallback));
+      console.log("[session] fallback ready", {
+        source,
+        servicio: payload.servicio_id,
+      });
+      return fallback;
+    } catch (err) {
+      console.warn("[session] fallback error", err);
+      return null;
+    }
+  }
+  function redirectMapa(servicioId, source = "registro") {
+    try {
+      sessionStorage.setItem("servicio_id_actual", servicioId);
+    } catch {}
+    console.log("[task][HU-SEGUIR-REDIRECT] done", { source, servicioId });
+    setTimeout(() => {
+      location.href = "/html/dashboard/mapa-resguardo.html";
+    }, 200);
+  }
+  // === END HU:HU-SEGUIR-REDIRECT ===
+
   // Geo temprana
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
@@ -643,6 +699,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const placa = (placaEl.value || "").toUpperCase().replace(/\s+/g, "");
       const destinoTexto = (destinoEl.value || "").trim();
       const bloques = bloquesCompletos();
+      const primaryBloque = bloques[0] || null;
+      const primaryKind = primaryBloque?.kind || null;
+      const primaryNombre = (primaryBloque?.nameInput.value || "").trim();
       if (!cliente) return showMsg("Ingresa el cliente");
       if (!placa || !isPlacaOk(placa))
         return showMsg("Ingresa la placa (A-Z, 0-9, -)");
@@ -682,13 +741,18 @@ document.addEventListener("DOMContentLoaded", () => {
               id: inc.id,
               nombre: b.nameInput.value.trim(),
               selfie: b.selfieDataUrl,
+              kind: k,
+              tipo_custodia: inc.tipo_custodia || mapKindToTipo(k),
             });
           } else if (!completeKinds.has(k)) {
+            const tipo_custodia = mapKindToTipo(k);
             actions.push({
               mode: "create",
               k,
               nombre: b.nameInput.value.trim(),
               selfie: b.selfieDataUrl,
+              kind: k,
+              tipo_custodia,
             });
           }
         }
@@ -704,6 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           return;
         }
+        let followSessionPayload = null;
         for (const a of actions) {
           if (a.mode === "update") {
             const { error: e1 } = await window.sb
@@ -718,8 +783,21 @@ document.addEventListener("DOMContentLoaded", () => {
               p_base64: base64,
             });
             if (e2) throw e2;
+            if (
+              !followSessionPayload &&
+              (!primaryKind ||
+                a.kind === primaryKind ||
+                (primaryNombre && a.nombre === primaryNombre))
+            ) {
+              followSessionPayload = {
+                servicio_id: existing.id,
+                servicio_custodio_id: a.id,
+                nombre_custodio: a.nombre,
+                tipo_custodia: a.tipo_custodia || mapKindToTipo(a.kind),
+              };
+            }
           } else {
-            const tipo_custodia = mapKindToTipo(a.k);
+            const tipo_custodia = a.tipo_custodia || mapKindToTipo(a.kind);
             const { data: cId, error: e3 } = await window.sb.rpc(
               "agregar_custodio",
               {
@@ -736,11 +814,26 @@ document.addEventListener("DOMContentLoaded", () => {
               p_base64: base64,
             });
             if (e4) throw e4;
+            if (
+              !followSessionPayload &&
+              (!primaryKind ||
+                a.kind === primaryKind ||
+                (primaryNombre && a.nombre === primaryNombre))
+            ) {
+              followSessionPayload = {
+                servicio_id: existing.id,
+                servicio_custodio_id: cId,
+                nombre_custodio: a.nombre,
+                tipo_custodia,
+              };
+            }
           }
         }
         showMsg("Registro de custodio completado ?");
-        sessionStorage.setItem("servicio_id_actual", existing.id);
-        location.href = "/html/dashboard/mapa-resguardo.html";
+        if (followSessionPayload) {
+          primeCustodiaSession(followSessionPayload, "registro-merge");
+        }
+        redirectMapa(existing.id, "registro-merge");
         return;
       }
 
@@ -762,6 +855,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return showMsg("Error al crear servicio");
       }
       if (!servicio_id) return showMsg("No se recibio ID de servicio");
+      let followSessionPayload = null;
       for (const b of bloques) {
         const tipo_custodia = tipoForKind(b.kind);
         const { data: cId, error: errC } = await window.sb.rpc(
@@ -786,6 +880,17 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error(errS);
           return showMsg("Error al guardar selfie");
         }
+        if (
+          !followSessionPayload &&
+          (!primaryBloque || b === primaryBloque)
+        ) {
+          followSessionPayload = {
+            servicio_id,
+            servicio_custodio_id: cId,
+            nombre_custodio: b.nameInput.value.trim(),
+            tipo_custodia,
+          };
+        }
       }
       await emitirInicioServicio(servicio_id, {
         cliente,
@@ -794,8 +899,10 @@ document.addEventListener("DOMContentLoaded", () => {
         destino: destinoTexto,
       });
       showMsg("Servicio registrado en Supabase ?");
-      sessionStorage.setItem("servicio_id_actual", servicio_id);
-      location.href = "/html/dashboard/mapa-resguardo.html";
+      if (followSessionPayload) {
+        primeCustodiaSession(followSessionPayload, "registro-nuevo");
+      }
+      redirectMapa(servicio_id, "registro-nuevo");
     } catch (err) {
       console.error(err);
       showMsg("Error en el registro");
@@ -859,6 +966,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!isCompleto(c)) incompleteMap.set(k, c);
       }
       const bloques = bloquesCompletos();
+      const primaryBloque = bloques[0] || null;
+      const primaryKind = primaryBloque?.kind || null;
+      const primaryNombre = (primaryBloque?.nameInput.value || "").trim();
       const actions = [];
       for (const b of bloques) {
         const k = b.kind;
@@ -870,6 +980,8 @@ document.addEventListener("DOMContentLoaded", () => {
             id: inc.id,
             nombre: b.nameInput.value.trim(),
             selfie: b.selfieDataUrl,
+            kind: k,
+            tipo_custodia: inc.tipo_custodia || tipoForKind(k),
           });
         else if (!completeKinds.has(k))
           actions.push({
@@ -877,8 +989,11 @@ document.addEventListener("DOMContentLoaded", () => {
             k,
             nombre: b.nameInput.value.trim(),
             selfie: b.selfieDataUrl,
+            kind: k,
+            tipo_custodia: tipoForKind(k),
           });
       }
+      let followSessionPayload = null;
       for (const a of actions) {
         if (a.mode === "update") {
           const { error: e1 } = await window.sb
@@ -893,8 +1008,21 @@ document.addEventListener("DOMContentLoaded", () => {
             p_base64: base64,
           });
           if (e2) throw e2;
+          if (
+            !followSessionPayload &&
+            (!primaryKind ||
+              a.kind === primaryKind ||
+              (primaryNombre && a.nombre === primaryNombre))
+          ) {
+            followSessionPayload = {
+              servicio_id: activeSvc.id,
+              servicio_custodio_id: a.id,
+              nombre_custodio: a.nombre,
+              tipo_custodia: a.tipo_custodia,
+            };
+          }
         } else {
-          const tipo_custodia = tipoForKind(a.k);
+          const tipo_custodia = a.tipo_custodia || tipoForKind(a.kind);
           const { data: cId, error: e3 } = await window.sb.rpc(
             "agregar_custodio",
             {
@@ -911,11 +1039,26 @@ document.addEventListener("DOMContentLoaded", () => {
             p_base64: base64,
           });
           if (e4) throw e4;
+          if (
+            !followSessionPayload &&
+            (!primaryKind ||
+              a.kind === primaryKind ||
+              (primaryNombre && a.nombre === primaryNombre))
+          ) {
+            followSessionPayload = {
+              servicio_id: activeSvc.id,
+              servicio_custodio_id: cId,
+              nombre_custodio: a.nombre,
+              tipo_custodia,
+            };
+          }
         }
       }
       showMsg("Registro completado ?");
-      sessionStorage.setItem("servicio_id_actual", activeSvc.id);
-      location.href = "/html/dashboard/mapa-resguardo.html";
+      if (followSessionPayload) {
+        primeCustodiaSession(followSessionPayload, "registro-modal");
+      }
+      redirectMapa(activeSvc.id, "registro-modal");
     } catch (e) {
       console.error(e);
       showMsg("Error al completar");
