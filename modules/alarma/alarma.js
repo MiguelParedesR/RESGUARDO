@@ -1892,14 +1892,14 @@
     if (typeof global.speechSynthesis === "undefined") return;
     const phrase =
       panel?.dataset?.cliente && panel.dataset.cliente !== "-"
-        ? `REPORTESE ${panel.dataset.cliente}`
-        : "REPORTESE";
+        ? `Repórtese ahora, ${panel.dataset.cliente}. Indique su ubicación.`
+        : "Repórtese ahora. Indique su ubicación.";
     const speak = () => {
       try {
         const utter = new SpeechSynthesisUtterance(phrase);
         utter.lang = "es-PE";
-        utter.pitch = 1;
-        utter.rate = 0.85;
+        utter.pitch = 1.15;
+        utter.rate = 0.95;
         global.speechSynthesis.speak(utter);
       } catch (err) {
         warn("No se pudo reproducir audio de checkin", err);
@@ -2489,6 +2489,9 @@
     /* === BEGIN HU:HU-AUDIO-GESTO api permissions (no tocar fuera) === */
     getPermissions() {
       return { ...state.permissions };
+    },
+    isPanicActive() {
+      return Boolean(state.admin?.currentPanicKey && state.siren?.sismateActive);
     },
     /* === END HU:HU-AUDIO-GESTO === */
   };

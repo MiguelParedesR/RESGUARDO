@@ -995,7 +995,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const flags = servicioId ? serviceFlags.get(String(servicioId)) : null;
     if (!flags) return "";
     const badges = [];
-    if (flags.panic) badges.push('<span class="alarma-badge">PANICO</span>');
+    if (flags.panic) {
+      badges.push(
+        `<span class="alarma-badge js-panic-reopen" role="button" tabindex="0" data-sid="${servicioId}">PANICO</span>`
+      );
+    }
     if (flags.checkinPending) {
       badges.push(
         '<span class="alarma-badge alarma-badge--warn">CHECK-IN PENDIENTE</span>'
@@ -1072,6 +1076,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }>Finalizar</button>
         </div>`;
       card.addEventListener("click", async (e) => {
+        const reopen = e.target.closest(".js-panic-reopen");
+        if (reopen) {
+          e.stopPropagation();
+          reopenActivePanic(reopen.dataset.sid || s.id);
+          return;
+        }
         const btn = e.target.closest("button[data-act]");
         if (!btn) {
           selectService(s);
@@ -1422,6 +1432,30 @@ document.addEventListener("DOMContentLoaded", () => {
       window.Alarma?.closeModal?.();
       console.log("[panic] modal:close");
     } catch (_) {}
+  }
+
+  function reopenActivePanic(servicioId) {
+    if (
+      !window.Alarma?.isPanicActive ||
+      !window.Alarma.isPanicActive() ||
+      !lastPanicRecord
+    ) {
+      return;
+    }
+    if (
+      servicioId &&
+      String(lastPanicRecord.servicio_id || "") !== String(servicioId || "")
+    ) {
+      return;
+    }
+    try {
+      window.Alarma.modalPanic?.(lastPanicRecord);
+      console.log("[panic] modal:reopen", {
+        servicio_id: lastPanicRecord?.servicio_id || null,
+      });
+    } catch (err) {
+      console.warn("[panic] modal reopen error", err);
+    }
   }
 
   function focusPanicOnMap(record, options = {}) {

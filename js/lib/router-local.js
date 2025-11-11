@@ -13,6 +13,8 @@
     osrmBase: OSRM_LOCAL,
     ghBase: "http://127.0.0.1:8989",
   };
+  const allowLocalRouting =
+    typeof window !== "undefined" && window.APP_CONFIG?.OSRM_LOCAL === true;
   let localFailStreak = 0;
 
   // === BEGIN HU:HU-ROUTER-LOCAL-FALLBACK bootstrap (NO TOCAR FUERA) ===
@@ -128,7 +130,7 @@
     }
     const coordsSegment = `${from[1]},${from[0]};${to[1]},${to[0]}`;
     const path = `/route/v1/driving/${coordsSegment}?overview=full&geometries=geojson`;
-    const skipLocal = shouldSkipLocal();
+    const skipLocal = !allowLocalRouting || shouldSkipLocal();
     if (!skipLocal) {
       try {
         const base = cfg.osrmBase || OSRM_LOCAL;
