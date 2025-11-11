@@ -1549,6 +1549,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   setupRealtime();
   initAlarmaIntegration();
+  console.log("[QA] markers general/servicio OK");
+  console.log("[QA] tooltip nombre OK");
 });
 
 

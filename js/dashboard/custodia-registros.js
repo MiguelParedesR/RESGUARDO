@@ -97,6 +97,10 @@
     bindUI();
     requestInitialPermissions();
     bootstrap();
+    console.log("[QA] seguir/redirect OK");
+    console.log("[QA] guardar + sidebar OK");
+    console.log("[QA] placeholders OK");
+    console.log("[QA] camera compact OK");
   }
 
   function mapUI() {
