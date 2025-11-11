@@ -89,6 +89,33 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeCustodios = []; // custodios del servicio activo
   let forceNew = false; // si el usuario elige "Nuevo"
 
+  // === BEGIN HU:HU-PLACEHOLDER-CONSISTENCIA (NO TOCAR FUERA) ===
+  const placeholderWatcher = (event) => {
+    const target = event.target;
+    if (!target?.classList?.contains("mdl-textfield__input")) return;
+    togglePlaceholderState(target);
+  };
+  document.addEventListener("input", placeholderWatcher, true);
+  document.addEventListener("change", placeholderWatcher, true);
+  function togglePlaceholderState(inputEl) {
+    if (!inputEl) return;
+    const hasValue = Boolean(String(inputEl.value || "").trim());
+    inputEl.classList.toggle("has-value", hasValue);
+    const wrapper = inputEl.closest(".mdl-textfield");
+    if (!wrapper) return;
+    wrapper.classList.toggle("is-dirty", hasValue);
+  }
+  function primePlaceholderState() {
+    document
+      .querySelectorAll(".mdl-textfield__input")
+      .forEach((el) => togglePlaceholderState(el));
+  }
+  primePlaceholderState();
+  console.log("[task][HU-PLACEHOLDER-CONSISTENCIA] done", {
+    scope: "dashboard-custodia",
+  });
+  // === END HU:HU-PLACEHOLDER-CONSISTENCIA ===
+
   // === BEGIN HU:HU-SEGUIR-REDIRECT sesiones (NO TOCAR FUERA) ===
   function primeCustodiaSession(payload, source = "registro") {
     console.assert(
@@ -168,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Normalizacion placa
   placaEl.addEventListener("input", () => {
     placaEl.value = placaEl.value.toUpperCase().replace(/\s+/g, "");
+    togglePlaceholderState(placaEl);
   });
   placaEl.addEventListener("blur", async () => {
     try {
@@ -413,6 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function selectSuggestion(li) {
     destinoEl.value = li.textContent;
+    togglePlaceholderState(destinoEl);
     destinoCoords = {
       lat: parseFloat(li.dataset.lat),
       lng: parseFloat(li.dataset.lng),
@@ -567,11 +596,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       const label = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       destinoEl.value = label;
+      togglePlaceholderState(destinoEl);
       direccionEstado.textContent = "Direccion establecida desde el mapa.";
       direccionEstado.style.color = "#2e7d32";
     } catch (e) {
       console.error(e);
       destinoEl.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      togglePlaceholderState(destinoEl);
       direccionEstado.textContent =
         "No se pudo obtener direccion, se usara coordenada.";
       direccionEstado.style.color = "#ff6f00";
@@ -587,6 +618,7 @@ document.addEventListener("DOMContentLoaded", () => {
       map.setView([lat, lng], 16);
       setMarker({ lat, lng });
       destinoEl.value = items[0].display_name || q;
+      togglePlaceholderState(destinoEl);
       destinoCoords = { lat, lng };
       direccionEstado.textContent =
         "Direccion establecida desde bUsqueda en mapa.";

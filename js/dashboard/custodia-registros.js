@@ -162,8 +162,14 @@
     ui.selfieModalRetry?.addEventListener("click", resetSelfieCapture);
     ui.selfieModalAccept?.addEventListener("click", confirmSelfieSelection);
 
-    ui.nombreCustodio?.addEventListener("input", updateGuardarState);
-    ui.tipoCustodio?.addEventListener("change", updateGuardarState);
+    ui.nombreCustodio?.addEventListener("input", (event) => {
+      syncTextfield(event.target);
+      updateGuardarState();
+    });
+    ui.tipoCustodio?.addEventListener("change", (event) => {
+      syncTextfield(event.target);
+      updateGuardarState();
+    });
 
     if (ui.form) {
       ui.form.addEventListener("submit", onSubmitForm);
@@ -172,6 +178,9 @@
     window.addEventListener("beforeunload", () => {
       cleanupRealtime();
       resetSelfieState();
+    });
+    console.log("[task][HU-PLACEHOLDER-CONSISTENCIA] done", {
+      scope: "custodia-registros",
     });
   }
 
@@ -783,15 +792,18 @@
     updateSelfieStateFromCustodio(custodio);
   }
 
+  // === BEGIN HU:HU-PLACEHOLDER-CONSISTENCIA helpers (NO TOCAR FUERA) ===
   function syncTextfield(inputEl) {
     if (!inputEl) return;
     const wrapper = inputEl.closest(".mdl-textfield");
     if (!wrapper) return;
-    if (inputEl.value && String(inputEl.value).trim()) {
+    const hasValue = Boolean(String(inputEl.value || "").trim());
+    if (hasValue) {
       wrapper.classList.add("is-dirty");
     } else {
       wrapper.classList.remove("is-dirty");
     }
+    inputEl.classList.toggle("has-value", hasValue);
     if (
       window.componentHandler &&
       wrapper.classList.contains("mdl-js-textfield")
@@ -801,6 +813,7 @@
       } catch (_) {}
     }
   }
+  // === END HU:HU-PLACEHOLDER-CONSISTENCIA ===
 
   function openDrawer() {
     if (!ui.drawer) return;

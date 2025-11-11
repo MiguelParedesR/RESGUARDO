@@ -16,6 +16,19 @@ body {
   color: var(--txt);
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: rgba(90, 107, 138, 0.8);
+  transition: opacity 0.2s ease;
+}
+
+input.has-value::placeholder,
+textarea.has-value::placeholder,
+input:focus::placeholder,
+textarea:focus::placeholder {
+  opacity: 0;
+}
+
 .page--custodia {
   padding: 24px 16px 40px;
   max-width: 1200px;
