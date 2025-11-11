@@ -53,7 +53,7 @@
           </button>
           <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
           <div class="metrics">
-            <span><strong>Distancia:</strong> <span id="distancia-label">â€“</span></span>
+            <span><strong>Distancia:</strong> <span id="distancia-label">--</span></span>
           </div>
         </div>
 
@@ -73,7 +73,7 @@
           <div class="map-wrap with-sidebar">
             <div id="map-track"></div>
             <div class="panel show">
-              <p><strong>Destino:</strong> <span id="destino-texto">Cargandoâ€¦</span></p>
+              <p><strong>Destino:</strong> <span id="destino-texto">Cargando..</span></p>
               <p><strong>Estado:</strong> <span id="estado-texto">EN CURSO</span></p>
             </div>
           </div>
@@ -153,6 +153,32 @@
         else wrapper.classList.remove('is-dirty');
         if (window.componentHandler && wrapper.classList.contains('mdl-js-textfield')) {
           try { componentHandler.upgradeElement(wrapper); } catch { }
+        }
+      }
+      document.addEventListener('input', (event) => {
+        if (event.target?.classList?.contains('mdl-textfield__input')) {
+          syncTextfield(event.target);
+        }
+      }, true);
+      document.addEventListener('change', (event) => {
+        if (event.target?.classList?.contains('mdl-textfield__input')) {
+          syncTextfield(event.target);
+        }
+      }, true);
+      function openCustodiosSidebar() {
+        if (!sidebarEl) return;
+        sidebarEl.classList.add('is-open');
+        if (overlayEl) {
+          overlayEl.removeAttribute('hidden');
+          overlayEl.classList.add('show');
+        }
+      }
+      function closeCustodiosSidebar() {
+        if (!sidebarEl) return;
+        sidebarEl.classList.remove('is-open');
+        if (overlayEl) {
+          overlayEl.classList.remove('show');
+          overlayEl.setAttribute('hidden', 'hidden');
         }
       }
       // Agregar custodio
@@ -290,8 +316,19 @@
         amSave.addEventListener('click', saveAndClose);
         amCancel.addEventListener('click', cleanup);
       }      // Botones: sidebar y movil
+      const sidebarEl = document.getElementById('custodios-sidebar');
+      const overlayEl = document.getElementById('custodios-overlay');
+      const mobileBtn = document.getElementById('btn-custodias-mobile');
+      const closeBtn = document.getElementById('custodios-close');
       try { document.getElementById('custodios-add')?.addEventListener('click', openAdd); } catch { }
-      try { document.getElementById('btn-custodias-mobile')?.addEventListener('click', openAdd); } catch { }
+      try {
+        mobileBtn?.addEventListener('click', openCustodiosSidebar);
+        closeBtn?.addEventListener('click', closeCustodiosSidebar);
+        overlayEl?.addEventListener('click', closeCustodiosSidebar);
+        window.addEventListener('resize', () => {
+          if (window.innerWidth >= 980) closeCustodiosSidebar();
+        });
+      } catch { }
       function openEdit(c) {
         selfieDataUrl = null;
         const modal = document.createElement('div'); modal.className = 'edit-modal';

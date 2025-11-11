@@ -371,7 +371,23 @@ textarea:focus::placeholder {
 }
 
 .selfie-btn {
-  min-width: 180px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1px solid #dae0ef;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 37, 68, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.selfie-btn .material-icons {
+  font-size: 20px;
+  color: #3949ab;
 }
 
 .selfie-preview {
@@ -509,7 +525,18 @@ textarea:focus::placeholder {
 }
 
 .selfie-modal__capture {
-  min-width: 180px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.selfie-modal__capture .material-icons {
+  font-size: 20px;
+}
+.selfie-modal__capture-label {
+  font-weight: 600;
 }
 
 .actions {
