@@ -938,10 +938,12 @@ document.addEventListener("DOMContentLoaded", () => {
       bounds.push([ping.lat, ping.lng]);
       const label = scoped
         ? item.nombre
-        : ${item.nombre} -  - ;
+        : `${item.nombre} - ${item.cliente} - ${item.placa}`;
       const popup = scoped
-        ? <strong></strong>
-        : <strong></strong><br> - ;
+        ? `<strong>${h(item.nombre)}</strong>`
+        : `<strong>${h(item.nombre)}</strong><br>${h(item.cliente)} - ${h(
+            item.placa
+          )}`;
       const targetLayer = overviewLayer;
       let marker = markers.get(item.servicio_custodio_id);
       if (!marker) {
