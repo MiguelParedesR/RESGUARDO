@@ -57,6 +57,19 @@ document.addEventListener("DOMContentLoaded", () => {
       window.CustodiaSession?.touch();
     } catch {}
   };
+  const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+  let sessionTouchTimer = null;
+  const startSessionTouchLoop = () => {
+    extendSession();
+    if (sessionTouchTimer) clearInterval(sessionTouchTimer);
+    sessionTouchTimer = setInterval(extendSession, SESSION_TOUCH_INTERVAL_MS);
+  };
+  startSessionTouchLoop();
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      extendSession();
+    }
+  });
 
   // === BEGIN HU:HU-FIX-PGRST203 registrar-ubicacion (NO TOCAR FUERA) ===
   const buildRegistrarUbicacionPayload = ({
@@ -572,22 +585,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // === END HU:HU-RUTA-TRAZADO ===
 
   /* === BEGIN HU:HU-CHECKIN-15M mapa fallback (NO TOCAR FUERA) === */
-  function initCheckinMonitoring(reason = "init") {
+  function whenCheckinApiReady(cb, attempt = 0) {
     if (
-      !hasAlarma ||
-      typeof window.Alarma?.openCheckinPrompt !== "function" ||
-      servicioInfo?.estado === "FINALIZADO"
+      typeof window.Alarma?.openCheckinPrompt === "function" &&
+      typeof window.Alarma?.subscribe === "function"
     ) {
+      cb();
       return;
     }
-    if (!checkinSubStop && typeof window.Alarma?.subscribe === "function") {
-      try {
-        checkinSubStop = window.Alarma.subscribe(handleCheckinEvent);
-      } catch (err) {
-        console.warn("[session][checkin] no se pudo suscribir", err);
+    if (attempt > 20) return;
+    setTimeout(() => whenCheckinApiReady(cb, attempt + 1), 1000);
+  }
+
+  function initCheckinMonitoring(reason = "init") {
+    whenCheckinApiReady(() => {
+      if (servicioInfo?.estado === "FINALIZADO") return;
+      if (!checkinSubStop) {
+        try {
+          checkinSubStop = window.Alarma.subscribe(handleCheckinEvent);
+        } catch (err) {
+          console.warn("[session][checkin] no se pudo suscribir", err);
+        }
       }
-    }
-    scheduleLocalCheckin(reason);
+      scheduleLocalCheckin(reason);
+    });
   }
 
   function handleCheckinEvent(evt) {
@@ -640,11 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function triggerLocalCheckin(source) {
-    if (
-      !hasAlarma ||
-      typeof window.Alarma?.openCheckinPrompt !== "function" ||
-      servicioInfo?.estado === "FINALIZADO"
-    ) {
+    if (servicioInfo?.estado === "FINALIZADO") {
       return;
     }
     lastCheckinAt = Date.now();
@@ -655,15 +672,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const attempt = Math.min(localCheckinAttempt + 1, 3);
     localCheckinAttempt = attempt;
     const payload = buildLocalCheckinPayload(attempt);
-    try {
-      window.Alarma.openCheckinPrompt(payload);
-      console.log("[session][checkin] disparo local", { source, attempt });
-    } catch (err) {
-      console.warn("[session][checkin] no se pudo abrir modal", err);
-      scheduleLocalCheckin("retry");
-      return;
-    }
-    scheduleLocalCheckin("loop");
+    whenCheckinApiReady(() => {
+      try {
+        window.Alarma.openCheckinPrompt(payload);
+        console.log("[session][checkin] disparo local", { source, attempt });
+        scheduleLocalCheckin("loop");
+      } catch (err) {
+        console.warn("[session][checkin] no se pudo abrir modal", err);
+        scheduleLocalCheckin("retry");
+      }
+    });
   }
 
   function buildLocalCheckinPayload(attempt) {
@@ -917,6 +935,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("beforeunload", () => {
     cleanupChannels();
     cleanupCheckinMonitoring("unload");
+    if (sessionTouchTimer) {
+      clearInterval(sessionTouchTimer);
+      sessionTouchTimer = null;
+    }
   });
   cargarServicio();
 });

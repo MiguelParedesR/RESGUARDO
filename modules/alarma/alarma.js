@@ -136,7 +136,6 @@
   const EVENT_TYPE_MAP = {
     start: "start",
     panic: "panic",
-    panic_ack: "panic_ack",
     heartbeat: "heartbeat",
     finalize: "finalize",
     checkin_ok: "checkin_ok",
@@ -288,6 +287,15 @@
     }
     delete next.timestamp;
     delete next.rol_source;
+    if (next.type === "panic_ack") {
+      if (!next.metadata || typeof next.metadata !== "object") {
+        next.metadata = {};
+      }
+      if (!next.metadata.channel) next.metadata.channel = "panic";
+      if (!next.metadata.origin) next.metadata.origin = "admin-local-ack";
+      if (!next.metadata.estado) next.metadata.estado = "ALERTA_ACTIVADA";
+      next.type = "panic";
+    }
     return next;
   }
 
@@ -417,13 +425,26 @@
       }
       try {
         const insertPayload = buildDbInsertPayload(record);
-        const { error: err } = await client
+        const { error: err, status } = await client
           .from("alarm_event")
           .insert(insertPayload);
-        if (err) throw err;
+        if (err) {
+          err.status = err.status ?? status ?? null;
+          throw err;
+        }
       } catch (err) {
         warn("No se pudo reenviar registro en cola", err);
-        remaining.push(normalizeRecord(item));
+        const message = String(err?.message || "").toLowerCase();
+        const code = String(err?.code || "");
+        const status = Number(err?.status || 0);
+        const retryable =
+          message.includes("fetch") ||
+          message.includes("network") ||
+          status === 0 ||
+          (!code && !status);
+        if (retryable) {
+          remaining.push(normalizeRecord(item));
+        }
       }
     }
     state.queue = remaining;
@@ -542,7 +563,25 @@
   }
 
   async function emit(type, payload) {
-    const sanitized = sanitizePayload(type, payload);
+    let normalizedType = type;
+    let normalizedPayload = payload || {};
+    if (normalizedType === "panic_ack" || normalizedPayload?.type === "panic_ack") {
+      normalizedType = "panic";
+      const meta =
+        (normalizedPayload && normalizedPayload.metadata) &&
+        typeof normalizedPayload.metadata === "object"
+          ? { ...normalizedPayload.metadata }
+          : {};
+      if (!meta.channel) meta.channel = "panic";
+      if (!meta.origin) meta.origin = "admin-local-ack";
+      if (!meta.estado) meta.estado = "ALERTA_ACTIVADA";
+      normalizedPayload = {
+        ...(normalizedPayload || {}),
+        type: "panic",
+        metadata: meta,
+      };
+    }
+    const sanitized = sanitizePayload(normalizedType, normalizedPayload);
     const record = normalizeRecord(createEventRecord(sanitized));
     const missing = validateRequired(record);
     if (missing.length) {
@@ -1317,6 +1356,7 @@
         mergedMetadata.servicio_custodio_id ||
         mergedMetadata.servicioCustodioId ||
         null,
+      type: "panic",
       metadata: {
         ...mergedMetadata,
         channel: "panic",
@@ -1325,7 +1365,7 @@
       },
     };
     try {
-      await emit("panic_ack", payload);
+      await emit("panic", payload);
       console.log("[panic] ack sent", {
         servicio_id: payload.servicio_id,
         cliente: payload.cliente,
@@ -1955,6 +1995,107 @@
     const hint = panel.querySelector(".alarma-checkin__hint");
     if (!hint) return;
     hint.hidden = !show;
+  }
+
+  function loadCustodiaSessionSnapshot() {
+    try {
+      return global.CustodiaSession?.load?.() || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function populateCheckinPanel(panel, payload) {
+    if (!panel) return;
+    const session = loadCustodiaSessionSnapshot();
+    const source =
+      (payload &&
+        (payload.record || payload.event || payload.payload)) ||
+      payload ||
+      {};
+    const metaSources = [
+      source.metadata,
+      payload?.metadata,
+      payload?.event?.metadata,
+      payload?.payload?.metadata,
+    ].filter((meta) => meta && typeof meta === "object");
+    const metadata = metaSources.length
+      ? Object.assign({}, ...metaSources)
+      : {};
+    const servicioId =
+      getServicioIdFromPayload(payload) ||
+      source.servicio_id ||
+      source.servicioId ||
+      metadata.servicio_id ||
+      metadata.servicioId ||
+      session?.servicio_id ||
+      session?.servicioId ||
+      "";
+    const empresa =
+      clip(
+        source.empresa ||
+          metadata.empresa ||
+          session?.empresa ||
+          session?.empresa_cliente ||
+          "",
+        60
+      ) || "";
+    const cliente =
+      clip(
+        source.cliente ||
+          metadata.cliente ||
+          metadata.customer ||
+          session?.cliente ||
+          session?.nombre_custodio ||
+          "",
+        MAX_STRING
+      ) || "-";
+    const placaRaw =
+      source.placa ||
+      source.placa_upper ||
+      metadata.placa ||
+      metadata.placa_upper ||
+      session?.placa ||
+      "S/N";
+    const placa = placaRaw ? placaRaw.toUpperCase() : "S/N";
+    const tipoResolved =
+      normalizeServicioTipo(
+        source.tipo ||
+          metadata.tipo ||
+          metadata.servicio_tipo ||
+          metadata.servicioTipo ||
+          session?.tipo_custodia
+      ) || SERVICIO_TIPO_DB_FALLBACK;
+    const attempt = Math.min(
+      Number(metadata.attempt || metadata.intento || payload?.attempt) || 1,
+      3
+    );
+
+    panel.dataset.servicioId = servicioId ? String(servicioId) : "";
+    panel.dataset.empresa = empresa || "";
+    panel.dataset.cliente = cliente || "-";
+    panel.dataset.placa = placa || "S/N";
+    panel.dataset.tipo = tipoResolved || SERVICIO_TIPO_DB_FALLBACK;
+    panel.dataset.attempt = String(attempt);
+
+    const clienteEl = panel.querySelector(".js-checkin-cliente");
+    if (clienteEl) clienteEl.textContent = cliente || "-";
+    const servicioEl = panel.querySelector(".js-checkin-servicio");
+    if (servicioEl) {
+      servicioEl.textContent = placa || servicioId || "S/N";
+    }
+    const metaEl = panel.querySelector(".js-checkin-meta");
+    if (metaEl) {
+      metaEl.textContent = `Intento ${attempt} - Reporta tu ubicacion actual.`;
+    }
+    const hintEl = panel.querySelector(".alarma-checkin__hint");
+    if (hintEl && !state.permissions.sound) {
+      hintEl.hidden = false;
+    }
+    setCheckinStatus(panel, "");
+    if (!panel.dataset.servicioId) {
+      console.warn("[checkin] payload sin servicio_id", payload);
+    }
   }
 
   /* === BEGIN HU:HU-CHECKIN-15M checkin ui (no tocar fuera) === */
