@@ -821,13 +821,17 @@
     if (ui.nombreCustodio) syncTextfield(ui.nombreCustodio);
     if (ui.custodioId) ui.custodioId.value = "";
     updateGuardarState();
+    state.currentRow = null;
   }
 
+  // === BEGIN HU:HU-REGISTRO-GUARDAR-FIX guardar (NO TOCAR FUERA) ===
   async function onSubmitForm(event) {
     event.preventDefault();
     const custodioId = (ui.custodioId?.value || "").trim();
+    const custodioIdNum = Number(custodioId);
     const nombre = (ui.nombreCustodio?.value || "").trim();
     const tipo = (ui.tipoCustodio?.value || "").trim();
+    const servicioId = state.currentRow?.svc?.id || null;
     if (!custodioId) return showMessage("Seleccione un custodio");
     if (!hasValidNombre(nombre))
       return showMessage("Ingresa nombre y apellido");
@@ -835,35 +839,60 @@
     if (!state.selfieReady)
       return showMessage("Captura o confirma una selfie antes de guardar.");
 
+    ui.btnGuardar?.setAttribute("disabled", "disabled");
     try {
       const updatePayload = { nombre_custodio: nombre, tipo_custodia: tipo };
-      const { error: updateError } = await window.sb
+      const { data: updatedRow, error: updateError } = await window.sb
         .from("servicio_custodio")
         .update(updatePayload)
-        .eq("id", custodioId);
+        .eq("id", custodioId)
+        .select("id, servicio_id")
+        .maybeSingle();
       if (updateError) throw updateError;
 
       if (state.selfieDataUrl) {
         const base64 = state.selfieDataUrl.split(",")[1];
         const { error: selfieError } = await window.sb.rpc("guardar_selfie", {
-          p_servicio_custodio_id: Number(custodioId),
+          p_servicio_custodio_id: custodioIdNum,
           p_mime_type: "image/jpeg",
           p_base64: base64,
         });
         if (selfieError) throw selfieError;
-      } else if (state.selfieHasRemote) {
-        state.selfieReady = true;
       }
 
       showMessage("Cambios guardados");
       closeDrawer();
-      await cargarServicios();
+      console.assert(
+        !ui.drawer?.classList.contains("open"),
+        "[task][HU-REGISTRO-GUARDAR-FIX] drawer persiste abierto"
+      );
+      if (state.clienteSeleccionado) {
+        try {
+          await cargarServicios(state.clienteSeleccionado);
+        } catch (reloadErr) {
+          console.warn("[guardar] reload", reloadErr);
+        }
+      }
       render();
+      console.log("[guardar] ok", {
+        custodio_id: custodioIdNum,
+        servicio_id: updatedRow?.servicio_id || servicioId,
+      });
+      console.log("[task][HU-REGISTRO-GUARDAR-FIX] done", {
+        cliente_id: state.clienteSeleccionado || null,
+      });
     } catch (err) {
-      console.error("[custodia-registros] guardar custodio", err);
+      console.error("[guardar] error", {
+        code: err?.code || err?.status || "unknown",
+        message: err?.message,
+        payload: { custodio_id: custodioIdNum || custodioId, servicio_id: servicioId },
+      });
       showMessage("No se pudo guardar la informacion");
+    } finally {
+      ui.btnGuardar?.removeAttribute("disabled");
     }
   }
+  // === END HU:HU-REGISTRO-GUARDAR-FIX ===
 
   function openSelfieModal() {
     if (!ui.selfieModal) return;
