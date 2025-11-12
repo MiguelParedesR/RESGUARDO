@@ -1,4 +1,4 @@
-// @hu HU-MARCADORES-CUSTODIA
+﻿// @hu HU-MARCADORES-CUSTODIA
 // @author Codex
 // @date 2025-02-15
 // @rationale Ajustar etiquetas y pings segun HU.
@@ -281,18 +281,22 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
     `;
+    const custodiosBlock = document.createElement("div");
+    custodiosBlock.className = "custodios-block";
+    custodiosBlock.innerHTML =
+      "<p class='custodios-empty'>Cargando custodias...</p>";
+    card.appendChild(custodiosBlock);
 
     try {
-      const { data: custodios, error } = await window.sb
-        .from("servicio_custodio")
-        .select("id, tipo_custodia")
-        .eq("servicio_id", svc.id);
-      if (error) throw error;
+      const custodios = await fetchCustodiosDetalle(svc.id);
       const resumen = buildTipoResumen(custodios || []);
       const tipoEl = card.querySelector("[data-field='tipo']");
       if (tipoEl) tipoEl.textContent = resumen;
+      renderCustodiosMiniList(custodiosBlock, custodios);
     } catch (err) {
-      console.warn("[consulta] custodios resumen error", err);
+      console.warn("[consulta] custodios detalle error", err);
+      custodiosBlock.innerHTML =
+        "<p class='custodios-empty'>No se pudo cargar la información de custodias.</p>";
     }
 
     return card;
@@ -436,41 +440,160 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+  const debounce = (fn, ms = 150) => {
+    let t = 0;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(null, args), ms);
+    };
+  };
+
+  const scheduleClienteRefresh = debounce(async () => {
+    if (clienteSeleccionado && clienteSeleccionado.id) {
+      try {
+        await cargarServiciosPorCliente(clienteSeleccionado.id);
+      } catch (err) {
+        console.warn("[consulta] refresh fallo", err);
+      }
+    }
+  }, 200);
+
+  setupRealtime();
+
+  function setupRealtime() {
+    try {
+      const ch = window.sb?.channel?.("rt-consulta-servicio");
+      if (!ch) return;
+      ch.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "servicio" },
+        (payload) => {
+          const row = payload.new || payload.old || {};
+          if (clienteSeleccionado && row.cliente_id === clienteSeleccionado.id)
+            scheduleClienteRefresh();
+        }
+      ).subscribe();
+      window.addEventListener("beforeunload", () => {
+        try {
+          window.sb.removeChannel(ch);
+        } catch {}
+      });
+    } catch (err) {
+      console.warn("[consulta] realtime inactivo", err);
+    }
+  }
+
+  // === BEGIN HU:HU-MARCADORES-CUSTODIA consulta custodios (NO TOCAR FUERA) ===
+  async function fetchCustodiosDetalle(servicioId) {
+    const { data, error } = await window.sb
+      .from("servicio_custodio")
+      .select(
+        `
+        id,
+        tipo_custodia,
+        custodia_id,
+        nombre_custodio,
+        created_at,
+        custodia:servicio_custodio_custodia_id_fkey (
+          id,
+          nombre,
+          empresa,
+          empresa_otro,
+          selfies:selfie_custodia_id_fkey (
+            id,
+            mime_type,
+            bytes,
+            created_at
+          )
+        ),
+        sc_selfies:selfie_servicio_custodio_id_fkey (
+          id,
+          mime_type,
+          bytes,
+          created_at
+        )
+      `
+      )
+      .eq("servicio_id", servicioId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  function renderCustodiosMiniList(container, custodios) {
+    if (!custodios || !custodios.length) {
+      container.innerHTML =
+        "<p class='custodios-empty'>Sin custodias registradas.</p>";
+      return;
+    }
+    container.innerHTML = "";
+    custodios.forEach((cust) => {
+      const nombre = (
+        cust.custodia?.nombre ||
+        cust.nombre_custodio ||
+        "Sin nombre"
+      ).trim();
+      const empresa =
+        cust.custodia?.empresa ||
+        cust.custodia?.empresa_otro ||
+        "Empresa sin registrar";
+      const tipo = cust.tipo_custodia || "Sin tipo";
+      const fotoSrc = getSelfieSrc(cust);
+
+      const item = document.createElement("div");
+      item.className = "custodios-item";
+
+      const avatarBtn = document.createElement(fotoSrc ? "button" : "div");
+      avatarBtn.className = "custodio-avatar" + (fotoSrc ? "" : " is-empty");
+      if (fotoSrc) {
+        const img = document.createElement("img");
+        img.src = fotoSrc;
+        img.alt = `Selfie de ${nombre}`;
+        avatarBtn.appendChild(img);
+        avatarBtn.addEventListener("click", () =>
+          showFotosCustodia([{ src: fotoSrc, label: `Custodia: ${nombre}` }])
+        );
+      } else {
+        avatarBtn.textContent =
+          nombre?.charAt(0)?.toUpperCase() ||
+          (cust.custodia_id ? "C" : "?");
+      }
+      item.appendChild(avatarBtn);
+
+      const info = document.createElement("div");
+      info.className = "custodio-info";
+      info.innerHTML = `
+        <p class="custodio-info__name">${h(nombre)}</p>
+        <p class="custodio-info__meta">${h(tipo)} \\u00b7 ${h(empresa)}</p>
+      `;
+      item.appendChild(info);
+
+      container.appendChild(item);
+    });
+  }
+
+  function getSelfieSrc(entry) {
+    const primary =
+      Array.isArray(entry?.custodia?.selfies) && entry.custodia.selfies.length
+        ? entry.custodia.selfies
+        : [];
+    const secondary =
+      Array.isArray(entry?.sc_selfies) && entry.sc_selfies.length
+        ? entry.sc_selfies
+        : [];
+    const ordered = [...primary, ...secondary].sort((a, b) => {
+      const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+    const file = ordered.find((row) => row && row.bytes);
+    if (!file || !file.bytes) return null;
+    const mime = file.mime_type || "image/jpeg";
+    return `data:${mime};base64,${toBase64(file.bytes)}`;
+  }
+  // === END HU:HU-MARCADORES-CUSTODIA ===
+
   // Start
   cargarClientes();
 });
-// Realtime: servicio INSERT/UPDATE ? refrescar grilla del cliente seleccionado
-const debounce = (fn, ms = 150) => {
-  let t = 0;
-  return () => {
-    clearTimeout(t);
-    t = setTimeout(fn, ms);
-  };
-};
-const scheduleClienteRefresh = debounce(async () => {
-  if (clienteSeleccionado && clienteSeleccionado.id) {
-    try {
-      await cargarServiciosPorCliente(clienteSeleccionado.id);
-    } catch {}
-  }
-}, 200);
-(function setupRealtime() {
-  try {
-    const ch = window.sb?.channel?.("rt-consulta-servicio");
-    if (!ch) return;
-    ch.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "servicio" },
-      (payload) => {
-        const row = payload.new || payload.old || {};
-        if (clienteSeleccionado && row.cliente_id === clienteSeleccionado.id)
-          scheduleClienteRefresh();
-      }
-    ).subscribe();
-    window.addEventListener("beforeunload", () => {
-      try {
-        window.sb.removeChannel(ch);
-      } catch {}
-    });
-  } catch {}
-})();
+

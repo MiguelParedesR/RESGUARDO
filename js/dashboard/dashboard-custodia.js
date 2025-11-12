@@ -5,7 +5,6 @@
   const STORAGE_PROFILE_KEY = "custodia_profile";
   const SESSION_FALLBACK_KEY = "custodia_session";
   const LOG_SERVICIO = "[servicio]";
-  const LOG_CAMERA = "[camera]";
   const LOG_API = "[api]";
   const PLACA_REGEX = /^[A-Z0-9]{6}$/;
   const MAP_DEFAULT = { lat: -12.0464, lng: -77.0428, zoom: 12 };
@@ -25,10 +24,8 @@
       return;
     }
     state.profile = profile;
-    renderProfile(state);
     attachPlaceholderWatcher(refs.form);
     bindEvents(refs, state);
-    loadExistingSelfie(state);
     console.log(`${LOG_SERVICIO} dashboard listo`, {
       custodia_id: profile.id,
       empresa: profile.empresa || profile.empresa_otro || "-",
@@ -50,11 +47,6 @@
       mapSearchBtn: document.getElementById("map-search-btn"),
       mapAceptar: document.getElementById("map-aceptar"),
       mapCerrar: document.getElementById("map-cerrar"),
-      summaryNombre: document.getElementById("summary-nombre"),
-      summaryEmpresa: document.getElementById("summary-empresa"),
-      selfieBtn: document.getElementById("btn-selfie"),
-      selfieThumb: document.getElementById("selfie-thumb"),
-      selfieHint: document.getElementById("selfie-hint"),
       btnGuardar: document.getElementById("btn-guardar"),
       btnLimpiar: document.getElementById("btn-limpiar"),
       snackbar: document.getElementById("app-snackbar"),
@@ -71,9 +63,6 @@
       acIndex: -1,
       lastQuery: "",
       locationIqKey: window.APP_CONFIG?.LOCATIONIQ_KEY || "",
-      selfieBlob: null,
-      selfieRemote: false,
-      selfieDataUrl: null,
       snackbar: refs.snackbar,
     };
   }
@@ -92,17 +81,6 @@
       console.warn(`${LOG_SERVICIO} perfil invalido`, err);
       return null;
     }
-  }
-
-  function renderProfile(state) {
-    const { profile } = state;
-    const nombre = profile.nombre || "-";
-    const empresa =
-      profile.empresa || profile.empresa_otro || "Empresa sin configurar";
-    const nombreEl = document.getElementById("summary-nombre");
-    const empresaEl = document.getElementById("summary-empresa");
-    if (nombreEl) nombreEl.textContent = nombre;
-    if (empresaEl) empresaEl.textContent = `Empresa: ${empresa}`;
   }
 
   async function primeGeoPermission(tag) {
@@ -125,7 +103,7 @@
       handleSubmit(evt, refs, state)
     );
     refs.btnLimpiar?.addEventListener("click", () =>
-      resetForm(refs, state, false)
+      resetForm(refs, state)
     );
     refs.destino.addEventListener(
       "input",
@@ -162,35 +140,9 @@
         handleMapSearch(refs, state);
       }
     });
-    setupSelfieIcon(refs, state);
     refs.placa.addEventListener("input", () => {
       refs.placa.value = refs.placa.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
     });
-  }
-
-  async function loadExistingSelfie(state) {
-    try {
-      const { data, error } = await window.sb
-        .from("selfie")
-        .select("id,mime_type,bytes")
-        .eq("custodia_id", state.profile.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      if (data?.bytes) {
-        const blob = hexToBlob(data.bytes, data.mime_type || "image/jpeg");
-        const dataUrl = await blobToDataUrl(blob);
-        setSelfiePreview(state, dataUrl);
-        state.selfieRemote = true;
-        console.log(`${LOG_CAMERA} selfie remota detectada`, { selfie_id: data.id });
-      } else {
-        updateSelfieHint(state, false);
-      }
-    } catch (err) {
-      console.warn(`${LOG_CAMERA} no se pudo leer selfie`, err);
-      updateSelfieHint(state, false);
-    }
   }
 
   function handleDestinoKeydown(evt, state, refs) {
@@ -372,51 +324,6 @@
     }
   }
 
-  function setupSelfieIcon(refs, state) {
-    if (!refs.selfieBtn) return;
-    if (!window.CustodiaSelfie?.attach) {
-      refs.selfieBtn.addEventListener("click", () =>
-        showMsg(state, "La cámara no está disponible en este dispositivo.")
-      );
-      return;
-    }
-    window.CustodiaSelfie.attach(refs.selfieBtn, {
-      previewImg: refs.selfieThumb,
-      hintEl: refs.selfieHint,
-      hintIdle: "Sin selfie registrada. Captura una antes de crear un servicio.",
-      hintReady: "Selfie lista. Puedes volver a capturar si deseas.",
-      onCapture: ({ blob, dataUrl }) => {
-        state.selfieBlob = blob;
-        state.selfieRemote = false;
-        state.selfieDataUrl = dataUrl || null;
-        if (dataUrl) updateSelfieHint(state, true);
-      },
-      onError: (err) => {
-        if (err?.message !== "camera-cancelled") {
-          console.warn(`${LOG_CAMERA} error`, err);
-          showMsg(state, "No se pudo capturar la selfie.");
-        }
-      },
-    });
-  }
-
-  function setSelfiePreview(state, dataUrl) {
-    state.selfieDataUrl = dataUrl;
-    const img = document.getElementById("selfie-thumb");
-    if (!img) return;
-    img.hidden = false;
-    img.src = dataUrl;
-    updateSelfieHint(state, true);
-  }
-
-  function updateSelfieHint(state, hasSelfie) {
-    const hint = document.getElementById("selfie-hint");
-    if (!hint) return;
-    hint.textContent = hasSelfie
-      ? "Selfie lista. Puedes volver a capturar si deseas."
-      : "Sin selfie registrada. Captura una antes de crear un servicio.";
-  }
-
   async function handleSubmit(evt, refs, state) {
     evt.preventDefault();
     if (!state.profile) {
@@ -436,9 +343,6 @@
     if (!PLACA_REGEX.test(placaRaw))
       return showMsg(state, "La placa debe tener exactamente 6 caracteres alfanuméricos.");
     if (!destinoTexto) return showMsg(state, "Ingresa la dirección destino.");
-    if (!state.selfieRemote && !state.selfieBlob) {
-      return showMsg(state, "Captura o confirma tu selfie antes de continuar.");
-    }
     setButtonLoading(refs.btnGuardar, true);
     try {
       const clienteId = await ensureCliente(clienteNombre);
@@ -458,11 +362,6 @@
         nombre_custodio: state.profile.nombre,
         tipo_custodia: tipo,
       });
-      if (!state.selfieRemote && state.selfieBlob) {
-        await uploadSelfie(state.profile.id, sc.id, state.selfieBlob);
-        state.selfieRemote = true;
-        console.log(`${LOG_CAMERA} selfie subida para servicio`, { servicio_custodio_id: sc.id });
-      }
       persistSession({
         servicio_id: servicio.id,
         servicio_custodio_id: sc.id,
@@ -543,21 +442,6 @@
     return data;
   }
 
-  async function uploadSelfie(custodiaId, servicioCustodioId, blob) {
-    const mime = blob.type || "image/jpeg";
-    const bytes = await blobToHex(blob);
-    const { error } = await window.sb.from("selfie").insert(
-      {
-        custodia_id: custodiaId,
-        servicio_custodio_id: servicioCustodioId,
-        mime_type: mime,
-        bytes,
-      },
-      { returning: "minimal" }
-    );
-    if (error) throw error;
-  }
-
   function persistSession(payload) {
     try {
       if (window.CustodiaSession?.save) {
@@ -583,22 +467,11 @@
     window.location.href = "/html/dashboard/mapa-resguardo.html";
   }
 
-  function resetForm(refs, state, keepSelfie = true) {
+  function resetForm(refs, state) {
     refs.form.reset();
     state.destinoCoords = null;
     state.lastQuery = "";
     clearSuggestions(refs);
-    if (!keepSelfie) {
-      state.selfieBlob = null;
-      state.selfieRemote = false;
-      state.selfieDataUrl = null;
-      const img = document.getElementById("selfie-thumb");
-      if (img) {
-        img.hidden = true;
-        img.removeAttribute("src");
-      }
-      updateSelfieHint(state, false);
-    }
     if (refs.destinoStatus) {
       refs.destinoStatus.textContent =
         "Empieza a escribir para ver sugerencias o usa Buscar en el mapa.";
@@ -633,41 +506,6 @@
       .toUpperCase()
       .trim()
       .replace(/\s+/g, " ");
-  }
-
-  function hexToBlob(hex, mime) {
-    try {
-      if (hex.startsWith("\\x")) hex = hex.slice(2);
-      const bytes = new Uint8Array(hex.length / 2);
-      for (let i = 0; i < hex.length; i += 2) {
-        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-      }
-      return new Blob([bytes], { type: mime || "image/jpeg" });
-    } catch (err) {
-      console.warn(`${LOG_CAMERA} hex parse`, err);
-      return null;
-    }
-  }
-
-  function blobToHex(blob) {
-    return blob.arrayBuffer().then((buffer) => {
-      const bytes = new Uint8Array(buffer);
-      return (
-        "\\x" +
-        Array.from(bytes)
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("")
-      );
-    });
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
   }
 
   async function fetchAutocomplete(query, key) {
