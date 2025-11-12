@@ -341,15 +341,10 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="servicio-actions">
         <button type="button" class="btn-secondary is-muted" data-action="ver-fotos" disabled>
           <i class="material-icons" aria-hidden="true">photo_library</i>
-          <span>Ver fotos</span>
+          <span>Sin fotos</span>
         </button>
       </div>
     `;
-    const custodiosBlock = document.createElement("div");
-    custodiosBlock.className = "custodios-block";
-    custodiosBlock.innerHTML =
-      "<p class='custodios-empty'>Cargando custodias...</p>";
-    card.appendChild(custodiosBlock);
 
     const fotosBtn = card.querySelector("[data-action='ver-fotos']");
     const contactoEl = card.querySelector("[data-field='contacto']");
@@ -385,11 +380,8 @@ document.addEventListener("DOMContentLoaded", () => {
           contactoAvatar.textContent = initial;
         }
       }
-      renderCustodiosMiniList(custodiosBlock, custodios);
     } catch (err) {
       console.warn("[consulta] custodios detalle error", err);
-      custodiosBlock.innerHTML =
-        "<p class='custodios-empty'>No se pudo cargar la información de custodias.</p>";
       if (fotosBtn) {
         fotosBtn.disabled = true;
         fotosBtn.classList.add("is-muted");
@@ -765,3 +757,4 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
+
