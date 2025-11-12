@@ -12,8 +12,6 @@
     empresaOtroGroup: "#campo-empresa-otro",
     empresaOtroInput: "#empresa-otra",
     selfieTrigger: "#selfie-trigger",
-    selfiePreview: "#selfie-preview",
-    selfiePreviewImg: "#selfie-preview-img",
     selfieHint: "#selfie-hint",
     submitBtn: "#btn-registrar",
   };
@@ -134,19 +132,23 @@
 
   function setupSelfieIcon() {
     const trigger = document.querySelector(SELECTORS.selfieTrigger);
-    const previewImg = document.querySelector(SELECTORS.selfiePreviewImg);
     const hintEl = document.querySelector(SELECTORS.selfieHint);
     if (!trigger || !globalThis.CustodiaSelfie?.attach) return;
+    const hintMessages = {
+      idle: "Pulsa el botón para abrir la cámara.",
+      ready: "Selfie lista. Puedes volver a capturar si deseas.",
+    };
     globalThis.CustodiaSelfie.attach(trigger, {
-      previewImg,
       hintEl,
-      hintIdle: "Sin selfie registrada. Captura una antes de completar el registro.",
-      hintReady: "Selfie lista. Puedes volver a capturar si deseas.",
+      hintIdle: hintMessages.idle,
+      hintReady: hintMessages.ready,
       onCapture: ({ blob }) => {
         state.selfieBlob = blob;
+        if (hintEl) hintEl.textContent = hintMessages.ready;
       },
       onError: (err) => {
         console.warn(`${CAMERA_PREFIX} capture fail`, err);
+        if (hintEl) hintEl.textContent = hintMessages.idle;
         if (err?.name === "NotAllowedError") {
           console.warn(`${PERM_PREFIX} camera denied`);
           showMsg("Necesitas permitir el uso de la cámara para continuar.");
@@ -205,45 +207,49 @@
   }
 
   function collectFormData() {
-    const nameField = document.querySelector(SELECTORS.name).closest(".registro-field");
-    const dniField = document.querySelector(SELECTORS.dni).closest(".registro-field");
-    const empresaField = document.querySelector(SELECTORS.empresa).closest(".registro-field");
-    const empresaOtroGroup = document.querySelector(SELECTORS.empresaOtroGroup);
-
     const nombreInput = document.querySelector(SELECTORS.name);
     const dniInput = document.querySelector(SELECTORS.dni);
     const empresaSelect = document.querySelector(SELECTORS.empresa);
     const empresaOtroInput = document.querySelector(SELECTORS.empresaOtroInput);
-
-    clearInvalid(nameField);
-    clearInvalid(dniField);
-    clearInvalid(empresaField);
-    clearInvalid(empresaOtroGroup);
-
     const nombre = (nombreInput?.value || "").trim();
     const dni = (dniInput?.value || "").trim();
     const empresa = empresaSelect?.value || "";
     const empresaOtro = (empresaOtroInput?.value || "").trim();
 
-    if (!nombre || nombre.split(/\s+/).filter(Boolean).length < 2) {
-      markInvalid(nameField, "Ingresa tu nombre completo (mínimo 2 palabras)");
-      nombreInput?.focus();
-      return null;
-    }
-    if (!/^[0-9]{8,}$/.test(dni)) {
-      markInvalid(dniField, "El DNI debe tener al menos 8 dígitos");
-      dniInput?.focus();
-      return null;
-    }
-    if (!empresa) {
-      markInvalid(empresaField, "Selecciona una empresa");
-      empresaSelect?.focus();
-      return null;
-    }
-    if (empresa === "OTRA") {
-      if (!empresaOtro || empresaOtro.length < 3) {
-        markInvalid(empresaOtroGroup, "Ingresa el nombre de la empresa");
-        empresaOtroInput?.focus();
+    const validations = [
+      {
+        field: document.getElementById("campo-nombre"),
+        condition: nombre.split(/\s+/).filter(Boolean).length >= 2,
+        message: "Ingresa tu nombre completo (mínimo 2 palabras)",
+        focusEl: nombreInput,
+      },
+      {
+        field: document.getElementById("campo-dni"),
+        condition: /^[0-9]{8}$/.test(dni),
+        message: "El DNI debe tener exactamente 8 dígitos",
+        focusEl: dniInput,
+      },
+      {
+        field: document.getElementById("campo-empresa"),
+        condition: Boolean(empresa),
+        message: "Selecciona una empresa",
+        focusEl: empresaSelect,
+      },
+      {
+        field: document.getElementById("campo-empresa-otro"),
+        condition: empresa !== "OTRA" || empresaOtro.length >= 3,
+        message: "Ingresa el nombre de la empresa",
+        focusEl: empresaOtroInput,
+        onlyWhen: empresa === "OTRA",
+      },
+    ];
+
+    for (const rule of validations) {
+      clearInvalid(rule.field);
+      if (rule.onlyWhen === false) continue;
+      if (!rule.condition) {
+        markInvalid(rule.field, rule.message);
+        rule.focusEl?.focus();
         return null;
       }
     }
