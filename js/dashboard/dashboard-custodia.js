@@ -675,7 +675,21 @@ document.addEventListener("DOMContentLoaded", () => {
       .from("servicio_custodio")
       .select("id, nombre_custodio, tipo_custodia, selfie(id)")
       .eq("servicio_id", servicioId);
-    if (error) throw error;
+    // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+    if (error) {
+      console.warn("[error]", {
+        scope: "dashboard-custodia/read",
+        servicio_id: servicioId,
+        status: error?.code || error?.message || "unknown",
+      });
+      throw error;
+    }
+    console.log("[custodia-read]", {
+      scope: "dashboard-custodia",
+      servicio_id: servicioId,
+      custodios: Array.isArray(data) ? data.length : 0,
+    });
+    // === END HU:HU-CUSTODIA-UPDATE-FIX ===
     return data || [];
   }
   function isCompleto(c) {
@@ -802,18 +816,35 @@ document.addEventListener("DOMContentLoaded", () => {
         let followSessionPayload = null;
         for (const a of actions) {
           if (a.mode === "update") {
+            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+            console.log("[custodia-update] start", { sc_id: a.id });
             const { error: e1 } = await window.sb
               .from("servicio_custodio")
               .update({ nombre_custodio: a.nombre })
-              .eq("id", a.id);
-            if (e1) throw e1;
+              .eq("id", a.id)
+              .select("id")
+              .maybeSingle();
+            if (e1) {
+              console.warn("[custodia-update] FAIL", { sc_id: a.id, error: e1 });
+              throw e1;
+            }
+            console.log("[custodia-update] OK", { sc_id: a.id });
             const base64 = a.selfie.split(",")[1];
-            const { error: e2 } = await window.sb.rpc("guardar_selfie", {
+            const selfiePayload = {
               p_servicio_custodio_id: a.id,
               p_mime_type: "image/jpeg",
               p_base64: base64,
-            });
-            if (e2) throw e2;
+            };
+            const { error: e2 } = await window.sb.rpc(
+              "guardar_selfie",
+              selfiePayload
+            );
+            if (e2) {
+              console.warn("[selfie] FAIL", { sc_id: a.id, error: e2 });
+              throw e2;
+            }
+            console.log("[selfie] OK", { sc_id: a.id });
+            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             if (
               !followSessionPayload &&
               (!primaryKind ||
@@ -1024,18 +1055,35 @@ document.addEventListener("DOMContentLoaded", () => {
       let followSessionPayload = null;
       for (const a of actions) {
         if (a.mode === "update") {
+          // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+          console.log("[custodia-update] start", { sc_id: a.id });
           const { error: e1 } = await window.sb
             .from("servicio_custodio")
             .update({ nombre_custodio: a.nombre })
-            .eq("id", a.id);
-          if (e1) throw e1;
+            .eq("id", a.id)
+            .select("id")
+            .maybeSingle();
+          if (e1) {
+            console.warn("[custodia-update] FAIL", { sc_id: a.id, error: e1 });
+            throw e1;
+          }
+          console.log("[custodia-update] OK", { sc_id: a.id });
           const base64 = a.selfie.split(",")[1];
-          const { error: e2 } = await window.sb.rpc("guardar_selfie", {
+          const selfiePayload = {
             p_servicio_custodio_id: a.id,
             p_mime_type: "image/jpeg",
             p_base64: base64,
-          });
-          if (e2) throw e2;
+          };
+          const { error: e2 } = await window.sb.rpc(
+            "guardar_selfie",
+            selfiePayload
+          );
+          if (e2) {
+            console.warn("[selfie] FAIL", { sc_id: a.id, error: e2 });
+            throw e2;
+          }
+          console.log("[selfie] OK", { sc_id: a.id });
+          // === END HU:HU-CUSTODIA-UPDATE-FIX ===
           if (
             !followSessionPayload &&
             (!primaryKind ||

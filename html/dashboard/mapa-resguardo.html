@@ -128,6 +128,13 @@
           .eq('servicio_id', servicioId)
           .order('id');
         if (error) throw error;
+        // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+        console.log('[custodia-read]', {
+          scope: 'mapa-resguardo/sidebar',
+          servicio_id: servicioId,
+          custodios: Array.isArray(custodios) ? custodios.length : 0,
+        });
+        // === END HU:HU-CUSTODIA-UPDATE-FIX ===
         listEl.innerHTML = '';
         (custodios || []).forEach(c => {
           const row = document.createElement('div'); row.className = 'cust-row';
@@ -136,7 +143,15 @@
           btn.addEventListener('click', () => openEdit(c));
           row.appendChild(nm); row.appendChild(btn); listEl.appendChild(row);
         });
-      } catch (e) { console.error('[sidebar custodios]', e); }
+      } catch (e) {
+        // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+        console.error('[error]', {
+          scope: 'mapa-resguardo/sidebar',
+          message: e?.message || 'unknown',
+        });
+        // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+        console.error('[sidebar custodios]', e);
+      }
 
       let mediaStream = null, selfieDataUrl = null;
       function stopCam() {
@@ -307,11 +322,22 @@
             if (selfieDataUrl) {
               const base64 = selfieDataUrl.split(',')[1];
               const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 });
-              if (errS) throw errS;
+              // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+              if (errS) {
+                console.warn('[selfie] FAIL', { scope: 'mapa-resguardo/add', sc_id: cId, error: errS });
+                throw errS;
+              }
+              console.log('[selfie] OK', { scope: 'mapa-resguardo/add', sc_id: cId });
+              // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             }
             cleanup();
             location.reload();
-          } catch (e) { console.error(e); alert('Error al agregar custodio'); }
+          } catch (e) {
+            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+            console.error('[error]', { scope: 'mapa-resguardo/add', message: e?.message || 'unknown' });
+            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+            console.error(e); alert('Error al agregar custodio');
+          }
         }
         amSave.addEventListener('click', saveAndClose);
         amCancel.addEventListener('click', cleanup);
@@ -459,11 +485,22 @@
             if (selfieDataUrl) {
               const base64 = selfieDataUrl.split(',')[1];
               const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: c.id, p_mime_type: 'image/jpeg', p_base64: base64 });
-              if (errS) throw errS;
+              // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+              if (errS) {
+                console.warn('[selfie] FAIL', { scope: 'mapa-resguardo/edit', sc_id: c.id, error: errS });
+                throw errS;
+              }
+              console.log('[selfie] OK', { scope: 'mapa-resguardo/edit', sc_id: c.id });
+              // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             }
             cleanup();
             location.reload();
-          } catch (e) { console.error(e); alert('Error al guardar'); }
+          } catch (e) {
+            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+            console.error('[error]', { scope: 'mapa-resguardo/edit', message: e?.message || 'unknown' });
+            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+            console.error(e); alert('Error al guardar');
+          }
         }
         emSave.addEventListener('click', saveAndClose);
         emCancel.addEventListener('click', cleanup);

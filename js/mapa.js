@@ -776,9 +776,22 @@ document.addEventListener("DOMContentLoaded", () => {
           .select("nombre_custodio")
           .eq("id", byCustodioId)
           .maybeSingle();
+        // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+        console.log("[custodia-read]", {
+          scope: "mapa/showFinishModal",
+          servicio_custodio_id: byCustodioId,
+          found: Boolean(data?.nombre_custodio),
+        });
+        // === END HU:HU-CUSTODIA-UPDATE-FIX ===
         if (data?.nombre_custodio) nombre = data.nombre_custodio;
       } catch (err) {
         console.warn("[mapa] no se pudo obtener custodio finalizador", err);
+        // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+        console.warn("[error]", {
+          scope: "mapa/showFinishModal",
+          message: err?.message || "unknown",
+        });
+        // === END HU:HU-CUSTODIA-UPDATE-FIX ===
       }
     }
     finishModal = document.createElement("div");

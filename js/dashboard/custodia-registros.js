@@ -331,6 +331,7 @@
       state.servicios = [];
       return;
     }
+    // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
     const { data, error } = await window.sb
       .from("servicio")
       .select(
@@ -342,6 +343,11 @@
       .order("created_at", { ascending: false });
     if (error) throw error;
     const base = Array.isArray(data) ? data : [];
+    console.log("[custodia-read]", {
+      cliente_id: clienteId,
+      servicios: base.length,
+    });
+    // === END HU:HU-CUSTODIA-UPDATE-FIX ===
 
     const detalles = [];
 
@@ -843,6 +849,10 @@
       return showMessage("Captura o confirma una selfie antes de guardar.");
 
     ui.btnGuardar?.setAttribute("disabled", "disabled");
+    console.log("[custodia-update] start", {
+      custodio_id: custodioFilter,
+      servicio_id: servicioId,
+    });
     try {
       const updatePayload = { nombre_custodio: nombre, tipo_custodia: tipo };
       const { data: updatedRow, error: updateError } = await window.sb
@@ -855,16 +865,38 @@
 
       if (state.selfieDataUrl) {
         const base64 = state.selfieDataUrl.split(",")[1];
-        const { error: selfieError } = await window.sb.rpc("guardar_selfie", {
+        const selfiePayload = {
           p_servicio_custodio_id: Number.isNaN(custodioIdNum)
             ? custodioId
             : custodioIdNum,
           p_mime_type: "image/jpeg",
           p_base64: base64,
+        };
+        const { error: selfieError } = await window.sb
+          .rpc("guardar_selfie", selfiePayload)
+          .then((res) => {
+            console.log("[selfie] rpc", {
+              payload: selfiePayload.p_servicio_custodio_id,
+              ok: !res?.error,
+            });
+            return res;
+          });
+        if (selfieError) {
+          console.warn("[selfie] FAIL", {
+            payload: selfiePayload,
+            error: selfieError,
+          });
+          throw selfieError;
+        }
+        console.log("[selfie] OK", {
+          sc_id: selfiePayload.p_servicio_custodio_id,
         });
-        if (selfieError) throw selfieError;
       }
 
+      console.log("[custodia-update] OK", {
+        custodio_id: custodioFilter,
+        servicio_id: updatedRow?.servicio_id || servicioId,
+      });
       showMessage("Cambios guardados");
       closeDrawer();
       console.assert(
@@ -890,11 +922,18 @@
       });
       console.log("[task][HU-CUSTODIA-COMPLETAR-FIX] done");
     } catch (err) {
-      console.error("[custodia-guardar] error", {
+      console.error("[custodia-update] FAIL", {
         code: err?.code || err?.status || "unknown",
         message: err?.message,
         payload: { custodio_id: custodioId, servicio_id: servicioId },
       });
+      // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+      console.error("[error]", {
+        scope: "custodia-registros/save",
+        status: err?.status || err?.code || "unknown",
+        message: err?.message || "unknown",
+      });
+      // === END HU:HU-CUSTODIA-UPDATE-FIX ===
       showMessage("No se pudo guardar la informacion");
     } finally {
       ui.btnGuardar?.removeAttribute("disabled");
