@@ -194,6 +194,12 @@ document.addEventListener("DOMContentLoaded", () => {
         .update(payload, { returning: "representation" })
         .eq("id", scFilter)
         .select("id, servicio_id, nombre_custodio, tipo_custodia");
+      console.log("[custodia-update] response", {
+        scId: scFilter,
+        status,
+        rows: Array.isArray(data) ? data.length : data ? 1 : 0,
+        data,
+      });
       if (error) {
         console.warn("[custodia-update] FAIL", { sc_id: scId, status, error });
         throw error;
@@ -209,6 +215,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!fallback) throw new Error("Custodio no encontrado");
         row = fallback;
       }
+      const verify = await window.sb
+        .from("servicio_custodio")
+        .select("id, nombre_custodio, tipo_custodia")
+        .eq("id", scFilter)
+        .maybeSingle();
+      console.log("[custodia-update] verify", { scId: scFilter, verify });
       console.log("[custodia-update] OK", {
         sc_id: scId,
         servicio_id: row?.servicio_id || null,
