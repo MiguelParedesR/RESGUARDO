@@ -1992,6 +1992,38 @@
     setCheckinStatus(panel, "");
   }
 
+  function showCheckinThanks(panel) {
+    if (!panel) return;
+    const micBtn = panel.querySelector(".js-checkin-voice");
+    const thanks = panel.querySelector(".js-checkin-thanks");
+    if (micBtn) {
+      micBtn.classList.add("is-hidden");
+      micBtn.setAttribute("aria-hidden", "true");
+    }
+    if (thanks) {
+      thanks.hidden = false;
+      thanks.classList.add("is-visible");
+    }
+  }
+
+  function resetCheckinPromptUI(panel) {
+    if (!panel) return;
+    const micBtn = panel.querySelector(".js-checkin-voice");
+    const micLabel = panel.querySelector(".alarma-checkin__mic-label");
+    const thanks = panel.querySelector(".js-checkin-thanks");
+    if (micBtn) {
+      micBtn.disabled = false;
+      micBtn.classList.remove("is-hidden", "is-listening");
+      micBtn.removeAttribute("aria-hidden");
+    }
+    if (micLabel) micLabel.textContent = "Presionar y hablar";
+    if (thanks) {
+      thanks.hidden = true;
+      thanks.classList.remove("is-visible");
+    }
+    panel.dataset.transcript = "";
+  }
+
   function closeCheckinPanel(reason = "manual") {
     const panel = state.checkin.panel;
     if (!panel) return;
@@ -2005,8 +2037,7 @@
     }
     state.checkin.busy = false;
     clearCheckinStatus(panel);
-    const input = panel.querySelector("#alarma-checkin-input");
-    if (input) input.value = "";
+    resetCheckinPromptUI(panel);
     console.log("[modal][checkin] close", {
       servicio_id: panel.dataset.servicioId || null,
       reason,
@@ -2227,65 +2258,32 @@
       <div class="alarma-checkin__dialog">
         <div class="alarma-checkin__header">
           <p class="alarma-checkin__eyebrow">REPORTESE</p>
-          <h3 class="alarma-checkin__title">Donde te encuentras?</h3>
-          <p class="alarma-checkin__subtitle">Presiona el boton y di tu ubicacion actual.</p>
+          <p class="alarma-checkin__subtitle">Presiona el boton para que reportes tu ubicacion actual.</p>
           <p class="alarma-checkin__context">
             <span class="js-checkin-cliente">-</span> - <span class="js-checkin-servicio">-</span>
           </p>
         </div>
         <p class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</p>
         <p class="alarma-checkin__hint" hidden>Activa sonido para escuchar el recordatorio.</p>
-        <button type="button" class="alarma-btn alarma-btn--primary alarma-checkin__voice js-checkin-voice">
-          <span class="alarma-checkin__voice-icon" aria-hidden="true"></span>
-          <span class="alarma-checkin__voice-label">Presionar y hablar</span>
+        <button type="button" class="alarma-checkin__mic-btn js-checkin-voice">
+          <img src="https://img.freepik.com/psd-gratis/3d-microphone-icon-on-red-circle_84443-56056.jpg?t=st=1762918840~exp=1762922440~hmac=0258d1ff707dd4ee4b68c223f7d9a05a0acee6db653f745fe2436a27082baafb&w=1480" class="alarma-checkin__mic-icon" alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          <span class="alarma-checkin__mic-label">Presionar y hablar</span>
         </button>
-        <button type="button" class="alarma-checkin__text-toggle js-checkin-text-toggle">No puedo hablar, escribire</button>
-        <div class="alarma-checkin__field" hidden>
-          <label for="alarma-checkin-input">Describe tu ubicacion</label>
-          <textarea
-            id="alarma-checkin-input"
-            class="alarma-checkin__input"
-            rows="3"
-            placeholder="Ej. Ingresando a puerta 3, sin novedad."
-          ></textarea>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-checkin-confirm" disabled>Enviar texto</button>
-        </div>
+        <p class="alarma-checkin__thanks js-checkin-thanks" hidden>
+          Gracias por tu reporte. Envia las evidencias al grupal de WhatsApp.
+        </p>
         <p class="alarma-checkin__status js-checkin-status" aria-live="polite" hidden></p>
       </div>
     `;
     ensureCheckinOverlay();
     document.body.appendChild(panel);
-    const confirmBtn = panel.querySelector(".js-checkin-confirm");
     const voiceBtn = panel.querySelector(".js-checkin-voice");
-    const voiceLabel = panel.querySelector(".alarma-checkin__voice-label");
-    const toggleTextBtn = panel.querySelector(".js-checkin-text-toggle");
-    const textField = panel.querySelector(".alarma-checkin__field");
-    const input = panel.querySelector("#alarma-checkin-input");
-    confirmBtn?.addEventListener("click", () => confirmCheckin(panel));
+    const voiceLabel = panel.querySelector(".alarma-checkin__mic-label");
     voiceBtn?.addEventListener("click", () => captureCheckinVoice(panel));
-    if (toggleTextBtn && textField) {
-      toggleTextBtn.addEventListener("click", () => {
-        const hidden = textField.hasAttribute("hidden");
-        if (hidden) {
-          textField.removeAttribute("hidden");
-          panel.dataset.method = "text";
-          toggleTextBtn.textContent = "Cancelar texto";
-          input?.focus();
-        } else {
-          textField.setAttribute("hidden", "hidden");
-          panel.dataset.method = "voice";
-          toggleTextBtn.textContent = "No puedo hablar, escribire";
-        }
-      });
-    }
-    if (input && confirmBtn) {
-      input.addEventListener("input", () => {
-        const hasValue = input.value.trim().length > 0;
-        confirmBtn.disabled = !hasValue;
-      });
-    }
     panel.dataset.method = "voice";
+    panel.dataset.transcript = "";
     if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
+    resetCheckinPromptUI(panel);
     state.checkin.panel = panel;
     return panel;
   }
@@ -2298,7 +2296,10 @@
       return;
     }
     const button = panel.querySelector(".js-checkin-voice");
-    const voiceLabel = panel.querySelector(".alarma-checkin__voice-label");
+    const voiceLabel = panel.querySelector(".alarma-checkin__mic-label");
+    const thanksMsg = panel.querySelector(".js-checkin-thanks");
+    panel.dataset.transcript = "";
+    if (thanksMsg) thanksMsg.hidden = true;
     if (button) {
       button.disabled = true;
       button.classList.add("is-listening");
@@ -2334,17 +2335,6 @@
       recog.onresult = (event) => {
         const transcript =
           event.results?.[0]?.[0]?.transcript?.trim() || "";
-        const input = panel.querySelector("#alarma-checkin-input");
-        if (input) {
-          input.value = transcript;
-          const evt = typeof Event === "function" ? new Event("input", { bubbles: true }) : null;
-          if (evt) {
-            try {
-              input.dispatchEvent(evt);
-            } catch (_) {}
-          }
-        }
-        panel.dataset.method = "voice";
         panel.dataset.transcript = transcript;
         setCheckinStatus(panel, "Procesando respuesta...");
         console.log("[checkin][voice]", {
@@ -2354,10 +2344,10 @@
         confirmCheckin(panel, { auto: true });
       };
       recog.onerror = () => {
-        showToast("No se pudo capturar tu voz. Escribe la respuesta.");
+        showToast("No se pudo capturar tu voz. Intenta nuevamente.");
         setCheckinStatus(
           panel,
-          "No se pudo capturar tu voz. Describe tu ubicacion."
+          "No se pudo capturar tu voz. Intenta nuevamente."
         );
       };
       recog.onend = () => {
@@ -2382,22 +2372,22 @@
     const panel = panelArg || state.checkin.panel;
     if (!panel) return;
     if (state.checkin.busy) return;
-    const input = panel.querySelector("#alarma-checkin-input");
-    const texto = clip((input && input.value) || "", MAX_STRING);
+    const transcript = panel.dataset.transcript || "";
+    const texto = clip(transcript, MAX_STRING);
     const auto = Boolean(options.auto);
     if (!texto) {
       if (auto) {
         setCheckinStatus(
           panel,
-          "No se pudo captar la voz. Describe tu ubicacion en el campo de texto."
+          "No se pudo captar la voz. Intenta nuevamente."
         );
       } else {
-        showToast("Ingresa tu ubicacion actual antes de confirmar.");
+        showToast("Necesitamos escuchar tu ubicacion antes de confirmar.");
       }
       return;
     }
     const last = state.custodia.lastLocation;
-    const method = panel.dataset.method === "voice" ? "voice" : "text";
+    const method = "voice";
     const attempt = Number(panel.dataset.attempt || 1);
     state.checkin.busy = true;
     try {
@@ -2429,12 +2419,9 @@
           console.warn("[checkin] update servicio fallo", err);
         }
       }
-      setCheckinStatus(
-        panel,
-        "Gracias, ahora reporta las evidencias en el grupo de WhatsApp."
-      );
+      setCheckinStatus(panel, "");
+      showCheckinThanks(panel);
       stopCheckinAudioLoop("success");
-      panel.dataset.method = "text";
       console.log("[checkin][success]", {
         servicio_id: servicioId || null,
         method,
