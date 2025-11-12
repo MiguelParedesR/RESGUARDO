@@ -853,13 +853,12 @@
         .eq("id", scId)
         .select(
           "id, servicio_id, nombre_custodio, tipo_custodia, selfie(id, created_at)"
-        )
-        .maybeSingle();
+        );
       if (error) {
         console.warn("[custodia-update] FAIL", { scId, status, error });
         throw error;
       }
-      let row = data;
+      let row = Array.isArray(data) ? data[0] : data;
       if (!row) {
         const { data: fallback, error: fetchError } = await window.sb
           .from("servicio_custodio")
