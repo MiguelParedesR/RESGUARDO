@@ -187,6 +187,53 @@
   box-shadow: none;
 }
 
+/* === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === */
+.selfie-trigger {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: #263238;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.selfie-trigger .material-icons {
+  font-size: 22px;
+}
+.selfie-trigger:hover,
+.selfie-trigger:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  outline: none;
+}
+.selfie-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.selfie-thumb.show {
+  display: block;
+}
+.selfie-hint {
+  font-size: 12px;
+  color: #607d8b;
+  margin: 0;
+}
+.selfie-compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+/* === END HU:HU-CAMERA-COMPACT-UI === */
+
 /* --- Panel flotante --- */
 .panel {
     position: absolute;

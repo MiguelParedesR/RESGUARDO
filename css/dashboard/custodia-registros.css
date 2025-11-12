@@ -370,25 +370,51 @@ textarea:focus::placeholder {
   gap: 12px;
 }
 
-.selfie-btn {
-  display: inline-flex;
+/* === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === */
+.selfie-inline__cta {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 14px;
-  border: 1px solid #dae0ef;
-  background: #fff;
-  box-shadow: 0 6px 16px rgba(15, 37, 68, 0.12);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selfie-trigger {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #263238;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
   cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.selfie-btn .material-icons {
-  font-size: 20px;
-  color: #3949ab;
+.selfie-trigger .material-icons {
+  font-size: 24px;
 }
+.selfie-trigger:focus-visible,
+.selfie-trigger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  outline: none;
+}
+
+.selfie-hint {
+  font-size: 12px;
+  color: #607d8b;
+  margin: 0;
+}
+
+.selfie-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  display: none;
+}
+/* === END HU:HU-CAMERA-COMPACT-UI === */
 
 .selfie-preview {
   width: 140px;
@@ -402,14 +428,7 @@ textarea:focus::placeholder {
   overflow: hidden;
 }
 
-.selfie-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: none;
-}
-
-.selfie-preview.has-image img {
+.selfie-preview.has-image .selfie-thumb {
   display: block;
 }
 

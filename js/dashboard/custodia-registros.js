@@ -830,6 +830,84 @@
     state.currentRow = null;
   }
 
+  // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+  async function updateCustodia({ scId, nombre, tipo }) {
+    try {
+      if (!window.sb) throw new Error("Supabase no inicializado");
+      if (!scId) throw new Error("scId requerido");
+      const payload = {};
+      if (typeof nombre === "string" && hasValidNombre(nombre)) {
+        payload.nombre_custodio = nombre.trim();
+      }
+      if (typeof tipo === "string" && tipo.trim()) {
+        payload.tipo_custodia = tipo.trim();
+      }
+      if (!Object.keys(payload).length) {
+        console.log("[custodia-update] skip", { scId });
+        return { ok: true, data: null };
+      }
+      console.log("[custodia-update] start", { scId, payload });
+      const { data, error, status } = await window.sb
+        .from("servicio_custodio")
+        .update(payload, { returning: "representation" })
+        .eq("id", scId)
+        .select(
+          "id, servicio_id, nombre_custodio, tipo_custodia, selfie(id, created_at)"
+        )
+        .maybeSingle();
+      if (error) {
+        console.warn("[custodia-update] FAIL", { scId, status, error });
+        throw error;
+      }
+      let row = data;
+      if (!row) {
+        const { data: fallback, error: fetchError } = await window.sb
+          .from("servicio_custodio")
+          .select(
+            "id, servicio_id, nombre_custodio, tipo_custodia, selfie(id, created_at)"
+          )
+          .eq("id", scId)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        if (!fallback) throw new Error("Custodio no encontrado");
+        row = fallback;
+      }
+      console.log("[custodia-update] OK", {
+        sc_id: scId,
+        servicio_id: row?.servicio_id || null,
+      });
+      mergeCustodioIntoState(row);
+      return { ok: true, data: row };
+    } catch (err) {
+      console.warn("[error]", {
+        scope: "custodia-update",
+        scId,
+        message: err?.message || "unknown",
+      });
+      return { ok: false, error: err };
+    }
+  }
+
+  function mergeCustodioIntoState(updated) {
+    if (!updated?.id) return;
+    const targetRows = Array.isArray(state.servicios) ? state.servicios : [];
+    for (const row of targetRows) {
+      if (!Array.isArray(row.custodios)) continue;
+      const index = row.custodios.findIndex((c) => c.id === updated.id);
+      if (index >= 0) {
+        row.custodios[index] = {
+          ...row.custodios[index],
+          ...updated,
+        };
+        if (row === state.currentRow) {
+          updateSelfieStateFromCustodio(row.custodios[index]);
+        }
+        break;
+      }
+    }
+  }
+  // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+
   // === BEGIN HU:HU-REGISTRO-GUARDAR-FIX guardar (NO TOCAR FUERA) ===
   async function onSubmitForm(event) {
     event.preventDefault();
@@ -854,43 +932,19 @@
       servicio_id: servicioId,
     });
     try {
-      const updatePayload = { nombre_custodio: nombre, tipo_custodia: tipo };
-      const { data: updatedRow, error: updateError } = await window.sb
-        .from("servicio_custodio")
-        .update(updatePayload)
-        .eq("id", custodioFilter)
-        .select("id, servicio_id")
-        .maybeSingle();
-      if (updateError) throw updateError;
+      const updateResult = await updateCustodia({
+        scId: custodioFilter,
+        nombre,
+        tipo,
+      });
+      if (!updateResult.ok) throw updateResult.error;
+      const updatedRow = updateResult.data;
 
       if (state.selfieDataUrl) {
-        const base64 = state.selfieDataUrl.split(",")[1];
-        const selfiePayload = {
-          p_servicio_custodio_id: Number.isNaN(custodioIdNum)
-            ? custodioId
-            : custodioIdNum,
-          p_mime_type: "image/jpeg",
-          p_base64: base64,
-        };
-        const { error: selfieError } = await window.sb
-          .rpc("guardar_selfie", selfiePayload)
-          .then((res) => {
-            console.log("[selfie] rpc", {
-              payload: selfiePayload.p_servicio_custodio_id,
-              ok: !res?.error,
-            });
-            return res;
-          });
-        if (selfieError) {
-          console.warn("[selfie] FAIL", {
-            payload: selfiePayload,
-            error: selfieError,
-          });
-          throw selfieError;
-        }
-        console.log("[selfie] OK", {
-          sc_id: selfiePayload.p_servicio_custodio_id,
-        });
+        const selfieBlob = await dataUrlToBlob(state.selfieDataUrl);
+        const selfieResult = await saveSelfie(custodioFilter, selfieBlob);
+        if (!selfieResult.ok) throw selfieResult.error;
+        applySelfiePreview(custodioFilter, selfieBlob);
       }
 
       console.log("[custodia-update] OK", {
@@ -1183,6 +1237,73 @@
         : "Sin selfie";
     }
   }
+
+  // === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) ===
+  async function saveSelfie(scId, blob) {
+    try {
+      if (!window.sb) throw new Error("Supabase no inicializado");
+      if (!scId || !blob) throw new Error("Parametros invalidos para selfie");
+      const mime = blob.type || "image/jpeg";
+      const bytesHex = await blobToHex(blob);
+      const { data, error, status } = await window.sb
+        .from("selfie")
+        .insert(
+          {
+            servicio_custodio_id: scId,
+            mime_type: mime,
+            bytes: bytesHex,
+          },
+          { returning: "representation" }
+        )
+        .select("id, servicio_custodio_id, created_at")
+        .single();
+      if (error) {
+        console.warn("[selfie] FAIL", { sc_id: scId, status, error });
+        throw error;
+      }
+      console.log("[selfie] OK", { sc_id: scId, selfie_id: data?.id });
+      return { ok: true, data };
+    } catch (err) {
+      console.warn("[selfie] FAIL", {
+        sc_id: scId,
+        message: err?.message || "unknown",
+      });
+      return { ok: false, error: err };
+    }
+  }
+
+  async function dataUrlToBlob(dataUrl) {
+    if (!dataUrl?.startsWith("data:")) {
+      throw new Error("Selfie invalida");
+    }
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  }
+
+  async function blobToHex(blob) {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let hex = "";
+    bytes.forEach((b) => {
+      hex += b.toString(16).padStart(2, "0");
+    });
+    return "\\x" + hex;
+  }
+
+  function applySelfiePreview(scId, blob) {
+    if (!ui.selfiePreviewWrapper || !ui.selfiePreview || !blob) return;
+    const objectUrl = URL.createObjectURL(blob);
+    ui.selfiePreviewWrapper.classList.add("has-image");
+    ui.selfiePreview.src = objectUrl;
+    ui.selfiePreview.removeAttribute("hidden");
+    console.log("[camera-ui] preview updated", { sc_id: scId });
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch (_) {}
+    }, 30000);
+  }
+  // === END HU:HU-CAMERA-COMPACT-UI ===
 
   function updateGuardarState() {
     const nombre = (ui.nombreCustodio?.value || "").trim();

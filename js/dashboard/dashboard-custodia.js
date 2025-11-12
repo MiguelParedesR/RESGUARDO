@@ -171,6 +171,126 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // === END HU:HU-SEGUIR-REDIRECT ===
 
+  // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+  async function updateCustodia({ scId, nombre, tipo }) {
+    try {
+      if (!window.sb) throw new Error("Supabase no inicializado");
+      if (!scId) throw new Error("scId requerido");
+      const payload = {};
+      if (typeof nombre === "string" && nombre.trim()) {
+        payload.nombre_custodio = nombre.trim();
+      }
+      if (typeof tipo === "string" && tipo.trim()) {
+        payload.tipo_custodia = tipo.trim();
+      }
+      if (!Object.keys(payload).length) {
+        console.log("[custodia-update] skip", { sc_id: scId });
+        return { ok: true, data: null };
+      }
+      console.log("[custodia-update] start", { sc_id: scId, payload });
+      const { data, error, status } = await window.sb
+        .from("servicio_custodio")
+        .update(payload, { returning: "representation" })
+        .eq("id", scId)
+        .select("id, servicio_id, nombre_custodio, tipo_custodia")
+        .maybeSingle();
+      if (error) {
+        console.warn("[custodia-update] FAIL", { sc_id: scId, status, error });
+        throw error;
+      }
+      let row = data;
+      if (!row) {
+        const { data: fallback, error: fetchError } = await window.sb
+          .from("servicio_custodio")
+          .select("id, servicio_id, nombre_custodio, tipo_custodia")
+          .eq("id", scId)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        if (!fallback) throw new Error("Custodio no encontrado");
+        row = fallback;
+      }
+      console.log("[custodia-update] OK", {
+        sc_id: scId,
+        servicio_id: row?.servicio_id || null,
+      });
+      return { ok: true, data: row };
+    } catch (err) {
+      console.warn("[error]", {
+        scope: "dashboard-custodia/update",
+        message: err?.message || "unknown",
+        scId,
+      });
+      return { ok: false, error: err };
+    }
+  }
+  // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+
+  // === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) ===
+  async function saveSelfie(scId, blob) {
+    try {
+      if (!window.sb) throw new Error("Supabase no inicializado");
+      if (!scId || !blob) throw new Error("Parametros invalidos para selfie");
+      const mime = blob.type || "image/jpeg";
+      const hexBytes = await blobToHex(blob);
+      const { data, error, status } = await window.sb
+        .from("selfie")
+        .insert(
+          {
+            servicio_custodio_id: scId,
+            mime_type: mime,
+            bytes: hexBytes,
+          },
+          { returning: "representation" }
+        )
+        .select("id, servicio_custodio_id, created_at")
+        .single();
+      if (error) {
+        console.warn("[selfie] FAIL", { sc_id: scId, status, error });
+        throw error;
+      }
+      console.log("[selfie] OK", { sc_id: scId, selfie_id: data?.id });
+      return { ok: true, data };
+    } catch (err) {
+      console.warn("[selfie] FAIL", {
+        sc_id: scId,
+        message: err?.message || "unknown",
+      });
+      return { ok: false, error: err };
+    }
+  }
+
+  async function dataUrlToBlob(dataUrl) {
+    if (!dataUrl?.startsWith("data:")) {
+      throw new Error("Selfie invalida");
+    }
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  }
+
+  async function blobToHex(blob) {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let hex = "";
+    bytes.forEach((b) => {
+      hex += b.toString(16).padStart(2, "0");
+    });
+    return "\\x" + hex;
+  }
+
+  function applySelfiePreview(targetImg, blob) {
+    if (!targetImg || !blob) return;
+    const objectUrl = URL.createObjectURL(blob);
+    targetImg.src = objectUrl;
+    targetImg.style.display = "block";
+    console.log("[camera-ui] preview updated", { sc_id: targetImg.dataset?.id });
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch (_) {}
+    }, 30000);
+  }
+  // === END HU:HU-CAMERA-COMPACT-UI ===
+
   // Geo temprana
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
@@ -223,6 +343,17 @@ document.addEventListener("DOMContentLoaded", () => {
       ui.stream?.getTracks().forEach((t) => t.stop());
     } catch {}
     ui.stream = null;
+    if (ui?.triggerBtn) {
+      ui.triggerBtn.disabled = false;
+    }
+    if (ui?.video) {
+      ui.video.srcObject = null;
+      ui.video.style.display = "none";
+    }
+    if (ui?.cameraArea) {
+      ui.cameraArea.classList.remove("active");
+      ui.cameraArea.style.display = "none";
+    }
   }
 
   function renderCustodios() {
@@ -243,12 +374,17 @@ document.addEventListener("DOMContentLoaded", () => {
           <input class="mdl-textfield__input" type="text" placeholder="Nombre del custodio">
           <label class="mdl-textfield__label">Nombre del custodio</label>
         </div>
+        <div class="selfie-compact">
+          <button type="button" class="selfie-trigger" aria-label="Tomar selfie">
+            <span class="material-icons" aria-hidden="true">photo_camera</span>
+          </button>
+          <img alt="Selfie" class="selfie-thumb" hidden />
+          <p class="selfie-hint">Captura la selfie requerida para este puesto.</p>
+        </div>
         <div class="camera-area">
           <video playsinline autoplay muted></video>
-          <img alt="Selfie" />
           <canvas style="display:none"></canvas>
           <div class="camera-actions">
-            <button type="button" class="btn-iniciar mdl-button mdl-js-button">Iniciar camara</button>
             <button type="button" class="btn-tomar mdl-button mdl-js-button" disabled>Tomar selfie</button>
             <button type="button" class="btn-repetir mdl-button mdl-js-button" disabled>Repetir</button>
           </div>
@@ -256,44 +392,57 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>`;
       const nameInput = sec.querySelector('input[type="text"]');
       const video = sec.querySelector("video");
-      const img = sec.querySelector("img");
+      const thumb = sec.querySelector(".selfie-thumb");
       const canvas = sec.querySelector("canvas");
-      const btnStart = sec.querySelector(".btn-iniciar");
+      const triggerBtn = sec.querySelector(".selfie-trigger");
       const btnShot = sec.querySelector(".btn-tomar");
       const btnReset = sec.querySelector(".btn-repetir");
       const status = sec.querySelector(".cam-estado");
+      const cameraArea = sec.querySelector(".camera-area");
+      cameraArea.style.display = "none";
+      const closeCameraArea = (message) => {
+        stopStream(ui);
+        cameraArea.style.display = "none";
+        cameraArea.classList.remove("active");
+        if (message) status.textContent = message;
+        btnShot.disabled = true;
+        btnReset.disabled = true;
+        triggerBtn.disabled = false;
+      };
       const ui = {
         kind,
         root: sec,
         nameInput,
         video,
-        img,
+        img: thumb,
         canvas,
-        btnStart,
+        triggerBtn,
         btnShot,
         btnReset,
+        cameraArea,
         status,
         stream: null,
         selfieDataUrl: null,
       };
 
-      btnStart.addEventListener("click", async () => {
+      triggerBtn.addEventListener("click", async () => {
         try {
-          btnStart.disabled = true;
-          status.textContent = "Solicitando permisos...";
+          triggerBtn.disabled = true;
+          status.textContent = "Iniciando camara...";
           ui.stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "user" },
             audio: false,
           });
           video.srcObject = ui.stream;
           video.style.display = "block";
-          img.style.display = "none";
+          cameraArea.classList.add("active");
+          cameraArea.style.display = "grid";
           btnShot.disabled = false;
           btnReset.disabled = true;
           status.textContent = "Camara lista";
         } catch (e) {
           status.textContent = "No se pudo acceder a la camara";
-          btnStart.disabled = false;
+          triggerBtn.disabled = false;
         }
       });
       btnShot.addEventListener("click", () => {
@@ -308,21 +457,20 @@ document.addEventListener("DOMContentLoaded", () => {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, w, h);
         ui.selfieDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        img.src = ui.selfieDataUrl;
-        img.style.display = "block";
+        thumb.src = ui.selfieDataUrl;
+        thumb.classList.add("show");
+        thumb.removeAttribute("hidden");
         video.style.display = "none";
         btnShot.disabled = true;
-        btnReset.disabled = false;
+        btnReset.disabled = true;
         status.textContent = "Selfie capturada";
+        closeCameraArea("Selfie capturada");
       });
       btnReset.addEventListener("click", () => {
-        if (!ui.stream) return;
         ui.selfieDataUrl = null;
-        img.style.display = "none";
-        video.style.display = "block";
-        btnShot.disabled = false;
-        btnReset.disabled = true;
-        status.textContent = "Listo para otra";
+        thumb.classList.remove("show");
+        thumb.setAttribute("hidden", "hidden");
+        closeCameraArea("Listo para otra selfie");
       });
 
       custodiosUI.push(ui);
@@ -788,6 +936,7 @@ document.addEventListener("DOMContentLoaded", () => {
               selfie: b.selfieDataUrl,
               kind: k,
               tipo_custodia: inc.tipo_custodia || mapKindToTipo(k),
+              img: b.img || null,
             });
           } else if (!completeKinds.has(k)) {
             const tipo_custodia = mapKindToTipo(k);
@@ -798,6 +947,7 @@ document.addEventListener("DOMContentLoaded", () => {
               selfie: b.selfieDataUrl,
               kind: k,
               tipo_custodia,
+              img: b.img || null,
             });
           }
         }
@@ -816,35 +966,19 @@ document.addEventListener("DOMContentLoaded", () => {
         let followSessionPayload = null;
         for (const a of actions) {
           if (a.mode === "update") {
-            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-            console.log("[custodia-update] start", { sc_id: a.id });
-            const { error: e1 } = await window.sb
-              .from("servicio_custodio")
-              .update({ nombre_custodio: a.nombre })
-              .eq("id", a.id)
-              .select("id")
-              .maybeSingle();
-            if (e1) {
-              console.warn("[custodia-update] FAIL", { sc_id: a.id, error: e1 });
-              throw e1;
+            const tipoCustodia = a.tipo_custodia || mapKindToTipo(a.kind);
+            const updResult = await updateCustodia({
+              scId: a.id,
+              nombre: a.nombre,
+              tipo: tipoCustodia,
+            });
+            if (!updResult.ok) throw updResult.error;
+            if (a.selfie) {
+              const selfieBlob = await dataUrlToBlob(a.selfie);
+              const selfieRes = await saveSelfie(a.id, selfieBlob);
+              if (!selfieRes.ok) throw selfieRes.error;
+              if (a.img) applySelfiePreview(a.img, selfieBlob);
             }
-            console.log("[custodia-update] OK", { sc_id: a.id });
-            const base64 = a.selfie.split(",")[1];
-            const selfiePayload = {
-              p_servicio_custodio_id: a.id,
-              p_mime_type: "image/jpeg",
-              p_base64: base64,
-            };
-            const { error: e2 } = await window.sb.rpc(
-              "guardar_selfie",
-              selfiePayload
-            );
-            if (e2) {
-              console.warn("[selfie] FAIL", { sc_id: a.id, error: e2 });
-              throw e2;
-            }
-            console.log("[selfie] OK", { sc_id: a.id });
-            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             if (
               !followSessionPayload &&
               (!primaryKind ||
@@ -869,13 +1003,12 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             );
             if (e3) throw e3;
-            const base64 = a.selfie.split(",")[1];
-            const { error: e4 } = await window.sb.rpc("guardar_selfie", {
-              p_servicio_custodio_id: cId,
-              p_mime_type: "image/jpeg",
-              p_base64: base64,
-            });
-            if (e4) throw e4;
+            if (a.selfie) {
+              const selfieBlob = await dataUrlToBlob(a.selfie);
+              const selfieRes = await saveSelfie(cId, selfieBlob);
+              if (!selfieRes.ok) throw selfieRes.error;
+              if (a.img) applySelfiePreview(a.img, selfieBlob);
+            }
             if (
               !followSessionPayload &&
               (!primaryKind ||
@@ -932,15 +1065,16 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error(errC);
           return showMsg("Error al agregar custodio");
         }
-        const base64 = b.selfieDataUrl.split(",")[1];
-        const { error: errS } = await window.sb.rpc("guardar_selfie", {
-          p_servicio_custodio_id: cId,
-          p_mime_type: "image/jpeg",
-          p_base64: base64,
-        });
-        if (errS) {
-          console.error(errS);
-          return showMsg("Error al guardar selfie");
+        if (b.selfieDataUrl) {
+          try {
+            const selfieBlob = await dataUrlToBlob(b.selfieDataUrl);
+            const selfieRes = await saveSelfie(cId, selfieBlob);
+            if (!selfieRes.ok) throw selfieRes.error;
+            if (b.img) applySelfiePreview(b.img, selfieBlob);
+          } catch (errSelfie) {
+            console.error(errSelfie);
+            return showMsg("Error al guardar selfie");
+          }
         }
         if (!followSessionPayload && (!primaryBloque || b === primaryBloque)) {
           followSessionPayload = {
@@ -1041,6 +1175,7 @@ document.addEventListener("DOMContentLoaded", () => {
             selfie: b.selfieDataUrl,
             kind: k,
             tipo_custodia: inc.tipo_custodia || tipoForKind(k),
+            img: b.img || null,
           });
         else if (!completeKinds.has(k))
           actions.push({
@@ -1050,40 +1185,25 @@ document.addEventListener("DOMContentLoaded", () => {
             selfie: b.selfieDataUrl,
             kind: k,
             tipo_custodia: tipoForKind(k),
+            img: b.img || null,
           });
       }
       let followSessionPayload = null;
       for (const a of actions) {
         if (a.mode === "update") {
-          // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-          console.log("[custodia-update] start", { sc_id: a.id });
-          const { error: e1 } = await window.sb
-            .from("servicio_custodio")
-            .update({ nombre_custodio: a.nombre })
-            .eq("id", a.id)
-            .select("id")
-            .maybeSingle();
-          if (e1) {
-            console.warn("[custodia-update] FAIL", { sc_id: a.id, error: e1 });
-            throw e1;
+          const tipo_custodia = a.tipo_custodia || tipoForKind(a.kind);
+          const updResult = await updateCustodia({
+            scId: a.id,
+            nombre: a.nombre,
+            tipo: tipo_custodia,
+          });
+          if (!updResult.ok) throw updResult.error;
+          if (a.selfie) {
+            const selfieBlob = await dataUrlToBlob(a.selfie);
+            const selfieRes = await saveSelfie(a.id, selfieBlob);
+            if (!selfieRes.ok) throw selfieRes.error;
+            if (a.img) applySelfiePreview(a.img, selfieBlob);
           }
-          console.log("[custodia-update] OK", { sc_id: a.id });
-          const base64 = a.selfie.split(",")[1];
-          const selfiePayload = {
-            p_servicio_custodio_id: a.id,
-            p_mime_type: "image/jpeg",
-            p_base64: base64,
-          };
-          const { error: e2 } = await window.sb.rpc(
-            "guardar_selfie",
-            selfiePayload
-          );
-          if (e2) {
-            console.warn("[selfie] FAIL", { sc_id: a.id, error: e2 });
-            throw e2;
-          }
-          console.log("[selfie] OK", { sc_id: a.id });
-          // === END HU:HU-CUSTODIA-UPDATE-FIX ===
           if (
             !followSessionPayload &&
             (!primaryKind ||
@@ -1108,13 +1228,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           );
           if (e3) throw e3;
-          const base64 = a.selfie.split(",")[1];
-          const { error: e4 } = await window.sb.rpc("guardar_selfie", {
-            p_servicio_custodio_id: cId,
-            p_mime_type: "image/jpeg",
-            p_base64: base64,
-          });
-          if (e4) throw e4;
+          if (a.selfie) {
+            const selfieBlob = await dataUrlToBlob(a.selfie);
+            const selfieRes = await saveSelfie(cId, selfieBlob);
+            if (!selfieRes.ok) throw selfieRes.error;
+            if (a.img) applySelfiePreview(a.img, selfieBlob);
+          }
           if (
             !followSessionPayload &&
             (!primaryKind ||

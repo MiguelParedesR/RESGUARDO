@@ -1,4 +1,4 @@
-﻿﻿<!doctype html>
+﻿?<!doctype html>
 <html lang="es">
 
 <head>
@@ -27,7 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="../../config.js"></script>
 
-  <!-- ProtecciÃ³n + LÃ³gica -->
+  <!-- Protección + Lógica -->
   <script defer src="../../modules/alarma/alarma.js"></script>
   <script defer src="../../js/lib/router-local.js"></script>
   <script defer src="../../js/lib/app-header.js"></script>
@@ -95,7 +95,7 @@
       const destinoEl = document.getElementById('destino-texto');
       const estadoEl = document.getElementById('estado-texto');
 
-      if (!servicioId || !window.sb) { destinoEl.textContent = 'â€”'; estadoEl.textContent = 'â€”'; return; }
+      if (!servicioId || !window.sb) { destinoEl.textContent = '—'; estadoEl.textContent = '—'; return; }
 
       try {
         const { data, error } = await window.sb
@@ -106,13 +106,13 @@
 
         if (error) throw error;
 
-        destinoEl.textContent = data?.destino_texto || 'â€”';
+        destinoEl.textContent = data?.destino_texto || '—';
         estadoEl.textContent = data?.estado || 'EN CURSO';
         estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
       } catch (err) {
         console.error('[mapa-resguardo] error', err);
-        destinoEl.textContent = 'â€”';
-        estadoEl.textContent = 'â€”';
+        destinoEl.textContent = '—';
+        estadoEl.textContent = '—';
       }
     });
   </script>
@@ -120,6 +120,84 @@
     document.addEventListener('DOMContentLoaded', async () => {
       const servicioId = sessionStorage.getItem('servicio_id_actual');
       if (!servicioId || !window.sb) return;
+      // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
+      async function updateCustodia({ scId, nombre, tipo }) {
+        try {
+          if (!scId) throw new Error('scId requerido');
+          const payload = {};
+          if (typeof nombre === 'string' && nombre.trim()) payload.nombre_custodio = nombre.trim();
+          if (typeof tipo === 'string' && tipo.trim()) payload.tipo_custodia = tipo.trim();
+          if (!Object.keys(payload).length) {
+            console.log('[custodia-update] skip', { sc_id: scId });
+            return { ok: true, data: null };
+          }
+          console.log('[custodia-update] start', { sc_id: scId, payload });
+          const { data, error, status } = await window.sb
+            .from('servicio_custodio')
+            .update(payload, { returning: 'representation' })
+            .eq('id', scId)
+            .select('id, servicio_id, nombre_custodio, tipo_custodia')
+            .maybeSingle();
+          if (error) {
+            console.warn('[custodia-update] FAIL', { sc_id: scId, status, error });
+            throw error;
+          }
+          let row = data;
+          if (!row) {
+            const { data: fallback, error: fetchError } = await window.sb
+              .from('servicio_custodio')
+              .select('id, servicio_id, nombre_custodio, tipo_custodia')
+              .eq('id', scId)
+              .maybeSingle();
+            if (fetchError) throw fetchError;
+            if (!fallback) throw new Error('Custodio no encontrado');
+            row = fallback;
+          }
+          console.log('[custodia-update] OK', { sc_id: scId, servicio_id: data?.servicio_id || null });
+          return { ok: true, data: row };
+        } catch (err) {
+          console.warn('[error]', { scope: 'mapa-resguardo/update', sc_id: scId, message: err?.message || 'unknown' });
+          return { ok: false, error: err };
+        }
+      }
+      // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+      // === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) ===
+      async function saveSelfie(scId, blob) {
+        try {
+          if (!scId || !blob) throw new Error('Parametros invalidos para selfie');
+          const mime = blob.type || 'image/jpeg';
+          const bytes = await blobToHex(blob);
+          const { data, error, status } = await window.sb
+            .from('selfie')
+            .insert({ servicio_custodio_id: scId, mime_type: mime, bytes }, { returning: 'representation' })
+            .select('id, servicio_custodio_id, created_at')
+            .single();
+          if (error) {
+            console.warn('[selfie] FAIL', { sc_id: scId, status, error });
+            throw error;
+          }
+          console.log('[selfie] OK', { sc_id: scId, selfie_id: data?.id });
+          return { ok: true, data };
+        } catch (err) {
+          console.warn('[selfie] FAIL', { sc_id: scId, message: err?.message || 'unknown' });
+          return { ok: false, error: err };
+        }
+      }
+      async function dataUrlToBlob(dataUrl) {
+        if (!dataUrl?.startsWith('data:')) throw new Error('Selfie invalida');
+        const res = await fetch(dataUrl);
+        return await res.blob();
+      }
+      async function blobToHex(blob) {
+        const buffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let hex = '';
+        bytes.forEach((b) => {
+          hex += b.toString(16).padStart(2, '0');
+        });
+        return '\\x' + hex;
+      }
+      // === END HU:HU-CAMERA-COMPACT-UI ===
       try {
         const listEl = document.getElementById('custodios-list');
         const { data: custodios, error } = await window.sb
@@ -217,12 +295,17 @@
             <label class="mdl-textfield__label" for="am-tipo">Tipo de custodia</label>
           </div>
           <div class="camara">
-            <div class="cam-actions">
-              <button type="button" class="cam-action" id="am-start" data-action="start" title="Iniciar camara">
-                <i class="material-icons" aria-hidden="true">videocam</i>
-                <span>Iniciar</span>
+            <!-- === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === -->
+            <div class="selfie-compact">
+              <button type="button" class="selfie-trigger" id="am-start" data-action="start" title="Iniciar camara">
+                <i class="material-icons" aria-hidden="true">photo_camera</i>
               </button>
-              <button type="button" class="cam-action" id="am-shot" data-action="capture" title="Tomar selfie" disabled>
+              <img id="am-preview" class="selfie-thumb" alt="Selfie tomada" hidden />
+              <p class="selfie-hint">Presiona el botón para habilitar la cámara y captura la selfie.</p>
+            </div>
+            <!-- === END HU:HU-CAMERA-COMPACT-UI === -->
+            <div class="cam-actions">
+              <button type="button" class="cam-action cam-action--primary" id="am-shot" data-action="capture" title="Tomar selfie" disabled>
                 <i class="material-icons" aria-hidden="true">photo_camera</i>
                 <span>Capturar</span>
               </button>
@@ -235,7 +318,6 @@
             <div class="cam-media">
               <video id="am-video" playsinline autoplay muted></video>
               <canvas id="am-canvas"></canvas>
-              <img id="am-preview" alt="Selfie tomada" />
             </div>
           </div>
           <div class="row-actions">
@@ -271,7 +353,8 @@
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
             amVideo.srcObject = mediaStream;
             amVideo.style.display = 'block';
-            amPreview.style.display = 'none';
+            amPreview.classList.remove('show');
+          amPreview.setAttribute('hidden', 'hidden');
             amShot.disabled = false;
             amReset.disabled = true;
             amStatus.textContent = 'Camara lista';
@@ -290,7 +373,8 @@
           ctx.drawImage(amVideo, 0, 0, w, h);
           selfieDataUrl = amCanvas.toDataURL('image/jpeg', 0.85);
           amPreview.src = selfieDataUrl;
-          amPreview.style.display = 'block';
+          amPreview.classList.add('show');
+          amPreview.removeAttribute('hidden');
           amVideo.style.display = 'none';
           amShot.disabled = true;
           amReset.disabled = false;
@@ -299,7 +383,8 @@
         amReset.addEventListener('click', () => {
           if (!mediaStream) return;
           selfieDataUrl = null;
-          amPreview.style.display = 'none';
+          amPreview.classList.remove('show');
+          amPreview.setAttribute('hidden', 'hidden');
           amVideo.style.display = 'block';
           amShot.disabled = false;
           amReset.disabled = true;
@@ -320,22 +405,14 @@
             const { data: cId, error: errC } = await window.sb.rpc('agregar_custodio', { p_servicio_id: servicioId, p_nombre: nombre, p_tipo_custodia: tipo });
             if (errC) throw errC;
             if (selfieDataUrl) {
-              const base64 = selfieDataUrl.split(',')[1];
-              const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: cId, p_mime_type: 'image/jpeg', p_base64: base64 });
-              // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-              if (errS) {
-                console.warn('[selfie] FAIL', { scope: 'mapa-resguardo/add', sc_id: cId, error: errS });
-                throw errS;
-              }
-              console.log('[selfie] OK', { scope: 'mapa-resguardo/add', sc_id: cId });
-              // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+              const selfieBlob = await dataUrlToBlob(selfieDataUrl);
+              const selfieResult = await saveSelfie(cId, selfieBlob);
+              if (!selfieResult.ok) throw selfieResult.error;
             }
             cleanup();
             location.reload();
           } catch (e) {
-            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
             console.error('[error]', { scope: 'mapa-resguardo/add', message: e?.message || 'unknown' });
-            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             console.error(e); alert('Error al agregar custodio');
           }
         }
@@ -375,12 +452,17 @@
             <label class="mdl-textfield__label" for="em-tipo">Tipo de custodia</label>
           </div>
           <div class="camara">
-            <div class="cam-actions">
-              <button type="button" class="cam-action" id="em-start" data-action="start" title="Iniciar camara">
-                <i class="material-icons" aria-hidden="true">videocam</i>
-                <span>Iniciar</span>
+            <!-- === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === -->
+            <div class="selfie-compact">
+              <button type="button" class="selfie-trigger" id="em-start" data-action="start" title="Iniciar camara">
+                <i class="material-icons" aria-hidden="true">photo_camera</i>
               </button>
-              <button type="button" class="cam-action" id="em-shot" data-action="capture" title="Tomar selfie" disabled>
+              <img id="em-preview" class="selfie-thumb" alt="Selfie tomada" hidden />
+              <p class="selfie-hint">Captura o actualiza la selfie del custodio.</p>
+            </div>
+            <!-- === END HU:HU-CAMERA-COMPACT-UI === -->
+            <div class="cam-actions">
+              <button type="button" class="cam-action cam-action--primary" id="em-shot" data-action="capture" title="Tomar selfie" disabled>
                 <i class="material-icons" aria-hidden="true">photo_camera</i>
                 <span>Capturar</span>
               </button>
@@ -393,7 +475,6 @@
             <div class="cam-media">
               <video id="em-video" playsinline autoplay muted></video>
               <canvas id="em-canvas"></canvas>
-              <img id="em-preview" alt="Selfie tomada" />
             </div>
           </div>
           <div class="row-actions">
@@ -434,7 +515,8 @@
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
             emVideo.srcObject = mediaStream;
             emVideo.style.display = 'block';
-            emPreview.style.display = 'none';
+            emPreview.classList.remove('show');
+          emPreview.setAttribute('hidden', 'hidden');
             emShot.disabled = false;
             emReset.disabled = true;
             emStatus.textContent = 'Camara lista';
@@ -453,7 +535,8 @@
           ctx.drawImage(emVideo, 0, 0, w, h);
           selfieDataUrl = emCanvas.toDataURL('image/jpeg', 0.85);
           emPreview.src = selfieDataUrl;
-          emPreview.style.display = 'block';
+          emPreview.classList.add('show');
+          emPreview.removeAttribute('hidden');
           emVideo.style.display = 'none';
           emShot.disabled = true;
           emReset.disabled = false;
@@ -462,7 +545,8 @@
         emReset.addEventListener('click', () => {
           if (!mediaStream) return;
           selfieDataUrl = null;
-          emPreview.style.display = 'none';
+          emPreview.classList.remove('show');
+          emPreview.setAttribute('hidden', 'hidden');
           emVideo.style.display = 'block';
           emShot.disabled = false;
           emReset.disabled = true;
@@ -480,25 +564,17 @@
           const tipo = emTipo ? (emTipo.value || '').trim() : '';
           if (!tipo) { alert('Seleccione el tipo de custodia'); return; }
           try {
-            const { error: errN } = await window.sb.from('servicio_custodio').update({ nombre_custodio: nombre, tipo_custodia: tipo }).eq('id', c.id);
-            if (errN) throw errN;
+            const updateResult = await updateCustodia({ scId: c.id, nombre, tipo });
+            if (!updateResult.ok) throw updateResult.error;
             if (selfieDataUrl) {
-              const base64 = selfieDataUrl.split(',')[1];
-              const { error: errS } = await window.sb.rpc('guardar_selfie', { p_servicio_custodio_id: c.id, p_mime_type: 'image/jpeg', p_base64: base64 });
-              // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-              if (errS) {
-                console.warn('[selfie] FAIL', { scope: 'mapa-resguardo/edit', sc_id: c.id, error: errS });
-                throw errS;
-              }
-              console.log('[selfie] OK', { scope: 'mapa-resguardo/edit', sc_id: c.id });
-              // === END HU:HU-CUSTODIA-UPDATE-FIX ===
+              const selfieBlob = await dataUrlToBlob(selfieDataUrl);
+              const selfieResult = await saveSelfie(c.id, selfieBlob);
+              if (!selfieResult.ok) throw selfieResult.error;
             }
             cleanup();
             location.reload();
           } catch (e) {
-            // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
             console.error('[error]', { scope: 'mapa-resguardo/edit', message: e?.message || 'unknown' });
-            // === END HU:HU-CUSTODIA-UPDATE-FIX ===
             console.error(e); alert('Error al guardar');
           }
         }
@@ -510,3 +586,4 @@
 </body>
 
 </html>
+

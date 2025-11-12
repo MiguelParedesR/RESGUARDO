@@ -92,14 +92,19 @@
                             </div>
 
                             <div class="selfie-inline" aria-label="Captura de selfie">
-                                <button type="button" id="btn-open-selfie" class="selfie-btn">
-                                    <span class="material-icons" aria-hidden="true">face</span>
-                                    <span>Selfie</span>
-                                </button>
+                                <!-- === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === -->
+                                <div class="selfie-inline__cta">
+                                    <button type="button" id="btn-open-selfie" class="selfie-trigger" aria-haspopup="dialog">
+                                        <span class="material-icons" aria-hidden="true">photo_camera</span>
+                                        <span>Tomar selfie</span>
+                                    </button>
+                                    <p class="selfie-hint">Habilita la cÁmara y captura la selfie de confirmaciÓn.</p>
+                                </div>
                                 <div class="selfie-preview" id="selfie-preview-wrapper">
-                                    <img id="selfie-preview" alt="Selfie capturada" hidden />
+                                    <img id="selfie-preview" class="selfie-thumb" alt="Selfie capturada" hidden />
                                     <span class="selfie-empty" id="selfie-empty-label">Sin selfie</span>
                                 </div>
+                                <!-- === END HU:HU-CAMERA-COMPACT-UI === -->
                             </div>
 
                             <div class="actions">
