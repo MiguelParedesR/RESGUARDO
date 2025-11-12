@@ -846,11 +846,12 @@
         console.log("[custodia-update] skip", { scId });
         return { ok: true, data: null };
       }
-      console.log("[custodia-update] start", { scId, payload });
+      const scFilter = String(scId).trim();
+      console.log("[custodia-update] start", { scId: scFilter, payload });
       const { data, error, status } = await window.sb
         .from("servicio_custodio")
         .update(payload, { returning: "representation" })
-        .eq("id", scId)
+        .eq("id", scFilter)
         .select(
           "id, servicio_id, nombre_custodio, tipo_custodia, selfie(id, created_at)"
         );
@@ -865,7 +866,7 @@
           .select(
             "id, servicio_id, nombre_custodio, tipo_custodia, selfie(id, created_at)"
           )
-          .eq("id", scId)
+          .eq("id", scFilter)
           .maybeSingle();
         if (fetchError) throw fetchError;
         if (!fallback) throw new Error("Custodio no encontrado");
