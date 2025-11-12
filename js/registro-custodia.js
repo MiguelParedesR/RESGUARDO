@@ -1,4 +1,4 @@
-// === BEGIN HU:HU-REGISTRO-CUSTODIA onboarding (NO TOCAR FUERA) ===
+﻿// === BEGIN HU:HU-REGISTRO-CUSTODIA onboarding (NO TOCAR FUERA) ===
 (function () {
   "use strict";
 
@@ -13,6 +13,8 @@
     empresaOtroInput: "#empresa-otra",
     selfieTrigger: "#selfie-trigger",
     selfieHint: "#selfie-hint",
+    selfieStatus: "#selfie-status",
+    selfieBlock: "#selfie-block",
     submitBtn: "#btn-registrar",
   };
 
@@ -25,6 +27,7 @@
     selfieBlob: null,
     loader: null,
     snackbar: null,
+    selfieContext: null,
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -36,6 +39,7 @@
     state.snackbar = document.getElementById("app-snackbar");
     initLoader();
     bindEmpresaSelect();
+    setupRealtimeValidation();
     setupSelfieIcon();
     bindFormSubmit(form);
     bindSuccessButton();
@@ -123,21 +127,26 @@
         input.focus();
       } else {
         input.value = "";
-        group.classList.remove("is-invalid");
-        group.removeAttribute("data-error");
+        clearInvalid(group);
       }
+      validateSingleField("empresa");
+      validateSingleField("empresaOtro");
     };
+
     select.addEventListener("change", toggle);
+    toggle();
   }
 
   function setupSelfieIcon() {
     const trigger = document.querySelector(SELECTORS.selfieTrigger);
     const hintEl = document.querySelector(SELECTORS.selfieHint);
+    setSelfieState("pending");
     if (!trigger || !globalThis.CustodiaSelfie?.attach) return;
     const hintMessages = {
-      idle: "Pulsa el botón para abrir la cámara.",
+      idle: "Pulsa el boton para abrir la camara.",
       ready: "Selfie lista. Puedes volver a capturar si deseas.",
     };
+
     globalThis.CustodiaSelfie.attach(trigger, {
       hintEl,
       hintIdle: hintMessages.idle,
@@ -145,13 +154,15 @@
       onCapture: ({ blob }) => {
         state.selfieBlob = blob;
         if (hintEl) hintEl.textContent = hintMessages.ready;
+        setSelfieState("ready");
       },
       onError: (err) => {
         console.warn(`${CAMERA_PREFIX} capture fail`, err);
         if (hintEl) hintEl.textContent = hintMessages.idle;
+        setSelfieState();
         if (err?.name === "NotAllowedError") {
           console.warn(`${PERM_PREFIX} camera denied`);
-          showMsg("Necesitas permitir el uso de la cámara para continuar.");
+          showMsg("Necesitas permitir el uso de la camara para continuar.");
         } else if (err?.message !== "camera-cancelled") {
           showMsg("No se pudo tomar la selfie. Intenta nuevamente.");
         }
@@ -159,17 +170,123 @@
     });
   }
 
+  function setupRealtimeValidation() {
+    const nombreInput = document.querySelector(SELECTORS.name);
+    const dniInput = document.querySelector(SELECTORS.dni);
+    const empresaSelect = document.querySelector(SELECTORS.empresa);
+    const empresaOtroInput = document.querySelector(SELECTORS.empresaOtroInput);
+
+    ["nombre", "dni", "empresa", "empresaOtro"].forEach((key) =>
+      validateSingleField(key)
+    );
+
+    nombreInput?.addEventListener("input", () => validateSingleField("nombre"));
+    dniInput?.addEventListener("input", () => validateSingleField("dni"));
+    empresaSelect?.addEventListener("change", () => {
+      validateSingleField("empresa");
+      validateSingleField("empresaOtro");
+    });
+    empresaOtroInput?.addEventListener("input", () =>
+      validateSingleField("empresaOtro")
+    );
+  }
+
+  function validateSingleField(key) {
+    const snapshot = getFormSnapshot();
+    const rules = buildValidationRules(snapshot);
+    const rule = rules.find((item) => item.key === key);
+    if (!rule) return true;
+
+    const shouldValidate =
+      typeof rule.onlyWhen === "function"
+        ? rule.onlyWhen(snapshot)
+        : rule.onlyWhen === undefined
+        ? true
+        : Boolean(rule.onlyWhen);
+
+    if (!shouldValidate) {
+      clearInvalid(rule.field);
+      return true;
+    }
+
+    if (rule.isValid) {
+      markValid(rule.field);
+      return true;
+    }
+
+    markInvalid(rule.field, rule.message);
+    return false;
+  }
+
+  function getFormSnapshot() {
+    const nombreInput = document.querySelector(SELECTORS.name);
+    const dniInput = document.querySelector(SELECTORS.dni);
+    const empresaSelect = document.querySelector(SELECTORS.empresa);
+    const empresaOtroInput = document.querySelector(SELECTORS.empresaOtroInput);
+
+    return {
+      nombre: (nombreInput?.value || "").trim(),
+      dni: (dniInput?.value || "").trim(),
+      empresa: empresaSelect?.value || "",
+      empresaOtro: (empresaOtroInput?.value || "").trim(),
+      refs: {
+        nombreInput,
+        dniInput,
+        empresaSelect,
+        empresaOtroInput,
+      },
+    };
+  }
+
+  function buildValidationRules(snapshot) {
+    const words = snapshot.nombre.split(/\s+/).filter(Boolean).length;
+    return [
+      {
+        key: "nombre",
+        field: document.getElementById("campo-nombre"),
+        isValid: words >= 2,
+        message: "Ingresa tu nombre completo (minimo 2 palabras)",
+        focusEl: snapshot.refs.nombreInput,
+      },
+      {
+        key: "dni",
+        field: document.getElementById("campo-dni"),
+        isValid: /^[0-9]{8}$/.test(snapshot.dni),
+        message: "El DNI debe tener exactamente 8 digitos",
+        focusEl: snapshot.refs.dniInput,
+      },
+      {
+        key: "empresa",
+        field: document.getElementById("campo-empresa"),
+        isValid: Boolean(snapshot.empresa),
+        message: "Selecciona una empresa",
+        focusEl: snapshot.refs.empresaSelect,
+      },
+      {
+        key: "empresaOtro",
+        field: document.getElementById("campo-empresa-otro"),
+        isValid:
+          snapshot.empresa !== "OTRA" || snapshot.empresaOtro.length >= 3,
+        message: "Ingresa el nombre de la empresa",
+        focusEl: snapshot.refs.empresaOtroInput,
+        onlyWhen: snapshot.empresa === "OTRA",
+      },
+    ];
+  }
+
   function bindFormSubmit(form) {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!window.sb) {
         console.error(`${API_PREFIX} Supabase no inicializado`);
-        showMsg("Configura la conexión antes de registrar custodias.");
+        showMsg("Configura la conexion antes de registrar custodias.");
         return;
       }
+
       const payload = collectFormData();
       if (!payload) return;
       if (!state.selfieBlob) {
+        setSelfieState("error");
         showMsg("Captura una selfie para completar el registro.");
         return;
       }
@@ -207,58 +324,34 @@
   }
 
   function collectFormData() {
-    const nombreInput = document.querySelector(SELECTORS.name);
-    const dniInput = document.querySelector(SELECTORS.dni);
-    const empresaSelect = document.querySelector(SELECTORS.empresa);
-    const empresaOtroInput = document.querySelector(SELECTORS.empresaOtroInput);
-    const nombre = (nombreInput?.value || "").trim();
-    const dni = (dniInput?.value || "").trim();
-    const empresa = empresaSelect?.value || "";
-    const empresaOtro = (empresaOtroInput?.value || "").trim();
+    const snapshot = getFormSnapshot();
+    const rules = buildValidationRules(snapshot);
 
-    const validations = [
-      {
-        field: document.getElementById("campo-nombre"),
-        condition: nombre.split(/\s+/).filter(Boolean).length >= 2,
-        message: "Ingresa tu nombre completo (mínimo 2 palabras)",
-        focusEl: nombreInput,
-      },
-      {
-        field: document.getElementById("campo-dni"),
-        condition: /^[0-9]{8}$/.test(dni),
-        message: "El DNI debe tener exactamente 8 dígitos",
-        focusEl: dniInput,
-      },
-      {
-        field: document.getElementById("campo-empresa"),
-        condition: Boolean(empresa),
-        message: "Selecciona una empresa",
-        focusEl: empresaSelect,
-      },
-      {
-        field: document.getElementById("campo-empresa-otro"),
-        condition: empresa !== "OTRA" || empresaOtro.length >= 3,
-        message: "Ingresa el nombre de la empresa",
-        focusEl: empresaOtroInput,
-        onlyWhen: empresa === "OTRA",
-      },
-    ];
+    for (const rule of rules) {
+      const shouldValidate =
+        typeof rule.onlyWhen === "function"
+          ? rule.onlyWhen(snapshot)
+          : rule.onlyWhen === undefined
+          ? true
+          : Boolean(rule.onlyWhen);
 
-    for (const rule of validations) {
       clearInvalid(rule.field);
-      if (rule.onlyWhen === false) continue;
-      if (!rule.condition) {
+      if (!shouldValidate) continue;
+
+      if (!rule.isValid) {
         markInvalid(rule.field, rule.message);
         rule.focusEl?.focus();
         return null;
       }
+      markValid(rule.field);
     }
 
     return {
-      nombre,
-      dni,
-      empresa: empresa === "OTRA" ? null : empresa,
-      empresa_otro: empresa === "OTRA" ? empresaOtro : null,
+      nombre: snapshot.nombre,
+      dni: snapshot.dni,
+      empresa: snapshot.empresa === "OTRA" ? null : snapshot.empresa,
+      empresa_otro:
+        snapshot.empresa === "OTRA" ? snapshot.empresaOtro : null,
     };
   }
 
@@ -312,7 +405,10 @@
     }
     const mime = state.selfieBlob.type || "image/jpeg";
     const bytes = await blobToHex(state.selfieBlob);
-    console.log(`${API_PREFIX} insert selfie`, { mime, size: state.selfieBlob.size });
+    console.log(`${API_PREFIX} insert selfie`, {
+      mime,
+      size: state.selfieBlob.size,
+    });
     const payload = {
       custodia_id: custodia.id,
       mime_type: mime,
@@ -338,13 +434,40 @@
   function markInvalid(container, message) {
     if (!container) return;
     container.classList.add("is-invalid");
+    container.classList.remove("is-valid");
     container.setAttribute("data-error", message);
   }
 
   function clearInvalid(container) {
     if (!container) return;
     container.classList.remove("is-invalid");
+    container.classList.remove("is-valid");
     container.removeAttribute("data-error");
+  }
+
+  function markValid(container) {
+    if (!container) return;
+    container.classList.remove("is-invalid");
+    container.removeAttribute("data-error");
+    container.classList.add("is-valid");
+  }
+
+  function setSelfieState(stateValue) {
+    const block = document.querySelector(SELECTORS.selfieBlock);
+    const status = document.querySelector(SELECTORS.selfieStatus);
+    if (!block || !status) return;
+    block.classList.remove("is-ready", "is-error");
+    if (stateValue === "ready") {
+      block.classList.add("is-ready");
+      status.textContent = "Lista";
+      return;
+    }
+    if (stateValue === "error") {
+      block.classList.add("is-error");
+      status.textContent = "Requerida";
+      return;
+    }
+    status.textContent = "Pendiente";
   }
 
   function setButtonLoading(btn, loading) {
@@ -374,12 +497,12 @@
       const msg = success.querySelector("p");
       if (msg) {
         msg.innerHTML =
-          "Tu PIN es siempre los <strong>últimos 4 dígitos</strong> de tu DNI (" +
+          "Tu PIN es siempre los <strong>ultimos 4 digitos</strong> de tu DNI (" +
           (custodia?.dni_last4 || "XXXX") +
           ").";
       }
     }
-    showMsg("Registro completado. Tu PIN es los últimos 4 dígitos de tu DNI.");
+    showMsg("Registro completado. Tu PIN es los ultimos 4 digitos de tu DNI.");
   }
 })();
 // === END HU:HU-REGISTRO-CUSTODIA ===

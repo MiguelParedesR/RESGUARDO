@@ -1,6 +1,6 @@
 ﻿/* === BEGIN HU:HU-REGISTRO-CUSTODIA styles (NO TOCAR FUERA) === */
 :root {
-  --registro-bg-image: url("/assets/img/resguardo-bg.png");
+  --registro-bg-image: url("https://i.postimg.cc/fyyNsd2n/Gemini-Generated-Image-6q4w4v6q4w4v6q4w.png");
   --registro-bg-overlay: rgba(245, 246, 251, 0.88);
   --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-border: rgba(15, 23, 42, 0.1);
@@ -52,6 +52,7 @@
   margin: 0 auto;
   display: grid;
   gap: 12px;
+  text-align: center;
 }
 
 .registro-hero__eyebrow {
@@ -81,7 +82,7 @@
 }
 
 .glass-card {
-  width: min(720px, 95vw);
+  width: min(760px, 96vw);
   padding: 32px;
   border-radius: 30px;
   background: var(--glass-bg);
@@ -94,12 +95,20 @@
 
 .registro-form {
   display: grid;
-  gap: 18px;
+  gap: 20px;
+  width: min(520px, 100%);
+  margin: 0 auto;
+}
+
+.registro-success {
+  width: min(520px, 100%);
+  margin: 0 auto;
 }
 
 .registro-field {
   display: grid;
   gap: 6px;
+  position: relative;
 }
 
 .registro-field label {
@@ -115,7 +124,7 @@
   background: rgba(15, 23, 42, 0.04);
   color: var(--text-primary);
   font-size: 1rem;
-  transition: border 0.2s ease, background 0.2s ease;
+  transition: border 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .registro-field input:focus,
@@ -128,6 +137,7 @@
 .registro-field.is-invalid input,
 .registro-field.is-invalid select {
   border-color: var(--error);
+  background: rgba(217, 4, 41, 0.05);
 }
 
 .registro-field.is-invalid::after {
@@ -135,6 +145,27 @@
   margin-top: 4px;
   font-size: 0.78rem;
   color: var(--error);
+}
+
+.registro-field.is-valid input,
+.registro-field.is-valid select {
+  border-color: rgba(46, 125, 50, 0.6);
+  background: rgba(46, 125, 50, 0.08);
+}
+
+.registro-field.is-valid::after {
+  content: "Listo";
+  position: absolute;
+  right: 14px;
+  top: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(46, 125, 50, 0.85);
+}
+
+.registro-field.is-invalid {
+  animation: fieldShake 0.26s ease;
 }
 
 
@@ -167,6 +198,14 @@
   cursor: not-allowed;
 }
 
+.registro-btn.loading .btn-spinner {
+  opacity: 1;
+}
+
+.registro-btn.loading .btn-label {
+  opacity: 0.7;
+}
+
 .btn-spinner {
   width: 16px;
   height: 16px;
@@ -176,14 +215,6 @@
   opacity: 0;
   animation: spin 0.9s linear infinite;
   pointer-events: none;
-}
-
-.registro-btn.loading .btn-spinner {
-  opacity: 1;
-}
-
-.registro-btn.loading .btn-label {
-  opacity: 0.7;
 }
 
 .registro-success {
@@ -219,6 +250,21 @@
   }
 }
 
+@keyframes fieldShake {
+  25% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+  75% {
+    transform: translateX(-1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -234,15 +280,18 @@
     border-radius: 24px;
   }
 
-  .selfie-content {
+  .registro-form,
+  .registro-success {
+    width: 100%;
+  }
+
+  .selfie-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .selfie-preview {
-    width: 100%;
-    height: 200px;
-    border-radius: 28px;
+  .selfie-status {
+    align-self: flex-start;
   }
 
   .registro-btn {
@@ -253,12 +302,20 @@
 
 
 .selfie-block {
-  border: 1px dashed rgba(15, 23, 42, 0.15);
+  border: 1px dashed rgba(15, 23, 42, 0.18);
   border-radius: 20px;
   padding: 18px;
   display: grid;
-  gap: 10px;
+  gap: 14px;
   background: #fff;
+  transition: border 0.2s ease, background 0.2s ease;
+}
+
+.selfie-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
 .selfie-header p {
@@ -272,14 +329,20 @@
   color: var(--text-muted);
 }
 
+.selfie-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ink-700, #1f2a44);
+}
+
 .selfie-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.selfie-content--compact {
-  border-radius: 18px;
 }
 
 .selfie-trigger {
@@ -287,7 +350,7 @@
   border-radius: 999px;
   background: linear-gradient(135deg, #7c90ff, #4752d8);
   color: #fff;
-  padding: 10px 18px;
+  padding: 12px 20px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -311,4 +374,20 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+.selfie-block.is-ready {
+  border-color: rgba(46, 125, 50, 0.45);
+  background: #f6fff8;
+}
+
+.selfie-block.is-error {
+  border-color: rgba(217, 4, 41, 0.5);
+  background: #fff5f5;
+}
+
+.selfie-block.is-error .selfie-status {
+  background: rgba(217, 4, 41, 0.15);
+  color: var(--error);
+}
+
 

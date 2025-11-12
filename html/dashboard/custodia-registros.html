@@ -75,43 +75,56 @@
             <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
           </section>
         </div>
+        <!-- === BEGIN HU:HU-CUSTODIA-REGISTROS-FLUJO modal (NO TOCAR FUERA) === -->
         <section id="modal-add-custodia" class="add-modal" aria-hidden="true">
           <div class="add-modal__backdrop" data-add-close></div>
           <div class="add-modal__card" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
             <header class="add-modal__head">
               <h3 id="add-modal-title">Agregar custodia</h3>
-              <button type="button" class="icon-btn" data-add-close aria-label="Cerrar">
+              <button type="button" class="icon-btn add-modal__close" data-add-close aria-label="Cerrar">
                 <i class="material-icons">close</i>
               </button>
             </header>
             <div class="add-modal__body">
               <p id="add-modal-description">
-                Selecciona el tipo de custodia que realizarás para este servicio.
+                Selecciona el tipo de custodia que realizaras para este servicio.
               </p>
               <div class="add-modal__options" role="radiogroup" aria-label="Tipo de custodia">
                 <label class="option">
                   <input type="radio" name="add-tipo" value="Simple" checked />
-                  <span>Custodia Simple</span>
+                  <span class="option__body">
+                    <span class="option__title">Custodia simple</span>
+                    <span class="option__hint">1 custodio</span>
+                  </span>
                 </label>
                 <label class="option">
                   <input type="radio" name="add-tipo" value="Tipo A" />
-                  <span>Custodia Tipo A</span>
+                  <span class="option__body">
+                    <span class="option__title">Custodia tipo A</span>
+                    <span class="option__hint">Mayor riesgo</span>
+                  </span>
                 </label>
                 <label class="option">
                   <input type="radio" name="add-tipo" value="Tipo B" />
-                  <span>Custodia Tipo B</span>
+                  <span class="option__body">
+                    <span class="option__title">Custodia tipo B</span>
+                    <span class="option__hint">Refuerzo operativo</span>
+                  </span>
                 </label>
               </div>
             </div>
             <footer class="add-modal__actions">
-              <button type="button" class="mdl-button mdl-js-button" data-add-close>Cancelar</button>
+              <button type="button" class="mdl-button mdl-js-button add-modal__cancel" data-add-close>
+                Cancelar
+              </button>
               <button type="button" id="add-modal-confirm"
-                class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
+                class="mdl-button mdl-js-button add-modal__confirm">
                 Confirmar
               </button>
             </footer>
           </div>
         </section>
+        <!-- === END HU:HU-CUSTODIA-REGISTROS-FLUJO === -->
       </section>
 
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
@@ -123,4 +136,6 @@
 </body>
 
 </html>
+
+
 

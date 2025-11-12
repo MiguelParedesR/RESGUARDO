@@ -34,9 +34,9 @@
     <main class="mdl-layout__content">
       <section class="registro-hero">
         <div class="registro-hero__copy">
-          <p class="registro-hero__eyebrow">Paso Único</p>
+          <p class="registro-hero__eyebrow">Paso unico</p>
           <h1>Activa tu acceso de custodia</h1>
-          
+          <p>Completa este formulario una sola vez para crear tu PIN y habilitar el ingreso por rol.</p>
         </div>
       </section>
 
@@ -49,7 +49,7 @@
             </div>
 
             <div class="registro-field" id="campo-dni">
-              <label for="dni">DNI (solo dígitos)</label>
+              <label for="dni">DNI (solo digitos)</label>
               <input type="tel" id="dni" name="dni" inputmode="numeric" minlength="8" pattern="[0-9]{8,}"
                 placeholder="00000000" required />
             </div>
@@ -57,7 +57,7 @@
             <div class="registro-field" id="campo-empresa">
               <label for="empresa">Empresa</label>
               <select id="empresa" name="empresa" required>
-                <option value="">Selecciona una opción</option>
+                <option value="">Selecciona una opcion</option>
                 <option value="KARPAR">KARPAR</option>
                 <option value="ALVICEM">ALVICEM</option>
                 <option value="OTRA">Registrar otra empresa</option>
@@ -69,17 +69,20 @@
               <input type="text" id="empresa-otra" placeholder="Ingresa el nombre de la empresa" />
             </div>
 
-            <div class="selfie-block" id="selfie-block">
+            <div class="selfie-block" id="selfie-block" aria-live="polite">
               <div class="selfie-header">
-                <p>Selfie</p>
-                <span>Solo para validar tu identidad</span>
+                <div>
+                  <p>Selfie de verificacion</p>
+                  <span>La usaremos una vez para confirmar tu identidad.</span>
+                </div>
+                <span class="selfie-status" id="selfie-status">Pendiente</span>
               </div>
               <div class="selfie-content selfie-content--compact">
                 <button type="button" class="selfie-trigger" id="selfie-trigger">
                   <span class="material-icons" aria-hidden="true">photo_camera</span>
                   <span>Tomar selfie</span>
                 </button>
-                <p class="selfie-hint" id="selfie-hint">Pulsa el botón y sigue las instrucciones.</p>
+                <p class="selfie-hint" id="selfie-hint">Pulsa el boton y sigue las instrucciones.</p>
               </div>
             </div>
 
@@ -92,7 +95,7 @@
           <div class="registro-success" id="registro-success" hidden>
             <span class="material-icons" aria-hidden="true">check_circle</span>
             <h3>Registro completado</h3>
-            <p>Tu PIN es siempre los <strong>últimos 4 dígitos</strong> de tu DNI.</p>
+            <p>Tu PIN es siempre los <strong>ultimos 4 digitos</strong> de tu DNI.</p>
             <button type="button" class="registro-btn" id="btn-volver-login">
               Ir al login
             </button>

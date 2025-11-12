@@ -6,6 +6,7 @@
   const LOG_API = "[api]";
   const LOG_SEGUIR = "[seguir]";
   const LOG_ADD = "[add-custodia]";
+  const LOG_PROFILE = "[profile]";
 
   const state = {
     profile: null,
@@ -16,6 +17,7 @@
     isLoading: false,
     pendingAdd: null,
     snackbar: null,
+    profileSynced: false,
   };
 
   const ui = {};
@@ -33,6 +35,7 @@
       return;
     }
     state.profile = profile;
+    state.profileSynced = false;
     state.empresa = profile.empresa || profile.empresa_otro || "";
     mapUI();
     bindEvents();
@@ -416,7 +419,7 @@
       descripcion: `${row.svc.placa} · ${row.svc.clienteNombre}`,
     };
     if (ui.modalDescription) {
-      ui.modalDescription.textContent = `Servicio ${state.pendingAdd.descripcion}. Selecciona el tipo de custodia que realizarás.`;
+      ui.modalDescription.textContent = `Servicio ${state.pendingAdd.descripcion}. Selecciona el tipo de custodia que realizaras.`;
     }
     const radios = document.querySelectorAll("input[name='add-tipo']");
     radios.forEach((radio, index) => {
@@ -439,16 +442,17 @@
         value: "Simple",
       }
     ).value;
+    const targetServicioId = state.pendingAdd.servicioId;
     try {
       setButtonLoading(ui.modalConfirm, true);
-      const nuevo = await agregarCustodia(state.pendingAdd.servicioId, tipo);
+      const nuevo = await agregarCustodia(targetServicioId, tipo);
       console.log(`${LOG_ADD} ok`, {
-        servicio_id: state.pendingAdd.servicioId,
+        servicio_id: targetServicioId,
         servicio_custodio_id: nuevo.id,
       });
       persistCustodiaSession(
         {
-          servicio_id: state.pendingAdd.servicioId,
+          servicio_id: targetServicioId,
           servicio_custodio_id: nuevo.id,
           custodia_id: state.profile.id,
           nombre_custodio: state.profile.nombre,
@@ -458,7 +462,7 @@
       );
       showMsg("Te uniste al servicio. Redirigiendo al mapa...");
       closeAddModal();
-      redirectToMapa(state.pendingAdd.servicioId, "add");
+      redirectToMapa(targetServicioId, "add");
     } catch (err) {
       console.error(`${LOG_ADD} error`, err);
       showMsg(err?.friendly || "No se pudo agregar la custodia.");
@@ -469,6 +473,7 @@
 
   async function agregarCustodia(servicioId, tipo) {
     if (!servicioId) throw new Error("Servicio no válido");
+    await ensureCustodiaRecord();
     const already = state.servicios
       .find((row) => row.svc.id === servicioId)
       ?.custodios.find((c) => c.custodia_id === state.profile.id);
@@ -490,8 +495,55 @@
       )
       .select("id")
       .single();
-    if (error) throw error;
+    if (error) {
+      throw decorateAddError(error);
+    }
     return data;
+  }
+
+  async function ensureCustodiaRecord() {
+    if (state.profileSynced) return state.profile.id;
+    const id = state.profile?.id;
+    if (!id) {
+      const err = new Error("profile-missing");
+      err.friendly = "Tu sesión expiró. Inicia sesión nuevamente.";
+      throw err;
+    }
+    const { data, error } = await window.sb
+      .from("custodia")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      console.error(`${LOG_PROFILE} lookup error`, error);
+      throw error;
+    }
+    if (!data?.id) {
+      console.warn(`${LOG_PROFILE} no row`, { id });
+      const err = new Error("custodia-missing");
+      err.friendly =
+        "No encontramos tu registro de custodia. Completa el onboarding y vuelve a iniciar sesión.";
+      err.code = "CUSTODIA_MISSING";
+      throw err;
+    }
+    state.profileSynced = true;
+    return data.id;
+  }
+
+  function decorateAddError(error) {
+    const code = String(error?.code || error?.details?.code || "");
+    if (code === "23503") {
+      const err = new Error("custodia_fk_missing");
+      err.code = code;
+      err.friendly =
+        "Tu registro de custodia no está disponible. Vuelve a iniciar sesión o repite el registro.";
+      return err;
+    }
+    if (error?.friendly) return error;
+    const fallback = new Error(error?.message || "No se pudo agregar la custodia.");
+    fallback.code = code || "ADD_ERROR";
+    fallback.friendly = "No se pudo agregar la custodia.";
+    return fallback;
   }
 
   function setPlaceholder(visible, text) {
