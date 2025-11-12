@@ -33,20 +33,7 @@
     <div id="app-header" data-page-title="Mis servicios"></div>
 
     <main class="mdl-layout__content">
-      <section class="page page--custodia page--custodia--has-sidebar">
-        <div class="topbar">
-          <div class="titles">
-            <h1>Mis servicios</h1>
-            <p class="subtitle">
-              Selecciona un cliente para ver sus placas y continúa sólo si eres el custodio titular.
-            </p>
-          </div>
-          <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent topbar__cta"
-            onclick="location.href='/html/dashboard/dashboard-custodia.html'">
-            + Nuevo servicio
-          </button>
-        </div>
-
+      <section class="page page--custodia">
         <div class="layout-custodia layout-custodia--sidebar" role="region" aria-label="Servicios por cliente">
           <aside class="custodia-panel custodia-panel--filters" aria-label="Filtro de clientes">
             <div class="panel-head">
@@ -68,12 +55,26 @@
             </div>
           </aside>
 
-          <section class="custodia-panel custodia-panel--services" aria-live="polite">
-            <div id="cards-placeholder" class="cards-placeholder" role="status">
-              Selecciona un cliente para visualizar los servicios disponibles.
+          <div class="custodia-main">
+            <div class="topbar">
+              <div class="titles">
+                <h1>Mis servicios</h1>
+                <p class="subtitle">
+                  Selecciona un cliente para ver sus placas y continúa sólo si eres el custodio titular.
+                </p>
+              </div>
+              <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent topbar__cta"
+                onclick="location.href='/html/dashboard/dashboard-custodia.html'" aria-label="Registrar nuevo servicio">
+                + Nuevo servicio
+              </button>
             </div>
-            <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
-          </section>
+            <section class="custodia-panel custodia-panel--services" aria-live="polite">
+              <div id="cards-placeholder" class="cards-placeholder" role="status">
+                Selecciona un cliente para visualizar los servicios disponibles.
+              </div>
+              <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
+            </section>
+          </div>
         </div>
         <!-- === BEGIN HU:HU-CUSTODIA-REGISTROS-FLUJO modal (NO TOCAR FUERA) === -->
         <section id="modal-add-custodia" class="add-modal" aria-hidden="true">
@@ -136,4 +137,3 @@
 </body>
 
 </html>
-
