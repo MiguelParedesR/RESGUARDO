@@ -283,7 +283,21 @@
         custodia_id: custodia.id,
         pin_last4: custodia.dni_last4,
       });
-    if (error) throw error;
+    if (error) {
+      const code = String(error.code || error.details?.code || "");
+      const msg = (error.message || "").toLowerCase();
+      const isDuplicate =
+        code === "23505" ||
+        msg.includes("duplicate key value") ||
+        msg.includes("already exists");
+      if (isDuplicate) {
+        console.log(`${API_PREFIX} custodia_login existente, se omite`, {
+          code,
+        });
+        return;
+      }
+      throw error;
+    }
   }
 
   async function uploadCustodiaSelfie(custodia) {

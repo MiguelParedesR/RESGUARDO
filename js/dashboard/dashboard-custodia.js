@@ -1,4 +1,4 @@
-// === BEGIN HU:HU-DASHBOARD-CUSTODIA-FORM crear-servicio (NO TOCAR FUERA) ===
+﻿// === BEGIN HU:HU-DASHBOARD-CUSTODIA-FORM crear-servicio (NO TOCAR FUERA) ===
 (function () {
   "use strict";
 
@@ -102,9 +102,7 @@
     refs.form.addEventListener("submit", (evt) =>
       handleSubmit(evt, refs, state)
     );
-    refs.btnLimpiar?.addEventListener("click", () =>
-      resetForm(refs, state)
-    );
+    refs.btnLimpiar?.addEventListener("click", () => resetForm(refs, state));
     refs.destino.addEventListener(
       "input",
       debounce(() => handleDestinoInput(state, refs), 260)
@@ -141,7 +139,9 @@
       }
     });
     refs.placa.addEventListener("input", () => {
-      refs.placa.value = refs.placa.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      refs.placa.value = refs.placa.value
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
     });
   }
 
@@ -151,11 +151,15 @@
     if (evt.key === "ArrowDown") {
       evt.preventDefault();
       state.acIndex = (state.acIndex + 1) % items.length;
-      items.forEach((li, i) => li.classList.toggle("active", i === state.acIndex));
+      items.forEach((li, i) =>
+        li.classList.toggle("active", i === state.acIndex)
+      );
     } else if (evt.key === "ArrowUp") {
       evt.preventDefault();
       state.acIndex = (state.acIndex - 1 + items.length) % items.length;
-      items.forEach((li, i) => li.classList.toggle("active", i === state.acIndex));
+      items.forEach((li, i) =>
+        li.classList.toggle("active", i === state.acIndex)
+      );
     } else if (evt.key === "Enter" && state.acIndex >= 0) {
       evt.preventDefault();
       selectSuggestion(items[state.acIndex], refs, state);
@@ -205,7 +209,8 @@
       lng: parseFloat(li.dataset.lng),
     };
     if (refs.destinoStatus) {
-      refs.destinoStatus.textContent = "Dirección establecida desde autocompletar.";
+      refs.destinoStatus.textContent =
+        "Dirección establecida desde autocompletar.";
       refs.destinoStatus.style.color = "#2e7d32";
     }
     clearSuggestions(refs);
@@ -242,7 +247,8 @@
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
     }).addTo(state.map);
-    const setDefault = () => state.map.setView([MAP_DEFAULT.lat, MAP_DEFAULT.lng], MAP_DEFAULT.zoom);
+    const setDefault = () =>
+      state.map.setView([MAP_DEFAULT.lat, MAP_DEFAULT.lng], MAP_DEFAULT.zoom);
     primeGeoPermission("dashboard-map");
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -282,14 +288,17 @@
         lon: lng,
         format: "json",
       });
-      const res = await fetch(`https://us1.locationiq.com/v1/reverse?${params.toString()}`);
+      const res = await fetch(
+        `https://us1.locationiq.com/v1/reverse.php?${params.toString()}`
+      );
       if (!res.ok) throw new Error("reverse-fail");
       const data = await res.json();
       if (data?.display_name) {
         refs.destino.value = data.display_name;
         refs.destino.classList.add("has-value");
         if (refs.destinoStatus) {
-          refs.destinoStatus.textContent = "Dirección establecida desde el mapa.";
+          refs.destinoStatus.textContent =
+            "Dirección establecida desde el mapa.";
           refs.destinoStatus.style.color = "#2e7d32";
         }
       }
@@ -332,7 +341,10 @@
     }
     const empresa = state.profile.empresa;
     if (!empresa) {
-      showMsg(state, "Tu empresa no está configurada. Contacta al administrador.");
+      showMsg(
+        state,
+        "Tu empresa no está configurada. Contacta al administrador."
+      );
       return;
     }
     const clienteNombre = refs.cliente.value.trim();
@@ -341,7 +353,10 @@
     const tipo = refs.tipo.value || "Simple";
     if (!clienteNombre) return showMsg(state, "Ingresa el cliente.");
     if (!PLACA_REGEX.test(placaRaw))
-      return showMsg(state, "La placa debe tener exactamente 6 caracteres alfanuméricos.");
+      return showMsg(
+        state,
+        "La placa debe tener exactamente 6 caracteres alfanuméricos."
+      );
     if (!destinoTexto) return showMsg(state, "Ingresa la dirección destino.");
     setButtonLoading(refs.btnGuardar, true);
     try {
@@ -502,30 +517,44 @@
   }
 
   function normalizeCliente(nombre) {
-    return nombre
-      .toUpperCase()
-      .trim()
-      .replace(/\s+/g, " ");
+    return nombre.toUpperCase().trim().replace(/\s+/g, " ");
   }
 
   async function fetchAutocomplete(query, key) {
     if (!key) return [];
-    if (!query || query.length < 2) return [];
+    const normalized = (query || "").trim();
+    if (normalized.length < 3) return [];
     const params = new URLSearchParams({
       key,
-      q: query,
+      q: normalized,
       format: "json",
       addressdetails: "0",
       countrycodes: "pe",
       limit: "5",
+      normalizecity: "1",
     });
-    const res = await fetch(`https://us1.locationiq.com/v1/search?${params.toString()}`);
-    if (res.status === 404) return [];
-    if (!res.ok) {
-      console.warn(`${LOG_API} autocomplete status`, res.status);
-      throw new Error("autocomplete-fail");
+    const endpoints = [
+      `https://us1.locationiq.com/v1/autocomplete.php?${params.toString()}`,
+      `https://us1.locationiq.com/v1/search.php?${params.toString()}`,
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (res.status === 404) {
+          continue;
+        }
+        if (!res.ok) {
+          console.warn(`${LOG_API} autocomplete ${res.status}`, { url });
+          continue;
+        }
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) return data;
+        if (url.includes("search.php")) return data || [];
+      } catch (err) {
+        console.warn(`${LOG_API} autocomplete fetch`, { url, err });
+      }
     }
-    return res.json();
+    return [];
   }
 
   function debounce(fn, delay) {

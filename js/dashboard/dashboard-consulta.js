@@ -555,8 +555,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       } else {
         avatarBtn.textContent =
-          nombre?.charAt(0)?.toUpperCase() ||
-          (cust.custodia_id ? "C" : "?");
+          nombre?.charAt(0)?.toUpperCase() || (cust.custodia_id ? "C" : "?");
       }
       item.appendChild(avatarBtn);
 
@@ -596,4 +595,3 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
-

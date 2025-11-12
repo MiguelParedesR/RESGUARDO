@@ -1,13 +1,14 @@
 :root {
-  --login-bg: radial-gradient(circle at top, rgba(255, 255, 255, 0.25), rgba(20, 25, 45, 0.5)),
-    linear-gradient(135deg, #0f172a 0%, #25113c 45%, #3e0b2b 100%);
-  --glass-bg: rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.18);
+  --login-bg: linear-gradient(135deg, #f5f6fb 0%, #dfe7f7 100%);
+  --login-bg-overlay: rgba(245, 246, 251, 0.94);
+  --login-bg-image: url("../../assets/img/login-hero-bg.jpg");
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(15, 23, 42, 0.08);
   --accent: #ff4d67;
   --accent-soft: #ff7a91;
-  --text-primary: #f6f7fb;
-  --text-muted: rgba(246, 247, 251, 0.7);
-  --error: #ff8a80;
+  --text-primary: #0f172a;
+  --text-muted: rgba(15, 23, 42, 0.65);
+  --error: #d90429;
   font-family: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -16,11 +17,28 @@
   background: var(--login-bg);
   color: var(--text-primary);
   margin: 0;
+  position: relative;
+  overflow-x: hidden;
 }
 
-.login-layout .mdl-layout__header,
-.login-layout .mdl-layout__drawer {
-  background: transparent;
+.login-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0.65)),
+    var(--login-bg-image);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.55;
+  z-index: -2;
+}
+
+.login-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--login-bg-overlay);
+  z-index: -1;
 }
 
 .login-hero {
@@ -68,29 +86,31 @@
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(18px);
-  box-shadow: 0 30px 80px rgba(6, 3, 15, 0.55);
+  color: var(--text-primary);
+  box-shadow: 0 30px 80px rgba(9, 13, 32, 0.25);
   animation: cardIn 360ms ease-out;
 }
 
 .role-switch {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  gap: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
   padding: 4px;
   margin-bottom: 28px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .role-switch__btn {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  padding: 10px 14px;
+  padding: 10px 18px;
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.25s ease, color 0.25s ease;
+  font-size: 0.95rem;
 }
 
 .role-switch__btn.is-active {
@@ -101,7 +121,7 @@
 
 .forms-shell {
   position: relative;
-  min-height: 260px;
+  min-height: 360px;
 }
 
 .login-form {
@@ -111,12 +131,15 @@
   pointer-events: none;
   transform: translateY(10px);
   transition: opacity 0.25s ease, transform 0.25s ease;
+  position: absolute;
+  inset: 0;
 }
 
 .login-form.is-active {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+  position: relative;
 }
 
 .login-field {
@@ -136,14 +159,14 @@
   gap: 8px;
   border-radius: 16px;
   padding: 10px 16px;
-  background: rgba(7, 6, 15, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   transition: border 0.2s ease, background 0.2s ease;
 }
 
 .login-input:focus-within {
   border-color: var(--accent-soft);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .login-input input {
@@ -276,8 +299,14 @@
   }
 
   .role-switch {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     border-radius: 18px;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .role-switch__btn {
+    width: 100%;
   }
 
   .login-btn {

@@ -142,7 +142,13 @@
           `
           id, tipo, estado, created_at, placa_upper, destino_texto,
           cliente:cliente_id(id, nombre),
-          servicio_custodio(id, nombre_custodio, tipo_custodia, custodia_id, created_at)
+          servicio_custodio:servicio_custodio!servicio_custodio_servicio_id_fkey(
+            id,
+            nombre_custodio,
+            tipo_custodia,
+            custodia_id,
+            created_at
+          )
         `
         )
         .eq("empresa", state.empresa)
@@ -325,7 +331,9 @@
     try {
       const ok = await verifyOwnerOnServer(owner.id);
       if (!ok) {
-        showMsg("Ya no eres el titular de este servicio. Refresca y vuelve a intentarlo.");
+        showMsg(
+          "Ya no eres el titular de este servicio. Refresca y vuelve a intentarlo."
+        );
         await loadServicios(state.selectedCliente);
         return;
       }

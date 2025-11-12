@@ -1,15 +1,38 @@
-/* Minimal unification for header look */
+:root {
+  --app-header-bg: linear-gradient(110deg, #050f25 0%, #0b1c3d 60%, #152b4f 100%);
+  --app-header-color: #f5f7fb;
+  --app-header-border: rgba(255, 255, 255, 0.12);
+}
+
 .mdl-layout__header {
   min-height: 64px;
+  background: var(--app-header-bg);
+  color: var(--app-header-color);
+  box-shadow: 0 10px 30px rgba(4, 8, 20, 0.5);
+  border-bottom: 1px solid var(--app-header-border);
+  backdrop-filter: blur(12px);
 }
+
 .mdl-layout__header-row {
   height: 64px;
-  padding: 0 16px;
+  padding: 0 20px;
 }
+
 #app-header-title {
   font-weight: 800;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
 }
-#app-header-home, #app-header-logout {
+
+#app-header-home,
+#app-header-logout {
   font-weight: 600;
+  color: var(--app-header-color);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#app-header-home:hover,
+#app-header-logout:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
