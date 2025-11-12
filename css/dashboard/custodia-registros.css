@@ -16,6 +16,8 @@
   --radius-md: 16px;
   --radius-sm: 10px;
   --elev-panel: 0 35px 65px rgba(15, 23, 42, 0.08);
+  --cust-sidebar-width: 320px;
+  --cust-header-height: 64px;
 }
 
 body {
@@ -24,10 +26,10 @@ body {
 
 .page--custodia {
   min-height: calc(100vh - 64px);
-  padding: 32px clamp(16px, 4vw, 40px);
+  padding: 20px clamp(16px, 3vw, 32px) 32px;
   background: var(--bg-app);
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 
 .topbar {
@@ -36,6 +38,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .titles h1 {
@@ -70,6 +73,13 @@ body {
   display: grid;
   grid-template-columns: minmax(280px, 320px) 1fr;
   gap: 24px;
+  align-items: flex-start;
+  margin-top: 0;
+}
+
+.layout-custodia--sidebar {
+  display: block;
+  padding-left: calc(var(--cust-sidebar-width) + 28px);
 }
 
 .custodia-panel {
@@ -80,6 +90,60 @@ body {
   display: grid;
   gap: 18px;
   align-content: flex-start;
+}
+
+.custodia-panel--filters {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: fixed;
+  top: var(--cust-header-height);
+  left: 0;
+  width: var(--cust-sidebar-width);
+  height: calc(100vh - var(--cust-header-height));
+  border-radius: 0;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #f6f8fc 0%, #eef1f8 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  padding: 20px;
+  z-index: 20;
+  overflow-y: auto;
+}
+
+.custodia-panel--filters .panel-head {
+  gap: 10px;
+}
+
+.custodia-panel--filters .panel-title {
+  font-size: 1.4rem;
+  color: var(--ink-700);
+}
+
+.custodia-panel--filters .panel-eyebrow {
+  letter-spacing: 0.35em;
+  font-size: 0.7rem;
+  color: var(--ink-300);
+}
+
+.custodia-panel--filters .panel-hint {
+  color: var(--ink-300);
+  font-size: 0.9rem;
+}
+
+.custodia-panel--filters .select-field {
+  border-radius: 18px;
+  border: 1px solid #dfe4f3;
+  padding: 6px 12px;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.custodia-panel--filters .controls__select {
+  width: 100%;
+}
+
+.layout-custodia--sidebar .custodia-panel--services {
+  margin-left: 0;
 }
 
 .panel-head {
@@ -496,6 +560,19 @@ body {
 @media (max-width: 1024px) {
   .layout-custodia {
     grid-template-columns: 1fr;
+  }
+  .layout-custodia--sidebar {
+    padding-left: 0;
+  }
+  .custodia-panel--filters {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+    border-right: none;
+    box-shadow: var(--elev-panel);
+    background: #fff;
+    padding: 24px;
   }
 }
 
