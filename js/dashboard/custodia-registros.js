@@ -1,4 +1,4 @@
-// === BEGIN HU:HU-CUSTODIA-REGISTROS-FLUJO (NO TOCAR FUERA) ===
+﻿// === BEGIN HU:HU-CUSTODIA-REGISTROS-FLUJO (NO TOCAR FUERA) ===
 (function () {
   "use strict";
 
@@ -7,6 +7,23 @@
   const LOG_SEGUIR = "[seguir]";
   const LOG_ADD = "[add-custodia]";
   const LOG_PROFILE = "[profile]";
+  const TIPO_CUSTODIA_META = {
+    S: {
+      code: "S",
+      label: "Simple",
+      description: "1 custodia en la cabina de la unidad que resguarda.",
+    },
+    A: {
+      code: "A",
+      label: "Tipo A",
+      description: "1 custodia con vehículo detrás de la unidad que resguarda.",
+    },
+    B: {
+      code: "B",
+      label: "Tipo B",
+      description: "Combinación de una custodia simple y una tipo A.",
+    },
+  };
 
   const state = {
     profile: null,
@@ -124,7 +141,7 @@
     if (!ui.clienteSelect) return;
     const current = state.selectedCliente;
     ui.clienteSelect.innerHTML =
-      '<option value="">Selecciona un cliente…</option>';
+      '<option value="">Selecciona un clienteâ€¦</option>';
     state.clientes.forEach((cliente) => {
       const option = document.createElement("option");
       option.value = cliente.id;
@@ -239,7 +256,10 @@
     const destino =
       row.svc.destino || row.svc.destino_texto || "Sin definir";
     const clienteFormatted = formatCliente(row.svc.clienteNombre);
-    const tipoFormatted = formatTipo(row.svc.tipo);
+    const tipoServicioInfo = resolveTipoCustodia(row.svc.tipo);
+    const tipoFormatted = tipoServicioInfo
+      ? `${tipoServicioInfo.label} (${tipoServicioInfo.code})`
+      : "Sin tipo";
     const custodiasTexto = formatCustodias(row.custodios);
 
     card.innerHTML = `
@@ -251,7 +271,9 @@
       <div class="svc-info-grid">
         ${buildInfoItem("Cliente", clienteFormatted, "apartment")}
         ${buildInfoItem("Destino", destino, "place")}
-        ${buildInfoItem("Tipo", tipoFormatted, "category")}
+        ${buildInfoItem("Tipo", tipoFormatted, "category", {
+          valueTitle: tipoServicioInfo?.description,
+        })}
         ${buildInfoItem("Custodia(s) asignada(s)", custodiasTexto, "groups")}
       </div>
     `;
@@ -293,17 +315,21 @@
     return card;
   }
 
-  function buildInfoItem(label, value, icon) {
+  function buildInfoItem(label, value, icon, options = {}) {
     const safeValue =
       typeof value === "string" && value.trim().length
         ? value.trim()
         : String(value ?? "Sin registro");
+    const valueClass = options.valueClass ? ` ${options.valueClass}` : "";
+    const valueTitle = options.valueTitle
+      ? ` title="${escapeAttr(options.valueTitle)}"`
+      : "";
     return `
       <article class="info-item" role="group" aria-label="${label}">
         <span class="info-item__label">
           <span class="material-icons" aria-hidden="true">${icon}</span>${label}
         </span>
-        <span class="info-item__value">${safeValue}</span>
+        <span class="info-item__value${valueClass}"${valueTitle}>${safeValue}</span>
       </article>
     `;
   }
@@ -312,12 +338,12 @@
     return (nombre || "Sin cliente").toUpperCase();
   }
 
-  function formatTipo(value) {
-    if (!value) return "S/N";
-    const match = String(value).match(/[a-zA-Z]/);
-    if (match) return match[0].toUpperCase();
-    const trimmed = String(value).trim();
-    return trimmed ? trimmed.charAt(0).toUpperCase() : "S/N";
+  function formatTipo(value, options = {}) {
+    const info = resolveTipoCustodia(value);
+    if (!info) return options.fallback || "Sin tipo";
+    if (options.short) return info.code;
+    if (options.labelOnly) return info.label;
+    return `${info.label} (${info.code})`;
   }
 
   function formatCustodias(lista) {
@@ -325,10 +351,37 @@
     return lista
       .map((custodio) => {
         const nombre = custodio.nombre_custodio || "Sin nombre";
-        const tipo = formatTipo(custodio.tipo_custodia);
+        const tipo = formatTipo(custodio.tipo_custodia, {
+          short: true,
+          fallback: "?",
+        });
         return `${nombre} (${tipo})`;
       })
       .join(", ");
+  }
+
+  function resolveTipoCustodia(raw) {
+    if (!raw) return null;
+    const text = String(raw).trim();
+    if (!text) return null;
+    const letters = text
+      .toUpperCase()
+      .replace(/[()]/g, "")
+      .replace(/[^A-Z]/g, "");
+    if (letters.includes("SIMPLE") || letters === "S") {
+      return { ...TIPO_CUSTODIA_META.S };
+    }
+    if (letters.includes("TIPOA") || letters === "A") {
+      return { ...TIPO_CUSTODIA_META.A };
+    }
+    if (letters.includes("TIPOB") || letters === "B") {
+      return { ...TIPO_CUSTODIA_META.B };
+    }
+    return null;
+  }
+
+  function escapeAttr(value) {
+    return String(value ?? "").replace(/"/g, "&quot;");
   }
 
   function buildPingInfo(value) {
@@ -355,7 +408,7 @@
 
   async function handleFollow(row, owner) {
     if (!owner?.id) {
-      showMsg("No se encontró el registro de custodia.");
+      showMsg("No se encontrÃ³ el registro de custodia.");
       return;
     }
     try {
@@ -392,7 +445,7 @@
   function openAddModal(row) {
     state.pendingAdd = {
       servicioId: row.svc.id,
-      descripcion: `${row.svc.placa} · ${row.svc.clienteNombre}`,
+      descripcion: `${row.svc.placa} Â· ${row.svc.clienteNombre}`,
     };
     if (ui.modalDescription) {
       ui.modalDescription.textContent = `Servicio ${state.pendingAdd.descripcion}. Selecciona el tipo de custodia que realizaras.`;
@@ -413,15 +466,21 @@
 
   async function handleAddConfirm() {
     if (!state.pendingAdd) return;
-    const tipo = (
-      document.querySelector("input[name='add-tipo']:checked") || {
-        value: "Simple",
-      }
-    ).value;
+    const tipoSeleccionado =
+      (
+        document.querySelector("input[name='add-tipo']:checked") || {
+          value: "Simple",
+        }
+      ).value || "";
+    const tipoInfo = resolveTipoCustodia(tipoSeleccionado);
+    if (!tipoInfo) {
+      showMsg("Selecciona un tipo de custodia valido.");
+      return;
+    }
     const targetServicioId = state.pendingAdd.servicioId;
     try {
       setButtonLoading(ui.modalConfirm, true);
-      const nuevo = await agregarCustodia(targetServicioId, tipo);
+      const nuevo = await agregarCustodia(targetServicioId, tipoInfo.label);
       console.log(`${LOG_ADD} ok`, {
         servicio_id: targetServicioId,
         servicio_custodio_id: nuevo.id,
@@ -432,7 +491,7 @@
           servicio_custodio_id: nuevo.id,
           custodia_id: state.profile.id,
           nombre_custodio: state.profile.nombre,
-          tipo_custodia: tipo,
+          tipo_custodia: tipoInfo.label,
         },
         "add"
       );
@@ -448,7 +507,13 @@
   }
 
   async function agregarCustodia(servicioId, tipo) {
-    if (!servicioId) throw new Error("Servicio no válido");
+    if (!servicioId) throw new Error("Servicio no valido");
+    const tipoInfo = resolveTipoCustodia(tipo);
+    if (!tipoInfo) {
+      const err = new Error("tipo-invalido");
+      err.friendly = "Selecciona un tipo de custodia valido.";
+      throw err;
+    }
     await ensureCustodiaRecord();
     const already = state.servicios
       .find((row) => row.svc.id === servicioId)
@@ -465,7 +530,7 @@
           servicio_id: servicioId,
           custodia_id: state.profile.id,
           nombre_custodio: state.profile.nombre,
-          tipo_custodia: tipo,
+          tipo_custodia: tipoInfo.label,
         },
         { returning: "representation" }
       )
@@ -476,13 +541,12 @@
     }
     return data;
   }
-
   async function ensureCustodiaRecord() {
     if (state.profileSynced) return state.profile.id;
     const id = state.profile?.id;
     if (!id) {
       const err = new Error("profile-missing");
-      err.friendly = "Tu sesión expiró. Inicia sesión nuevamente.";
+      err.friendly = "Tu sesiÃ³n expirÃ³. Inicia sesiÃ³n nuevamente.";
       throw err;
     }
     const { data, error } = await window.sb
@@ -498,7 +562,7 @@
       console.warn(`${LOG_PROFILE} no row`, { id });
       const err = new Error("custodia-missing");
       err.friendly =
-        "No encontramos tu registro de custodia. Completa el onboarding y vuelve a iniciar sesión.";
+        "No encontramos tu registro de custodia. Completa el onboarding y vuelve a iniciar sesiÃ³n.";
       err.code = "CUSTODIA_MISSING";
       throw err;
     }
@@ -512,7 +576,7 @@
       const err = new Error("custodia_fk_missing");
       err.code = code;
       err.friendly =
-        "Tu registro de custodia no está disponible. Vuelve a iniciar sesión o repite el registro.";
+        "Tu registro de custodia no estÃ¡ disponible. Vuelve a iniciar sesiÃ³n o repite el registro.";
       return err;
     }
     if (error?.friendly) return error;
@@ -597,7 +661,7 @@
   function persistCustodiaSession(payload, source = "seguir") {
     console.assert(
       payload?.servicio_id && payload?.servicio_custodio_id,
-      "[task][HU-SEGUIR-REDIRECT] payload inválido",
+      "[task][HU-SEGUIR-REDIRECT] payload invÃ¡lido",
       { source, payload }
     );
     if (
@@ -606,7 +670,7 @@
       !payload.servicio_custodio_id ||
       !window.localStorage
     ) {
-      console.warn("[session] payload inválido", { source, payload });
+      console.warn("[session] payload invÃ¡lido", { source, payload });
       return null;
     }
     try {
@@ -648,3 +712,6 @@
   // === END HU:HU-SEGUIR-REDIRECT ===
 })();
 // === END HU:HU-CUSTODIA-REGISTROS-FLUJO ===
+
+
+
