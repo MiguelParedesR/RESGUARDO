@@ -306,36 +306,6 @@ z-index: 700;
 }
 .btn-secondary.is-muted { color: var(--ink-300); border-color: #e4e7f0; }
 
-.custodios-block {
-    border: 1px solid #edf0f7;
-    border-radius: 16px;
-    padding: 14px;
-    background: #f9fbff;
-}
-.custodios-item {
-    display:flex;
-    gap:12px;
-    padding:10px 0;
-    border-bottom:1px solid #edf0f7;
-}
-.custodios-item:last-child { border-bottom:none; }
-.custodio-avatar {
-    width:44px;
-    height:44px;
-    border-radius:14px;
-    background: rgba(63,81,181,.12);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color: var(--brand);
-    font-weight:700;
-    overflow:hidden;
-}
-.custodio-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-.custodio-info { display:flex; flex-direction:column; gap:4px; }
-.custodio-info__name { font-weight:600; color: var(--ink-500); margin:0; }
-.custodio-info__meta { font-size:12px; color: var(--ink-300); margin:0; }
-.custodios-empty { text-align:center; color: var(--ink-300); font-size:13px; padding: 6px 0; }
 
 /* Lista de custodios */
 .custodios {
@@ -509,7 +479,6 @@ z-index: 700;
   .servicio-meta .icon { display: none; }
   .servicio-meta .meta-copy { gap: 1px; }
   .btn-secondary { width: 100%; justify-content: center; }
-  .custodios-block { padding: 10px; }
 }
 
 /* Force visible, scrollable content on mobile */
@@ -518,7 +487,15 @@ z-index: 700;
   .is-consulta .layout-consulta { padding-left: 0 !important; }
   .dashboard { height: auto !important; min-height: calc(100vh - var(--header-h)); overflow: visible; }
 }
-.is-consulta .mdl-layout__content { height: 100vh; overflow: hidden; }
+.is-consulta .mdl-layout__content {
+  height: 100vh;
+  overflow: hidden;
+  padding-top: var(--header-h);
+  box-sizing: border-box;
+}
+.is-consulta .page {
+  padding-top: 16px;
+}
 /* Consulta overrides: fixed sidebar + fluid content */
 .is-consulta .layout-consulta { position: relative; padding-left: var(--sidebar-w); }
 .is-consulta .sidebar { position: fixed; top: var(--header-h); left: 0; height: calc(100vh - var(--header-h)); width: var(--sidebar-w); background: #fff; border-right: 1px solid #edf0f7; box-shadow: none; overflow: hidden; z-index: 700; }

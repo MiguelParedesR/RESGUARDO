@@ -633,57 +633,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return data || [];
   }
 
-  function renderCustodiosMiniList(container, custodios) {
-    if (!custodios || !custodios.length) {
-      container.innerHTML =
-        "<p class='custodios-empty'>Sin custodias registradas.</p>";
-      return;
-    }
-    container.innerHTML = "";
-    custodios.forEach((cust) => {
-      const nombre = (
-        cust.custodia?.nombre ||
-        cust.nombre_custodio ||
-        "Sin nombre"
-      ).trim();
-      const empresa =
-        cust.custodia?.empresa ||
-        cust.custodia?.empresa_otro ||
-        "Empresa sin registrar";
-      const tipo = cust.tipo_custodia || "Sin tipo";
-      const fotoSrc = getSelfieSrc(cust);
-
-      const item = document.createElement("div");
-      item.className = "custodios-item";
-
-      const avatarBtn = document.createElement(fotoSrc ? "button" : "div");
-      avatarBtn.className = "custodio-avatar" + (fotoSrc ? "" : " is-empty");
-      if (fotoSrc) {
-        const img = document.createElement("img");
-        img.src = fotoSrc;
-        img.alt = `Selfie de ${nombre}`;
-        avatarBtn.appendChild(img);
-        avatarBtn.addEventListener("click", () =>
-          showFotosCustodia([{ src: fotoSrc, label: `Custodia: ${nombre}` }])
-        );
-      } else {
-        avatarBtn.textContent =
-          nombre?.charAt(0)?.toUpperCase() || (cust.custodia_id ? "C" : "?");
-      }
-      item.appendChild(avatarBtn);
-
-      const info = document.createElement("div");
-      info.className = "custodio-info";
-      info.innerHTML = `
-        <p class="custodio-info__name">${h(nombre)}</p>
-        <p class="custodio-info__meta">${h(tipo)} \\u00b7 ${h(empresa)}</p>
-      `;
-      item.appendChild(info);
-
-      container.appendChild(item);
-    });
-  }
-
   function configureFotosButton(btn, items) {
     if (!btn) return;
     if (!items.length) {
@@ -757,4 +706,5 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
+
 

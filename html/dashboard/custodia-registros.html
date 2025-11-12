@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
@@ -47,25 +47,34 @@
           </button>
         </div>
 
-        <div class="controls" role="region" aria-label="Seleccionar cliente">
-          <label for="cliente-select" class="controls__label">Cliente</label>
-          <div class="controls__field">
-            <select id="cliente-select" class="controls__select" aria-label="Seleccione un cliente">
-              <option value="">Seleccione cliente</option>
-            </select>
-            <button id="cliente-clear" class="mdl-button mdl-js-button mdl-button--icon controls__clear" type="button"
-              aria-label="Limpiar selección">
-              <i class="material-icons" aria-hidden="true">clear</i>
-            </button>
-          </div>
+        <div class="layout-custodia" role="region" aria-label="Servicios por cliente">
+          <aside class="custodia-panel custodia-panel--filters" aria-label="Filtro de clientes">
+            <div class="panel-head">
+              <p class="panel-eyebrow">Directorio</p>
+              <h2 class="panel-title">Clientes</h2>
+              <p class="panel-hint">
+                Selecciona un cliente para revisar los servicios activos y continúa solo si eres el titular asignado.
+              </p>
+            </div>
+            <label for="cliente-select" class="sr-only">Selecciona un cliente</label>
+            <div class="select-field">
+              <select id="cliente-select" class="controls__select" aria-label="Selecciona un cliente">
+                <option value="">Selecciona un cliente…</option>
+              </select>
+              <button id="cliente-clear" class="icon-btn icon-btn--ghost" type="button"
+                aria-label="Limpiar selección">
+                <i class="material-icons" aria-hidden="true">clear</i>
+              </button>
+            </div>
+          </aside>
+
+          <section class="custodia-panel custodia-panel--services" aria-live="polite">
+            <div id="cards-placeholder" class="cards-placeholder" role="status">
+              Selecciona un cliente para visualizar los servicios disponibles.
+            </div>
+            <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
+          </section>
         </div>
-
-        <div id="cards-placeholder" class="cards-placeholder">
-          Selecciona un cliente para visualizar los servicios disponibles.
-        </div>
-
-        <div id="cards-custodia" class="cards-grid" aria-live="polite"></div>
-
         <section id="modal-add-custodia" class="add-modal" aria-hidden="true">
           <div class="add-modal__backdrop" data-add-close></div>
           <div class="add-modal__card" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
@@ -114,3 +123,4 @@
 </body>
 
 </html>
+

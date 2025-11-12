@@ -120,7 +120,8 @@
   function renderClienteSelect() {
     if (!ui.clienteSelect) return;
     const current = state.selectedCliente;
-    ui.clienteSelect.innerHTML = '<option value="">Seleccione cliente</option>';
+    ui.clienteSelect.innerHTML =
+      '<option value="">Selecciona un cliente…</option>';
     state.clientes.forEach((cliente) => {
       const option = document.createElement("option");
       option.value = cliente.id;
@@ -229,89 +230,73 @@
     const owner = (row.custodios || []).find(
       (cust) => cust.custodia_id === state.profile.id
     );
-
     const card = document.createElement("article");
     card.className = "svc-card";
-
-    const head = document.createElement("div");
-    head.className = "svc-head";
-    head.innerHTML = `
-      <p class="svc-placa">${row.svc.placa || "SIN PLACA"}</p>
-      <p class="svc-meta"><strong>Cliente:</strong> ${row.svc.clienteNombre}</p>
-      <p class="svc-meta"><strong>Destino:</strong> ${
-        row.svc.destino || "Sin definir"
-      }</p>
-      <p class="svc-meta"><strong>Tipo:</strong> ${row.svc.tipo}</p>
-      <p class="svc-meta"><strong>Creado:</strong> ${formatDate(
-        row.svc.creado
-      )}</p>
-      <p class="svc-meta"><strong>Último ping:</strong> ${formatRelative(
-        row.ultimoPing
-      )}</p>
+    const pingInfo = buildPingInfo(row.ultimoPing);
+    const destino = row.svc.destino || "Sin definir";
+    card.innerHTML = `
+      <header class="svc-card__header">
+        <div>
+          <span class="svc-chip">${row.svc.placa || "SIN PLACA"}</span>
+          <p class="svc-client">${row.svc.clienteNombre}</p>
+        </div>
+        <div class="svc-ping ${pingInfo.className}">
+          <span class="svc-ping__dot" aria-hidden="true"></span>
+          <span>${pingInfo.text}</span>
+        </div>
+      </header>
+      <div class="svc-info-grid">
+        ${buildInfoItem("Cliente", row.svc.clienteNombre, "apartment")}
+        ${buildInfoItem("Destino", destino, "place")}
+        ${buildInfoItem("Tipo", row.svc.tipo, "category")}
+        ${buildInfoItem("Estado", row.svc.estado || "Activo", "flag")}
+        ${buildInfoItem("Creado", formatDateShort(row.svc.creado), "event")}
+        ${buildInfoItem("Último ping", pingInfo.detail, "rss_feed")}
+      </div>
     `;
-    card.appendChild(head);
 
-    const list = document.createElement("div");
-    list.className = "svc-custodios";
+    const ownersSection = document.createElement("section");
+    ownersSection.className = "svc-owners";
+    ownersSection.innerHTML = `<p class="svc-owners__title">Custodias asignadas</p>`;
     if (row.custodios && row.custodios.length) {
       row.custodios.forEach((custodio) => {
-        const item = document.createElement("div");
-        item.className = "custodio-row";
-        const info = document.createElement("div");
-        info.className = "custodio-row__info";
-        const isOwner = custodio.custodia_id === state.profile.id;
-        info.innerHTML = `
-          <p class="custodio-row__name">${
-            custodio.nombre_custodio || "Sin nombre"
-          }</p>
-          <p class="custodio-row__type">${
-            custodio.tipo_custodia || "Sin tipo"
-          }</p>
-        `;
-        const badge = document.createElement("span");
-        badge.className =
-          "badge " + (isOwner ? "badge--owner" : "badge--other");
-        badge.textContent = isOwner
-          ? "Tu registro"
-          : custodio.custodia_id
-          ? "Titular"
-          : "Pendiente";
-        if (!custodio.custodia_id) {
-          badge.classList.remove("badge--owner");
-          badge.classList.add("badge--pending");
-          badge.textContent = "Sin titular";
-        }
-        item.appendChild(info);
-        item.appendChild(badge);
-        list.appendChild(item);
+        ownersSection.appendChild(buildCustCard(custodio));
       });
     } else {
-      list.innerHTML =
-        "<p class='svc-meta'>Este servicio aún no tiene custodias asignadas.</p>";
+      const empty = document.createElement("p");
+      empty.className = "cust-card__meta";
+      empty.textContent = "Este servicio aún no tiene custodias asignadas.";
+      ownersSection.appendChild(empty);
     }
-    card.appendChild(list);
+    card.appendChild(ownersSection);
 
     const actions = document.createElement("div");
     actions.className = "svc-actions";
     const actionText = document.createElement("p");
+    actionText.className = "svc-actions__copy";
     const actionCta = document.createElement("div");
     actionCta.className = "svc-actions__cta";
 
     if (owner) {
-      actionText.innerHTML =
-        "<span class='status-pill'><i class='material-icons' aria-hidden='true'>check</i>Titular verificado</span>";
+      actionText.classList.add("is-success");
+      actionText.textContent =
+        "Eres el titular de este servicio. Puedes continuar con el seguimiento.";
       const followBtn = document.createElement("button");
-      followBtn.className =
-        "mdl-button mdl-js-button mdl-button--raised mdl-button--accent";
-      followBtn.textContent = "Seguir";
+      followBtn.type = "button";
+      followBtn.className = "btn-primary";
+      followBtn.innerHTML =
+        '<i class="material-icons" aria-hidden="true">navigation</i><span>Seguir servicio</span>';
       followBtn.addEventListener("click", () => handleFollow(row, owner));
       actionCta.appendChild(followBtn);
     } else {
-      actionText.innerHTML =
-        "<span class='warning'>Solo el titular puede continuar.</span> Si este servicio te pertenece, agrégate como custodia.";
+      actionText.classList.add("is-warning");
+      actionText.textContent =
+        "Solo el titular verificado puede continuar. Agrega tu custodia para tomar el control.";
       const addBtn = document.createElement("button");
-      addBtn.className = "mdl-button mdl-js-button mdl-button--raised";
-      addBtn.textContent = "Agregar custodia +";
+      addBtn.type = "button";
+      addBtn.className = "btn-secondary";
+      addBtn.innerHTML =
+        '<i class="material-icons" aria-hidden="true">person_add</i><span>Agregar custodia +</span>';
       addBtn.addEventListener("click", () => openAddModal(row));
       actionCta.appendChild(addBtn);
     }
@@ -319,8 +304,74 @@
     actions.appendChild(actionText);
     actions.appendChild(actionCta);
     card.appendChild(actions);
-
     return card;
+  }
+
+  function buildInfoItem(label, value, icon) {
+    const safeValue =
+      typeof value === "string" && value.trim().length
+        ? value.trim()
+        : String(value ?? "Sin registro");
+    return `
+      <article class="info-item">
+        <span class="info-item__label">
+          <span class="material-icons" aria-hidden="true">${icon}</span>${label}
+        </span>
+        <p class="info-item__value">${safeValue}</p>
+      </article>
+    `;
+  }
+
+  function buildCustCard(custodio) {
+    const item = document.createElement("div");
+    const badge = getCustBadge(custodio);
+    const nombre = custodio.nombre_custodio || "Sin nombre";
+    const tipo = custodio.tipo_custodia || "Sin tipo";
+    const avatar =
+      nombre?.trim().charAt(0).toUpperCase() ||
+      (custodio.custodia_id ? "C" : "?");
+    item.className = "cust-card";
+    item.innerHTML = `
+      <div class="cust-card__avatar">${avatar}</div>
+      <div>
+        <p class="cust-card__name">${nombre}</p>
+        <p class="cust-card__meta">${tipo}</p>
+      </div>
+      <span class="cust-card__badge ${badge.className}">${badge.text}</span>
+    `;
+    return item;
+  }
+
+  function getCustBadge(custodio) {
+    if (!custodio.custodia_id) {
+      return { text: "Sin titular", className: "is-pending" };
+    }
+    if (custodio.custodia_id === state.profile.id) {
+      return { text: "Tu registro", className: "is-owner" };
+    }
+    return { text: "Titular", className: "is-other" };
+  }
+
+  function buildPingInfo(value) {
+    if (!value) {
+      return {
+        text: "Sin ping reciente",
+        detail: "Sin registro",
+        className: "svc-ping--alert",
+      };
+    }
+    const diff = Date.now() - new Date(value).getTime();
+    let className = "svc-ping--alert";
+    if (diff <= 5 * 60 * 1000) {
+      className = "svc-ping--ok";
+    } else if (diff <= 15 * 60 * 1000) {
+      className = "svc-ping--warn";
+    }
+    return {
+      text: `Ping ${formatRelative(value)}`,
+      detail: formatDateShort(value),
+      className,
+    };
   }
 
   async function handleFollow(row, owner) {
@@ -482,12 +533,16 @@
     return data?.custodia_id === state.profile.id;
   }
 
-  function formatDate(value) {
+  function formatDateShort(value) {
     if (!value) return "Sin fecha";
     try {
       return new Intl.DateTimeFormat("es-PE", {
-        dateStyle: "medium",
-        timeStyle: "short",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
       }).format(new Date(value));
     } catch {
       return value;
