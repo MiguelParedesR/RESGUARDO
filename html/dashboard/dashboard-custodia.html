@@ -24,12 +24,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Config (crea window.sb y expone LOCATIONIQ_KEY) -->
     <script defer src="../../config.js"></script>
+    <script defer src="../../js/lib/permissions.js"></script>
 
     <!-- Protección + módulo -->
     <script defer src="../../js/guard.js"></script>
     <script defer src="../../modules/alarma/alarma.js"></script>
     <script defer src="../../js/lib/app-header.js"></script>
     <script defer src="../../js/lib/custodia-session.js"></script>
+    <script defer src="../../js/lib/selfie-icon.js"></script>
     <script defer src="../../js/dashboard/dashboard-custodia.js"></script>
     <script defer src="../../js/pwa.js"></script>
 </head>
@@ -42,12 +44,29 @@
             <section class="wrap">
                 <form id="form-custodia" class="mdl-card mdl-shadow--3dp card">
                     <div class="mdl-card__title">
-                        <h2 class="mdl-card__title-text">Datos del servicio</h2>
-                        <button type="button" id="btn-alarma-push-custodia"
-                            class="mdl-button mdl-js-button mdl-button--accent"
-                            title="Recibir notificaciones de alarma">
-                            Activar alertas
-                        </button>
+                        <h2 class="mdl-card__title-text">Nuevo servicio de custodia</h2>
+                    </div>
+
+                    <div class="mdl-card__supporting-text">
+                        <div class="custodia-summary" id="custodia-summary">
+                            <div class="custodia-summary__info">
+                                <p class="custodia-summary__label">Custodia actual</p>
+                                <h3 class="custodia-summary__name" id="summary-nombre">-</h3>
+                                <p class="custodia-summary__empresa" id="summary-empresa">Empresa: -</p>
+                            </div>
+                            <div class="custodia-summary__selfie">
+                                <div class="selfie-compact">
+                                    <button type="button" class="selfie-trigger" id="btn-selfie"
+                                        title="Tomar o actualizar selfie">
+                                        <span class="material-icons" aria-hidden="true">photo_camera</span>
+                                    </button>
+                                    <img src="" alt="Selfie previa" class="selfie-thumb" id="selfie-thumb" hidden>
+                                    <p class="selfie-hint" id="selfie-hint">
+                                        Sin selfie registrada. Captura una para continuar.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mdl-card__supporting-text grid">
@@ -86,43 +105,17 @@
                                     Buscar en el mapa.</span>
                             </div>
                         </div>
-                        <div class="col"></div>
-                    </div>
-
-                    <div class="mdl-card__supporting-text">
-                        <h3 class="section-title"><i class="material-icons">group</i> Custodios</h3>
-                        <div id="custodios-container" class="custodios-grid"></div>
                     </div>
 
                     <div class="mdl-card__actions actions">
                         <button type="submit" id="btn-guardar"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar
-                            registro</button>
+                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
+                            <span class="btn-label">Guardar servicio</span>
+                            <span class="btn-spinner" aria-hidden="true"></span>
+                        </button>
                         <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">Limpiar</button>
                     </div>
                 </form>
-            </section>
-
-            <!-- Modal Servicio Activo (placa) -->
-            <section id="modal-servicio-activo" class="mini-modal" aria-hidden="true">
-                <div class="mini-card">
-                    <div class="mini-head">
-                        <h4>Placa ya registrada</h4>
-                    </div>
-                    <div class="mini-body">
-                        <p><strong>Cliente:</strong> <span id="mact-cliente">-</span></p>
-                        <p><strong>Destino:</strong> <span id="mact-destino">-</span></p>
-                        <div id="mact-custodios" class="mini-list"></div>
-                    </div>
-                    <div class="mini-actions">
-                        <button id="mact-join"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Unirme /
-                            Completar</button>
-                        <button id="mact-ver" class="mdl-button mdl-js-button">Ver servicio</button>
-                        <button id="mact-nuevo" class="mdl-button mdl-js-button">Nuevo</button>
-                        <button id="mact-cancel" class="mdl-button mdl-js-button">Cancelar</button>
-                    </div>
-                </div>
             </section>
 
             <!-- Modal MAPA -->

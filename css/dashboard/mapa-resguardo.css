@@ -105,19 +105,16 @@
 .cust-close { width:32px; height:32px; border:none; border-radius:50%; background:#f3f5fb; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 .cust-close .material-icons { font-size:18px; color:#3e4a5b; }
 .cust-sidebar h3 { margin: 6px 0 10px; font-size: 16px; }
-.add-btn { width:36px; height:36px; border-radius:10px; border:1px solid #e3e6ed; background:#fff; cursor:pointer; font-weight:700; }
 .cust-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 10px; border:1px solid #edf0f7; border-radius:10px; margin-bottom:10px; background:#fafbfd; }
-.cust-row--add { border-style:dashed; cursor:pointer; justify-content:center; font-weight:600; }
-.cust-row--add:hover { background:#f0f4ff; border-color:#c5d3ff; }
 .cust-info { display:flex; flex-direction:column; gap:4px; }
 .cust-name { font-size: 13px; font-weight: 600; color:#37474f; }
-.cust-meta { display:flex; gap:6px; flex-wrap:wrap; }
-.edit-btn { background:#fff; border:1px solid #e3e6ed; border-radius:8px; padding:4px 8px; cursor:pointer; }
-.edit-btn .material-icons { font-size:18px; }
+.cust-meta { display:flex; gap:6px; flex-wrap:wrap; font-size:12px; color:#607d8b; }
 .chip { padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
 .chip.kind { background:#e3f2fd; color:#1976d2; }
 .chip.ok { background:#e8f5e9; color:#2e7d32; }
+.chip.owner { background:#e0f7fa; color:#006064; }
 .chip.pend { background:#ffebee; color:#c62828; }
+.cust-empty { text-align:center; padding:12px 0; font-size:13px; color:#607d8b; }
 
 .cust-overlay {
   position: fixed;
@@ -126,29 +123,15 @@
   z-index: 1550;
   display: none;
 }
-.cust-overlay.show {
+.cust-overlay.is-visible {
   display: block;
 }
 
 @media (min-width: 980px) {
-  .cust-sidebar { display:block; position: static; border-radius:0; box-shadow:none; z-index:auto; }
-  .cust-sidebar.is-open { position: static; width:auto; max-height: calc(100vh - 64px); }
-  .cust-close { display:none; }
-  .cust-overlay { display:none !important; }
-  .map-wrap.with-sidebar { height: calc(100vh - 64px); }
+  .cust-sidebar.is-open {
+    right: 32px;
+  }
 }
-
-/* --- Modal de edición --- */
-.edit-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }
-.edit-modal .inner { width: min(520px, 92vw); background:#fff; border-radius:12px; padding:18px; box-shadow: 0 12px 28px rgba(15,37,68,0.18); }
-.edit-modal .camara { display:grid; gap:12px; margin-top:12px; }
-.edit-modal .cam-actions { display:none; }
-.edit-modal .cam-estado { font-size:12px; color:#607d8b; min-height:18px; }
-.edit-modal .cam-media { border:1px dashed #d6dae5; border-radius:12px; background:#f5f7fb; position:relative; overflow:hidden; aspect-ratio:4/3; min-height:200px; }
-.edit-modal video,
-.edit-modal img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#e9eef6; display:none; }
-.edit-modal canvas { display:none; }
-.edit-modal .row-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
 
 /* Mini add form */
 .add-modal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.35); z-index: 1000; }

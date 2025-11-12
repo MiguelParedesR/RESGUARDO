@@ -26,6 +26,7 @@
   <!-- Supabase (CDN) ANTES de config.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="../../config.js"></script>
+  <script defer src="../../js/lib/permissions.js"></script>
 
   <!-- Protección + Lógica -->
   <script defer src="../../modules/alarma/alarma.js"></script>
@@ -58,11 +59,10 @@
         </div>
 
         <div class="layout-track">
-          <aside id="custodios-sidebar" class="cust-sidebar">
+          <aside id="custodios-sidebar" class="cust-sidebar" aria-hidden="true">
             <div class="cust-head">
               <h3>Custodios</h3>
               <div class="cust-head__actions">
-                <button id="custodios-add" class="add-btn" title="Agregar">+</button>
                 <button id="custodios-close" class="cust-close" title="Cerrar listado">
                   <i class="material-icons" aria-hidden="true">close</i>
                 </button>

@@ -1,1274 +1,715 @@
-﻿// dashboard-custodia.js - Registro por custodio (bloques) + Autocomplete + Mapa + Selfie por bloque
+// === BEGIN HU:HU-DASHBOARD-CUSTODIA-FORM crear-servicio (NO TOCAR FUERA) ===
+(function () {
+  "use strict";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const snackbar = document.getElementById("app-snackbar");
-  const showMsg = (message, timeout = 2500) => {
-    try {
-      if (snackbar?.MaterialSnackbar)
-        snackbar.MaterialSnackbar.showSnackbar({ message, timeout });
-      else alert(message);
-    } catch {
-      alert(message);
-    }
-  };
+  const STORAGE_PROFILE_KEY = "custodia_profile";
+  const SESSION_FALLBACK_KEY = "custodia_session";
+  const LOG_SERVICIO = "[servicio]";
+  const LOG_CAMERA = "[camera]";
+  const LOG_API = "[api]";
+  const PLACA_REGEX = /^[A-Z0-9]{6}$/;
+  const MAP_DEFAULT = { lat: -12.0464, lng: -77.0428, zoom: 12 };
 
-  const empresa = (sessionStorage.getItem("auth_empresa") || "").toUpperCase();
-  if (!empresa) {
-    location.replace("/html/login/login.html");
-    return;
-  }
-  if (!window.sb) {
-    showMsg("Supabase no inicializado");
-    return;
-  }
+  document.addEventListener("DOMContentLoaded", init);
 
-  // UI refs
-  const form = document.getElementById("form-custodia");
-  const tipoEl = document.getElementById("tipo");
-  const clienteEl = document.getElementById("cliente");
-  const placaEl = document.getElementById("placa");
-  const destinoEl = document.getElementById("destino");
-  const sugList = document.getElementById("destino-suggestions");
-  const btnAbrirMapa = document.getElementById("btn-abrir-mapa");
-  const btnAlarmaPush = document.getElementById("btn-alarma-push-custodia");
-  const direccionEstado = document.getElementById("direccion-estado");
-  const custContainer = document.getElementById("custodios-container");
-  // Modal servicio activo
-  const modalAct = document.getElementById("modal-servicio-activo");
-  const mactCliente = document.getElementById("mact-cliente");
-  const mactDestino = document.getElementById("mact-destino");
-  const mactList = document.getElementById("mact-custodios");
-  const mBtnJoin = document.getElementById("mact-join");
-  const mBtnVer = document.getElementById("mact-ver");
-  const mBtnNuevo = document.getElementById("mact-nuevo");
-  const mBtnCancel = document.getElementById("mact-cancel");
-
-  // Modal mapa
-  const modalMapa = document.getElementById("modal-mapa");
-  const mapSearchInput = document.getElementById("map-search-input");
-  const mapSearchBtn = document.getElementById("map-search-btn");
-  const mapAceptar = document.getElementById("map-aceptar");
-  const mapCerrar = document.getElementById("map-cerrar");
-  const mapContainerId = "map-container";
-
-  const hasAlarma = typeof window.Alarma === "object";
-  const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
-  let pushRegisteredAuto = false;
-  if (hasAlarma) {
-    try {
-      window.Alarma.initCustodia();
-    } catch (err) {
-      console.warn("[alarma] initCustodia error", err);
-    }
-    try {
-      window.Alarma.subscribe((evt) => {
-        if (evt?.type === "emit" && evt.status === "queued") {
-          showMsg("Evento de alarma en cola. Se enviara al reconectar.");
-        }
-      });
-    } catch (err) {
-      console.warn("[alarma] subscribe error", err);
-    }
-  }
-  if (btnAlarmaPush) {
-    btnAlarmaPush.disabled = true;
-    btnAlarmaPush.style.display = "none";
-  }
-  // Estado global
-  let destinoCoords = null; // {lat,lng}
-  let map = null,
-    mapMarker = null,
-    mapReady = false;
-  let acIndex = -1,
-    lastQuery = "";
-  let userLat = null,
-    userLng = null; // proximidad
-  let currentTipo = "Simple";
-  let custodiosUI = []; // [{ kind, root, nameInput, video, canvas, img, btnStart, btnShot, btnReset, status, stream, selfieDataUrl }]
-  let activeSvc = null; // servicio activo detectado por placa
-  let activeCustodios = []; // custodios del servicio activo
-  let forceNew = false; // si el usuario elige "Nuevo"
-
-  // === BEGIN HU:HU-PLACEHOLDER-CONSISTENCIA (NO TOCAR FUERA) ===
-  const placeholderWatcher = (event) => {
-    const target = event.target;
-    if (!target?.classList?.contains("mdl-textfield__input")) return;
-    togglePlaceholderState(target);
-  };
-  document.addEventListener("input", placeholderWatcher, true);
-  document.addEventListener("change", placeholderWatcher, true);
-  function togglePlaceholderState(inputEl) {
-    if (!inputEl) return;
-    const hasValue = Boolean(String(inputEl.value || "").trim());
-    inputEl.classList.toggle("has-value", hasValue);
-    const wrapper = inputEl.closest(".mdl-textfield");
-    if (!wrapper) return;
-    wrapper.classList.toggle("is-dirty", hasValue);
-  }
-  function primePlaceholderState() {
-    document
-      .querySelectorAll(".mdl-textfield__input")
-      .forEach((el) => togglePlaceholderState(el));
-  }
-  primePlaceholderState();
-  console.log("[task][HU-PLACEHOLDER-CONSISTENCIA] done", {
-    scope: "dashboard-custodia",
-  });
-  // === END HU:HU-PLACEHOLDER-CONSISTENCIA ===
-
-  // === BEGIN HU:HU-SEGUIR-REDIRECT sesiones (NO TOCAR FUERA) ===
-  function primeCustodiaSession(payload, source = "registro") {
-    console.assert(
-      payload?.servicio_id && payload?.servicio_custodio_id,
-      "[task][HU-SEGUIR-REDIRECT] payload inválido",
-      { source, payload }
-    );
-    if (
-      !payload ||
-      !payload.servicio_id ||
-      !payload.servicio_custodio_id ||
-      !window.localStorage
-    ) {
-      console.warn("[session] payload inválido", { source, payload });
-      return null;
-    }
-    try {
-      if (window.CustodiaSession?.save) {
-        const saved = window.CustodiaSession.save(payload);
-        console.log("[session] ready", {
-          source,
-          servicio: saved?.servicio_id,
-          custodio: saved?.servicio_custodio_id,
-        });
-        return saved;
-      }
-    } catch (err) {
-      console.warn("[session] save error", err);
-    }
-    try {
-      const ttl = window.CustodiaSession?.TTL_MS || 4 * 60 * 60 * 1000; /* 4h */
-      const fallback = { ...payload, exp_ts: Date.now() + ttl };
-      const key = window.CustodiaSession?.KEY || "custodia_session";
-      window.localStorage.setItem(key, JSON.stringify(fallback));
-      console.log("[session] fallback ready", {
-        source,
-        servicio: payload.servicio_id,
-      });
-      return fallback;
-    } catch (err) {
-      console.warn("[session] fallback error", err);
-      return null;
-    }
-  }
-  function redirectMapa(servicioId, source = "registro") {
-    try {
-      sessionStorage.setItem("servicio_id_actual", servicioId);
-    } catch {}
-    console.log("[task][HU-SEGUIR-REDIRECT] done", { source, servicioId });
-    setTimeout(() => {
-      location.href = "/html/dashboard/mapa-resguardo.html";
-    }, 200);
-  }
-  // === END HU:HU-SEGUIR-REDIRECT ===
-
-  // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-  async function updateCustodia({ scId, nombre, tipo }) {
-    try {
-      if (!window.sb) throw new Error("Supabase no inicializado");
-      if (!scId) throw new Error("scId requerido");
-      const payload = {};
-      if (typeof nombre === "string" && nombre.trim()) {
-        payload.nombre_custodio = nombre.trim();
-      }
-      if (typeof tipo === "string" && tipo.trim()) {
-        payload.tipo_custodia = tipo.trim();
-      }
-      if (!Object.keys(payload).length) {
-        console.log("[custodia-update] skip", { sc_id: scId });
-        return { ok: true, data: null };
-      }
-      const scFilter = String(scId).trim();
-      console.log("[custodia-update] start", { sc_id: scFilter, payload });
-      const { data, error, status } = await window.sb
-        .from("servicio_custodio")
-        .update(payload, { returning: "representation" })
-        .eq("id", scFilter)
-        .select("id, servicio_id, nombre_custodio, tipo_custodia");
-      console.log("[custodia-update] response", {
-        scId: scFilter,
-        status,
-        rows: Array.isArray(data) ? data.length : data ? 1 : 0,
-        data,
-      });
-      if (error) {
-        console.warn("[custodia-update] FAIL", { sc_id: scId, status, error });
-        throw error;
-      }
-      let row = Array.isArray(data) ? data[0] : data;
-      if (!row) {
-        const { data: fallback, error: fetchError } = await window.sb
-          .from("servicio_custodio")
-          .select("id, servicio_id, nombre_custodio, tipo_custodia")
-          .eq("id", scFilter)
-          .maybeSingle();
-        if (fetchError) throw fetchError;
-        if (!fallback) throw new Error("Custodio no encontrado");
-        row = fallback;
-      }
-      const verify = await window.sb
-        .from("servicio_custodio")
-        .select("id, nombre_custodio, tipo_custodia")
-        .eq("id", scFilter)
-        .maybeSingle();
-      console.log("[custodia-update] verify", { scId: scFilter, verify });
-      console.log("[custodia-update] OK", {
-        sc_id: scId,
-        servicio_id: row?.servicio_id || null,
-      });
-      return { ok: true, data: row };
-    } catch (err) {
-      console.warn("[error]", {
-        scope: "dashboard-custodia/update",
-        message: err?.message || "unknown",
-        scId,
-      });
-      return { ok: false, error: err };
-    }
-  }
-  // === END HU:HU-CUSTODIA-UPDATE-FIX ===
-
-  // === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) ===
-  async function saveSelfie(scId, blob) {
-    try {
-      if (!window.sb) throw new Error("Supabase no inicializado");
-      if (!scId || !blob) throw new Error("Parametros invalidos para selfie");
-      const mime = blob.type || "image/jpeg";
-      const hexBytes = await blobToHex(blob);
-      const { data, error, status } = await window.sb
-        .from("selfie")
-        .insert(
-          {
-            servicio_custodio_id: scId,
-            mime_type: mime,
-            bytes: hexBytes,
-          },
-          { returning: "representation" }
-        )
-        .select("id, servicio_custodio_id, created_at")
-        .single();
-      if (error) {
-        console.warn("[selfie] FAIL", { sc_id: scId, status, error });
-        throw error;
-      }
-      console.log("[selfie] OK", { sc_id: scId, selfie_id: data?.id });
-      return { ok: true, data };
-    } catch (err) {
-      console.warn("[selfie] FAIL", {
-        sc_id: scId,
-        message: err?.message || "unknown",
-      });
-      return { ok: false, error: err };
-    }
-  }
-
-  async function dataUrlToBlob(dataUrl) {
-    if (!dataUrl?.startsWith("data:")) {
-      throw new Error("Selfie invalida");
-    }
-    const res = await fetch(dataUrl);
-    return await res.blob();
-  }
-
-  async function blobToHex(blob) {
-    const buffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let hex = "";
-    bytes.forEach((b) => {
-      hex += b.toString(16).padStart(2, "0");
-    });
-    return "\\x" + hex;
-  }
-
-  function applySelfiePreview(targetImg, blob) {
-    if (!targetImg || !blob) return;
-    const objectUrl = URL.createObjectURL(blob);
-    targetImg.src = objectUrl;
-    targetImg.style.display = "block";
-    console.log("[camera-ui] preview updated", { sc_id: targetImg.dataset?.id });
-    setTimeout(() => {
-      try {
-        URL.revokeObjectURL(objectUrl);
-      } catch (_) {}
-    }, 30000);
-  }
-  // === END HU:HU-CAMERA-COMPACT-UI ===
-
-  // Geo temprana
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        userLat = pos.coords.latitude;
-        userLng = pos.coords.longitude;
-        try {
-          if (hasAlarma && window.Alarma?.setLocation)
-            window.Alarma.setLocation(userLat, userLng, {
-              accuracy: pos.coords.accuracy,
-            });
-        } catch (err) {
-          console.warn("[alarma] setLocation", err);
-        }
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
-    );
-  }
-
-  // Normalizacion placa
-  placaEl.addEventListener("input", () => {
-    placaEl.value = placaEl.value.toUpperCase().replace(/\s+/g, "");
-    togglePlaceholderState(placaEl);
-  });
-  placaEl.addEventListener("blur", async () => {
-    try {
-      const up = (placaEl.value || "").toUpperCase().replace(/\s+/g, "");
-      if (!up) return;
-      await detectServicioActivo(up, true);
-    } catch {
-      showMsg("Error al consultar placa");
-    }
-  });
-
-  // Render dinamico de bloques
-  function kindsForTipo(t) {
-    if (t === "Tipo B") return ["cabina", "vehiculo"];
-    if (t === "Tipo A") return ["vehiculo"];
-    return ["cabina"];
-  }
-  function labelForKind(k) {
-    return k === "vehiculo" ? "Custodia en VehIculo" : "Custodia en Cabina";
-  }
-  function tipoForKind(k) {
-    return k === "vehiculo" ? "Tipo A" : "Simple";
-  }
-  function stopStream(ui) {
-    try {
-      ui.stream?.getTracks().forEach((t) => t.stop());
-    } catch {}
-    ui.stream = null;
-    if (ui?.triggerBtn) {
-      ui.triggerBtn.disabled = false;
-    }
-    if (ui?.video) {
-      ui.video.srcObject = null;
-      ui.video.style.display = "none";
-    }
-    if (ui?.cameraArea) {
-      ui.cameraArea.classList.remove("active");
-      ui.cameraArea.style.display = "none";
-    }
-  }
-
-  function renderCustodios() {
-    // detener camaras anteriores
-    try {
-      custodiosUI.forEach(stopStream);
-    } catch {}
-    custodiosUI = [];
-    custContainer.innerHTML = "";
-    const kinds = kindsForTipo(currentTipo);
-    for (const kind of kinds) {
-      const sec = document.createElement("section");
-      sec.className = "custodio-block";
-      sec.dataset.kind = kind;
-      sec.innerHTML = `
-        <h3>${labelForKind(kind)}</h3>
-        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-          <input class="mdl-textfield__input" type="text" placeholder="Nombre del custodio">
-          <label class="mdl-textfield__label">Nombre del custodio</label>
-        </div>
-        <div class="selfie-compact">
-          <button type="button" class="selfie-trigger" aria-label="Tomar selfie">
-            <span class="material-icons" aria-hidden="true">photo_camera</span>
-          </button>
-          <img alt="Selfie" class="selfie-thumb" hidden />
-          <p class="selfie-hint">Captura la selfie requerida para este puesto.</p>
-        </div>
-        <div class="camera-area">
-          <video playsinline autoplay muted></video>
-          <canvas style="display:none"></canvas>
-          <div class="camera-actions">
-            <button type="button" class="btn-tomar mdl-button mdl-js-button" disabled>Tomar selfie</button>
-            <button type="button" class="btn-repetir mdl-button mdl-js-button" disabled>Repetir</button>
-          </div>
-          <div class="cam-estado"></div>
-        </div>`;
-      const nameInput = sec.querySelector('input[type="text"]');
-      const video = sec.querySelector("video");
-      const thumb = sec.querySelector(".selfie-thumb");
-      const canvas = sec.querySelector("canvas");
-      const triggerBtn = sec.querySelector(".selfie-trigger");
-      const btnShot = sec.querySelector(".btn-tomar");
-      const btnReset = sec.querySelector(".btn-repetir");
-      const status = sec.querySelector(".cam-estado");
-      const cameraArea = sec.querySelector(".camera-area");
-      cameraArea.style.display = "none";
-      const closeCameraArea = (message) => {
-        stopStream(ui);
-        cameraArea.style.display = "none";
-        cameraArea.classList.remove("active");
-        if (message) status.textContent = message;
-        btnShot.disabled = true;
-        btnReset.disabled = true;
-        triggerBtn.disabled = false;
-      };
-      const ui = {
-        kind,
-        root: sec,
-        nameInput,
-        video,
-        img: thumb,
-        canvas,
-        triggerBtn,
-        btnShot,
-        btnReset,
-        cameraArea,
-        status,
-        stream: null,
-        selfieDataUrl: null,
-      };
-
-      triggerBtn.addEventListener("click", async () => {
-        try {
-          triggerBtn.disabled = true;
-          status.textContent = "Iniciando camara...";
-          ui.stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
-            audio: false,
-          });
-          video.srcObject = ui.stream;
-          video.style.display = "block";
-          cameraArea.classList.add("active");
-          cameraArea.style.display = "grid";
-          btnShot.disabled = false;
-          btnReset.disabled = true;
-          status.textContent = "Camara lista";
-        } catch (e) {
-          status.textContent = "No se pudo acceder a la camara";
-          triggerBtn.disabled = false;
-        }
-      });
-      btnShot.addEventListener("click", () => {
-        if (!ui.stream) {
-          showMsg("Inicia la camara primero");
-          return;
-        }
-        const w = video.videoWidth || 640,
-          h = video.videoHeight || 480;
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, w, h);
-        ui.selfieDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        thumb.src = ui.selfieDataUrl;
-        thumb.classList.add("show");
-        thumb.removeAttribute("hidden");
-        video.style.display = "none";
-        btnShot.disabled = true;
-        btnReset.disabled = true;
-        status.textContent = "Selfie capturada";
-        closeCameraArea("Selfie capturada");
-      });
-      btnReset.addEventListener("click", () => {
-        ui.selfieDataUrl = null;
-        thumb.classList.remove("show");
-        thumb.setAttribute("hidden", "hidden");
-        closeCameraArea("Listo para otra selfie");
-      });
-
-      custodiosUI.push(ui);
-      custContainer.appendChild(sec);
-    }
-  }
-
-  async function emitirInicioServicio(servicioId, detalle) {
-    if (!hasAlarma || !window.Alarma?.emit) return;
-    try {
-      await window.Alarma.emit("start", {
-        servicio_id: servicioId,
-        empresa,
-        cliente: detalle?.cliente || null,
-        placa: detalle?.placa || null,
-        tipo: detalle?.tipo || null,
-        lat: userLat,
-        lng: userLng,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          destino: detalle?.destino || null,
-          origen: "dashboard-custodia",
-        },
-      });
-      if (
-        !pushRegisteredAuto &&
-        hasPushKey &&
-        typeof window.Alarma?.registerPush === "function"
-      ) {
-        try {
-          await window.Alarma.registerPush("custodia", empresa, {
-            origen: "dashboard-custodia",
-            modo: "auto",
-            servicio_id: servicioId,
-          });
-          pushRegisteredAuto = true;
-          showMsg("Alertas activadas para este servicio.");
-        } catch (err) {
-          console.warn("[alarma] registerPush auto", err);
-        }
-      }
-    } catch (err) {
-      console.warn("[alarma] emit start", err);
-    }
-  }
-
-  tipoEl.addEventListener("change", () => {
-    currentTipo = tipoEl.value;
-    renderCustodios();
-  });
-  currentTipo = tipoEl.value;
-  renderCustodios();
-
-  // ===== Autocomplete (LocationIQ) PERU + proximidad =====
-  const locKey =
-    (window.APP_CONFIG && window.APP_CONFIG.LOCATIONIQ_KEY) || null;
-  const debounce = (fn, ms = 250) => {
-    let t;
-    return (...a) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...a), ms);
-    };
-  };
-  const PERU_VIEWBOX = "-81.33,-18.35,-68.65,-0.03";
-  const COMMON_PARAMS = `countrycodes=pe&viewbox=${encodeURIComponent(
-    PERU_VIEWBOX
-  )}&bounded=1&accept-language=es&normalizeaddress=1`;
-  function buildAutocompleteUrl(q) {
-    const prox =
-      userLat != null && userLng != null
-        ? `&lat=${encodeURIComponent(userLat)}&lon=${encodeURIComponent(
-            userLng
-          )}`
-        : "";
-    return `https://us1.locationiq.com/v1/autocomplete?key=${encodeURIComponent(
-      locKey
-    )}&q=${encodeURIComponent(q)}&limit=6&${COMMON_PARAMS}${prox}`;
-  }
-  async function fetchAutocomplete(query) {
-    if (!locKey) {
-      direccionEstado.textContent = "Configura LOCATIONIQ_KEY en config.js";
-      direccionEstado.style.color = "#ff6f00";
-      return [];
-    }
-    try {
-      const res = await fetch(buildAutocompleteUrl(query));
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  }
-  function renderSuggestions(items) {
-    sugList.innerHTML = "";
-    acIndex = -1;
-    if (!items || !items.length) {
-      sugList.classList.remove("visible");
+  function init() {
+    const refs = cacheDom();
+    if (!refs.form || !window.sb) {
+      console.warn(`${LOG_SERVICIO} UI incompleta o Supabase ausente`);
       return;
     }
-    for (const it of items) {
-      const li = document.createElement("li");
-      li.textContent = it.display_name || it.address_name || it.name;
-      li.dataset.lat = it.lat;
-      li.dataset.lng = it.lon;
-      li.addEventListener("click", () => selectSuggestion(li));
-      sugList.appendChild(li);
+    const state = createInitialState(refs);
+    const profile = loadProfile();
+    if (!profile) {
+      redirectToLogin();
+      return;
     }
-    sugList.classList.add("visible");
+    state.profile = profile;
+    renderProfile(state);
+    attachPlaceholderWatcher(refs.form);
+    bindEvents(refs, state);
+    loadExistingSelfie(state);
+    console.log(`${LOG_SERVICIO} dashboard listo`, {
+      custodia_id: profile.id,
+      empresa: profile.empresa || profile.empresa_otro || "-",
+    });
   }
-  function clearSuggestions() {
-    sugList.innerHTML = "";
-    sugList.classList.remove("visible");
-    acIndex = -1;
+
+  function cacheDom() {
+    return {
+      form: document.getElementById("form-custodia"),
+      tipo: document.getElementById("tipo"),
+      cliente: document.getElementById("cliente"),
+      placa: document.getElementById("placa"),
+      destino: document.getElementById("destino"),
+      destinoStatus: document.getElementById("direccion-estado"),
+      suggestions: document.getElementById("destino-suggestions"),
+      btnMapa: document.getElementById("btn-abrir-mapa"),
+      modalMapa: document.getElementById("modal-mapa"),
+      mapSearchInput: document.getElementById("map-search-input"),
+      mapSearchBtn: document.getElementById("map-search-btn"),
+      mapAceptar: document.getElementById("map-aceptar"),
+      mapCerrar: document.getElementById("map-cerrar"),
+      summaryNombre: document.getElementById("summary-nombre"),
+      summaryEmpresa: document.getElementById("summary-empresa"),
+      selfieBtn: document.getElementById("btn-selfie"),
+      selfieThumb: document.getElementById("selfie-thumb"),
+      selfieHint: document.getElementById("selfie-hint"),
+      btnGuardar: document.getElementById("btn-guardar"),
+      btnLimpiar: document.getElementById("btn-limpiar"),
+      snackbar: document.getElementById("app-snackbar"),
+    };
   }
-  function selectSuggestion(li) {
-    destinoEl.value = li.textContent;
-    togglePlaceholderState(destinoEl);
-    destinoCoords = {
+
+  function createInitialState(refs) {
+    return {
+      profile: null,
+      destinoCoords: null,
+      map: null,
+      mapMarker: null,
+      mapReady: false,
+      acIndex: -1,
+      lastQuery: "",
+      locationIqKey: window.APP_CONFIG?.LOCATIONIQ_KEY || "",
+      selfieBlob: null,
+      selfieRemote: false,
+      selfieDataUrl: null,
+      snackbar: refs.snackbar,
+    };
+  }
+
+  function loadProfile() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PROFILE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.id || parsed.exp_ts < Date.now()) {
+        localStorage.removeItem(STORAGE_PROFILE_KEY);
+        return null;
+      }
+      return parsed;
+    } catch (err) {
+      console.warn(`${LOG_SERVICIO} perfil invalido`, err);
+      return null;
+    }
+  }
+
+  function renderProfile(state) {
+    const { profile } = state;
+    const nombre = profile.nombre || "-";
+    const empresa =
+      profile.empresa || profile.empresa_otro || "Empresa sin configurar";
+    const nombreEl = document.getElementById("summary-nombre");
+    const empresaEl = document.getElementById("summary-empresa");
+    if (nombreEl) nombreEl.textContent = nombre;
+    if (empresaEl) empresaEl.textContent = `Empresa: ${empresa}`;
+  }
+
+  async function primeGeoPermission(tag) {
+    if (!window.PermHelper?.ensureGeoPermission) return;
+    try {
+      const status = await window.PermHelper.ensureGeoPermission({
+        enableHighAccuracy: true,
+        timeout: 8000,
+      });
+      if (status) {
+        console.log("[perm] geo:" + status, { tag });
+      }
+    } catch (err) {
+      console.warn("[perm] geo helper", err);
+    }
+  }
+
+  function bindEvents(refs, state) {
+    refs.form.addEventListener("submit", (evt) =>
+      handleSubmit(evt, refs, state)
+    );
+    refs.btnLimpiar?.addEventListener("click", () =>
+      resetForm(refs, state, false)
+    );
+    refs.destino.addEventListener(
+      "input",
+      debounce(() => handleDestinoInput(state, refs), 260)
+    );
+    refs.destino.addEventListener("focus", () => {
+      if (refs.suggestions.children.length) {
+        refs.suggestions.classList.add("visible");
+      }
+    });
+    refs.destino.addEventListener("keydown", (evt) =>
+      handleDestinoKeydown(evt, state, refs)
+    );
+    document.addEventListener("click", (evt) => {
+      if (!evt.target.closest(".destino-wrapper")) {
+        clearSuggestions(refs);
+      }
+    });
+    refs.btnMapa?.addEventListener("click", () => openMapModal(refs, state));
+    refs.mapCerrar?.addEventListener("click", () => closeMapModal(refs, state));
+    refs.mapAceptar?.addEventListener("click", () => {
+      if (!state.destinoCoords) {
+        showMsg(state, "Selecciona un punto en el mapa primero.");
+        return;
+      }
+      closeMapModal(refs, state);
+    });
+    refs.mapSearchBtn?.addEventListener("click", () =>
+      handleMapSearch(refs, state)
+    );
+    refs.mapSearchInput?.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") {
+        evt.preventDefault();
+        handleMapSearch(refs, state);
+      }
+    });
+    setupSelfieIcon(refs, state);
+    refs.placa.addEventListener("input", () => {
+      refs.placa.value = refs.placa.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    });
+  }
+
+  async function loadExistingSelfie(state) {
+    try {
+      const { data, error } = await window.sb
+        .from("selfie")
+        .select("id,mime_type,bytes")
+        .eq("custodia_id", state.profile.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data?.bytes) {
+        const blob = hexToBlob(data.bytes, data.mime_type || "image/jpeg");
+        const dataUrl = await blobToDataUrl(blob);
+        setSelfiePreview(state, dataUrl);
+        state.selfieRemote = true;
+        console.log(`${LOG_CAMERA} selfie remota detectada`, { selfie_id: data.id });
+      } else {
+        updateSelfieHint(state, false);
+      }
+    } catch (err) {
+      console.warn(`${LOG_CAMERA} no se pudo leer selfie`, err);
+      updateSelfieHint(state, false);
+    }
+  }
+
+  function handleDestinoKeydown(evt, state, refs) {
+    const items = Array.from(refs.suggestions.querySelectorAll("li"));
+    if (!items.length) return;
+    if (evt.key === "ArrowDown") {
+      evt.preventDefault();
+      state.acIndex = (state.acIndex + 1) % items.length;
+      items.forEach((li, i) => li.classList.toggle("active", i === state.acIndex));
+    } else if (evt.key === "ArrowUp") {
+      evt.preventDefault();
+      state.acIndex = (state.acIndex - 1 + items.length) % items.length;
+      items.forEach((li, i) => li.classList.toggle("active", i === state.acIndex));
+    } else if (evt.key === "Enter" && state.acIndex >= 0) {
+      evt.preventDefault();
+      selectSuggestion(items[state.acIndex], refs, state);
+    } else if (evt.key === "Escape") {
+      clearSuggestions(refs);
+    }
+  }
+
+  async function handleDestinoInput(state, refs) {
+    const query = refs.destino.value.trim();
+    if (!query || query === state.lastQuery) {
+      if (!query) clearSuggestions(refs);
+      return;
+    }
+    state.lastQuery = query;
+    try {
+      const items = await fetchAutocomplete(query, state.locationIqKey);
+      renderSuggestions(items, refs, state);
+    } catch (err) {
+      console.warn(`${LOG_API} autocomplete fallo`, err);
+    }
+  }
+
+  function renderSuggestions(items, refs, state) {
+    refs.suggestions.innerHTML = "";
+    state.acIndex = -1;
+    if (!items?.length) {
+      refs.suggestions.classList.remove("visible");
+      return;
+    }
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = item.display_name;
+      li.dataset.lat = item.lat;
+      li.dataset.lng = item.lon;
+      li.addEventListener("click", () => selectSuggestion(li, refs, state));
+      refs.suggestions.appendChild(li);
+    });
+    refs.suggestions.classList.add("visible");
+  }
+
+  function selectSuggestion(li, refs, state) {
+    refs.destino.value = li.textContent;
+    refs.destino.classList.add("has-value");
+    state.destinoCoords = {
       lat: parseFloat(li.dataset.lat),
       lng: parseFloat(li.dataset.lng),
     };
-    direccionEstado.textContent = "Direccion establecida por autocompletar.";
-    direccionEstado.style.color = "#2e7d32";
-    clearSuggestions();
+    if (refs.destinoStatus) {
+      refs.destinoStatus.textContent = "Dirección establecida desde autocompletar.";
+      refs.destinoStatus.style.color = "#2e7d32";
+    }
+    clearSuggestions(refs);
   }
-  const onDestinoInput = debounce(async () => {
-    const q = destinoEl.value.trim();
-    if (!q || q === lastQuery) {
-      if (!q) clearSuggestions();
-      return;
-    }
-    lastQuery = q;
-    const items = await fetchAutocomplete(q);
-    renderSuggestions(items);
-  }, 250);
-  destinoEl.addEventListener("input", onDestinoInput);
-  destinoEl.addEventListener("focus", () => {
-    if (sugList.children.length) sugList.classList.add("visible");
-  });
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".destino-wrapper")) clearSuggestions();
-  });
-  destinoEl.addEventListener("keydown", (e) => {
-    const items = Array.from(sugList.querySelectorAll("li"));
-    if (!items.length) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      acIndex = (acIndex + 1) % items.length;
-      items.forEach((li, i) => li.classList.toggle("active", i === acIndex));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      acIndex = (acIndex - 1 + items.length) % items.length;
-      items.forEach((li, i) => li.classList.toggle("active", i === acIndex));
-    } else if (e.key === "Enter") {
-      if (acIndex >= 0) {
-        e.preventDefault();
-        selectSuggestion(items[acIndex]);
-      }
-    } else if (e.key === "Escape") {
-      clearSuggestions();
-    }
-  });
 
-  // ===== Modal MAPA (Leaflet + reverse) =====
-  function openModal() {
-    modalMapa.classList.add("open");
-    if (navigator.geolocation && (userLat == null || userLng == null)) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          userLat = pos.coords.latitude;
-          userLng = pos.coords.longitude;
-          try {
-            if (hasAlarma && window.Alarma?.setLocation)
-              window.Alarma.setLocation(userLat, userLng, {
-                accuracy: pos.coords.accuracy,
-              });
-          } catch (err) {
-            console.warn("[alarma] setLocation", err);
-          }
-        },
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
-      );
-    }
+  function clearSuggestions(refs) {
+    refs.suggestions.innerHTML = "";
+    refs.suggestions.classList.remove("visible");
+  }
+
+  function openMapModal(refs, state) {
+    refs.modalMapa?.classList.add("open");
     setTimeout(() => {
-      initMapIfNeeded();
-      try {
-        map.invalidateSize();
-      } catch {}
-      mapSearchInput.focus();
+      initMapIfNeeded(refs, state);
+      refs.mapSearchInput?.focus();
     }, 150);
   }
-  function closeModal() {
-    modalMapa.classList.remove("open");
+
+  function closeMapModal(refs) {
+    refs.modalMapa?.classList.remove("open");
   }
-  btnAbrirMapa.addEventListener("click", openModal);
-  mapCerrar.addEventListener("click", closeModal);
-  mapAceptar.addEventListener("click", () => {
-    if (!destinoCoords) {
-      showMsg("Selecciona un punto en el mapa o busca una direccion.");
+
+  function initMapIfNeeded(refs, state) {
+    if (state.mapReady) {
+      setTimeout(() => state.map.invalidateSize(), 50);
       return;
     }
-    closeModal();
-  });
-  function initMapIfNeeded() {
-    if (mapReady) {
-      setTimeout(() => map.invalidateSize(), 50);
+    if (!window.L) {
+      console.warn(`${LOG_SERVICIO} Leaflet no cargado`);
       return;
     }
-    map = L.map(mapContainerId);
+    state.map = L.map("map-container");
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
-    }).addTo(map);
-    const setDefault = () => map.setView([-12.0464, -77.0428], 12);
+    }).addTo(state.map);
+    const setDefault = () => state.map.setView([MAP_DEFAULT.lat, MAP_DEFAULT.lng], MAP_DEFAULT.zoom);
+    primeGeoPermission("dashboard-map");
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const coords = [pos.coords.latitude, pos.coords.longitude];
-          map.setView(coords, 14);
-          userLat = coords[0];
-          userLng = coords[1];
-          try {
-            if (hasAlarma && window.Alarma?.setLocation)
-              window.Alarma.setLocation(userLat, userLng, {
-                accuracy: pos.coords.accuracy,
-              });
-          } catch (err) {
-            console.warn("[alarma] setLocation", err);
-          }
+          state.map.setView([pos.coords.latitude, pos.coords.longitude], 14);
         },
-        () => setDefault()
+        () => setDefault(),
+        { maximumAge: 60000, timeout: 8000 }
       );
     } else {
       setDefault();
     }
-    map.on("click", async (e) => {
-      setMarker(e.latlng);
-      await reverseGeocode(e.latlng.lat, e.latlng.lng);
+    state.map.on("click", async (evt) => {
+      setMarker(state, evt.latlng);
+      await reverseGeocode(evt.latlng.lat, evt.latlng.lng, refs, state);
     });
-    mapReady = true;
-    setTimeout(() => map.invalidateSize(), 150);
+    state.mapReady = true;
+    setTimeout(() => state.map.invalidateSize(), 150);
   }
-  function setMarker(latlng) {
-    destinoCoords = { lat: latlng.lat, lng: latlng.lng };
-    if (!mapMarker) {
-      mapMarker = L.marker(latlng, { draggable: true }).addTo(map);
-      mapMarker.on("dragend", async () => {
-        const p = mapMarker.getLatLng();
-        destinoCoords = { lat: p.lat, lng: p.lng };
-        await reverseGeocode(p.lat, p.lng);
-      });
+
+  function setMarker(state, latlng) {
+    if (!state.map) return;
+    if (state.mapMarker) {
+      state.mapMarker.setLatLng(latlng);
     } else {
-      mapMarker.setLatLng(latlng);
+      state.mapMarker = L.marker(latlng).addTo(state.map);
+    }
+    state.destinoCoords = { lat: latlng.lat, lng: latlng.lng };
+  }
+
+  async function reverseGeocode(lat, lng, refs, state) {
+    if (!state.locationIqKey) return;
+    try {
+      const params = new URLSearchParams({
+        key: state.locationIqKey,
+        lat,
+        lon: lng,
+        format: "json",
+      });
+      const res = await fetch(`https://us1.locationiq.com/v1/reverse?${params.toString()}`);
+      if (!res.ok) throw new Error("reverse-fail");
+      const data = await res.json();
+      if (data?.display_name) {
+        refs.destino.value = data.display_name;
+        refs.destino.classList.add("has-value");
+        if (refs.destinoStatus) {
+          refs.destinoStatus.textContent = "Dirección establecida desde el mapa.";
+          refs.destinoStatus.style.color = "#2e7d32";
+        }
+      }
+    } catch (err) {
+      console.warn(`${LOG_API} reverse`, err);
     }
   }
-  async function reverseGeocode(lat, lng) {
-    if (!locKey) {
-      direccionEstado.textContent = "Configura LOCATIONIQ_KEY en config.js";
-      direccionEstado.style.color = "#ff6f00";
+
+  async function handleMapSearch(refs, state) {
+    const query = refs.mapSearchInput?.value?.trim();
+    if (!query) return;
+    try {
+      const items = await fetchAutocomplete(query, state.locationIqKey);
+      if (!items?.length) {
+        showMsg(state, "No se encontraron direcciones.");
+        return;
+      }
+      const best = items[0];
+      const lat = parseFloat(best.lat);
+      const lng = parseFloat(best.lon);
+      state.map?.setView([lat, lng], 15);
+      setMarker(state, { lat, lng });
+      refs.destino.value = best.display_name;
+      refs.destino.classList.add("has-value");
+      if (refs.destinoStatus) {
+        refs.destinoStatus.textContent = "Dirección establecida desde el mapa.";
+        refs.destinoStatus.style.color = "#2e7d32";
+      }
+    } catch (err) {
+      console.warn(`${LOG_API} search`, err);
+      showMsg(state, "No se pudo buscar en el mapa.");
+    }
+  }
+
+  function setupSelfieIcon(refs, state) {
+    if (!refs.selfieBtn) return;
+    if (!window.CustodiaSelfie?.attach) {
+      refs.selfieBtn.addEventListener("click", () =>
+        showMsg(state, "La cámara no está disponible en este dispositivo.")
+      );
       return;
     }
-    try {
-      const url = `https://us1.locationiq.com/v1/reverse?key=${encodeURIComponent(
-        locKey
-      )}&lat=${lat}&lon=${lng}&format=json&accept-language=es`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      const label = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      destinoEl.value = label;
-      togglePlaceholderState(destinoEl);
-      direccionEstado.textContent = "Direccion establecida desde el mapa.";
-      direccionEstado.style.color = "#2e7d32";
-    } catch (e) {
-      console.error(e);
-      destinoEl.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      togglePlaceholderState(destinoEl);
-      direccionEstado.textContent =
-        "No se pudo obtener direccion, se usara coordenada.";
-      direccionEstado.style.color = "#ff6f00";
-    }
+    window.CustodiaSelfie.attach(refs.selfieBtn, {
+      previewImg: refs.selfieThumb,
+      hintEl: refs.selfieHint,
+      hintIdle: "Sin selfie registrada. Captura una antes de crear un servicio.",
+      hintReady: "Selfie lista. Puedes volver a capturar si deseas.",
+      onCapture: ({ blob, dataUrl }) => {
+        state.selfieBlob = blob;
+        state.selfieRemote = false;
+        state.selfieDataUrl = dataUrl || null;
+        if (dataUrl) updateSelfieHint(state, true);
+      },
+      onError: (err) => {
+        if (err?.message !== "camera-cancelled") {
+          console.warn(`${LOG_CAMERA} error`, err);
+          showMsg(state, "No se pudo capturar la selfie.");
+        }
+      },
+    });
   }
-  mapSearchBtn.addEventListener("click", async () => {
-    const q = mapSearchInput.value.trim();
-    if (!q) return;
-    const items = await fetchAutocomplete(q);
-    if (items && items[0]) {
-      const lat = parseFloat(items[0].lat),
-        lng = parseFloat(items[0].lon);
-      map.setView([lat, lng], 16);
-      setMarker({ lat, lng });
-      destinoEl.value = items[0].display_name || q;
-      togglePlaceholderState(destinoEl);
-      destinoCoords = { lat, lng };
-      direccionEstado.textContent =
-        "Direccion establecida desde bUsqueda en mapa.";
-      direccionEstado.style.color = "#2e7d32";
-    } else {
-      showMsg("Sin resultados en PerU para esa bUsqueda.");
-    }
-  });
 
-  // ===== EnvIo: crear/unirse por placa + empresa =====
-  function isPlacaOk(p) {
-    return /^[A-Z0-9-]{5,10}$/.test(p);
+  function setSelfiePreview(state, dataUrl) {
+    state.selfieDataUrl = dataUrl;
+    const img = document.getElementById("selfie-thumb");
+    if (!img) return;
+    img.hidden = false;
+    img.src = dataUrl;
+    updateSelfieHint(state, true);
   }
-  function bloquesCompletos() {
-    return custodiosUI.filter(
-      (b) => (b.nameInput.value || "").trim() && b.selfieDataUrl
-    );
+
+  function updateSelfieHint(state, hasSelfie) {
+    const hint = document.getElementById("selfie-hint");
+    if (!hint) return;
+    hint.textContent = hasSelfie
+      ? "Selfie lista. Puedes volver a capturar si deseas."
+      : "Sin selfie registrada. Captura una antes de crear un servicio.";
   }
-  function mapKindToTipo(k) {
-    return tipoForKind(k);
+
+  async function handleSubmit(evt, refs, state) {
+    evt.preventDefault();
+    if (!state.profile) {
+      showMsg(state, "Sesión no válida. Inicia nuevamente.");
+      return;
+    }
+    const empresa = state.profile.empresa;
+    if (!empresa) {
+      showMsg(state, "Tu empresa no está configurada. Contacta al administrador.");
+      return;
+    }
+    const clienteNombre = refs.cliente.value.trim();
+    const placaRaw = refs.placa.value.trim().toUpperCase();
+    const destinoTexto = refs.destino.value.trim();
+    const tipo = refs.tipo.value || "Simple";
+    if (!clienteNombre) return showMsg(state, "Ingresa el cliente.");
+    if (!PLACA_REGEX.test(placaRaw))
+      return showMsg(state, "La placa debe tener exactamente 6 caracteres alfanuméricos.");
+    if (!destinoTexto) return showMsg(state, "Ingresa la dirección destino.");
+    if (!state.selfieRemote && !state.selfieBlob) {
+      return showMsg(state, "Captura o confirma tu selfie antes de continuar.");
+    }
+    setButtonLoading(refs.btnGuardar, true);
+    try {
+      const clienteId = await ensureCliente(clienteNombre);
+      await ensurePlacaDisponible(empresa, placaRaw);
+      const servicio = await createServicio({
+        empresa,
+        cliente_id: clienteId,
+        tipo,
+        placa: placaRaw,
+        destino_texto: destinoTexto,
+        destino_lat: state.destinoCoords?.lat || null,
+        destino_lng: state.destinoCoords?.lng || null,
+      });
+      const sc = await createServicioCustodio({
+        servicio_id: servicio.id,
+        custodia_id: state.profile.id,
+        nombre_custodio: state.profile.nombre,
+        tipo_custodia: tipo,
+      });
+      if (!state.selfieRemote && state.selfieBlob) {
+        await uploadSelfie(state.profile.id, sc.id, state.selfieBlob);
+        state.selfieRemote = true;
+        console.log(`${LOG_CAMERA} selfie subida para servicio`, { servicio_custodio_id: sc.id });
+      }
+      persistSession({
+        servicio_id: servicio.id,
+        servicio_custodio_id: sc.id,
+        custodia_id: state.profile.id,
+        nombre_custodio: state.profile.nombre,
+        tipo_custodia: tipo,
+      });
+      showMsg(state, "Servicio registrado correctamente.");
+      console.log(`${LOG_SERVICIO} creado`, {
+        servicio_id: servicio.id,
+        placa: placaRaw,
+        cliente: clienteNombre,
+      });
+      redirectToMapa(servicio.id);
+    } catch (err) {
+      console.error(`${LOG_SERVICIO} error`, err);
+      showMsg(state, err?.friendly || "No se pudo registrar el servicio.");
+    } finally {
+      setButtonLoading(refs.btnGuardar, false);
+    }
   }
-  async function findActiveService(empresa, placaUpper) {
-    // intenta por placa_upper, si falla, usa placa
-    let q = window.sb
+
+  async function ensureCliente(nombre) {
+    const normalizado = normalizeCliente(nombre);
+    const { data, error } = await window.sb
+      .from("cliente")
+      .select("id")
+      .eq("nombre_upper", normalizado)
+      .maybeSingle();
+    if (error && error.code !== "PGRST116") throw error;
+    if (data?.id) return data.id;
+    const insercion = await window.sb
+      .from("cliente")
+      .insert({ nombre }, { returning: "representation" })
+      .select("id")
+      .single();
+    if (insercion.error) throw insercion.error;
+    return insercion.data.id;
+  }
+
+  async function ensurePlacaDisponible(empresa, placaUpper) {
+    const { data, error } = await window.sb
       .from("servicio")
-      .select(
-        "id, empresa, placa, tipo, estado, destino_texto, cliente:cliente_id(nombre)"
-      )
+      .select("id, destino_texto, cliente:cliente_id(nombre)")
       .eq("empresa", empresa)
       .eq("placa_upper", placaUpper)
       .eq("estado", "ACTIVO")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    let { data, error } = await q;
-    if (error) {
-      // fallback
-      const r = await window.sb
-        .from("servicio")
-        .select(
-          "id, empresa, placa, tipo, estado, destino_texto, cliente:cliente_id(nombre)"
-        )
-        .eq("empresa", empresa)
-        .eq("placa", placaUpper)
-        .eq("estado", "ACTIVO")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      data = r.data;
-      error = r.error;
+      .maybeSingle();
+    if (error && error.code !== "PGRST116") throw error;
+    if (data?.id) {
+      const clienteNombre = data.cliente?.nombre || "-";
+      const msg = `La placa ya está en un servicio activo (${clienteNombre}). Ve a Custodia > Registros para unirte.`;
+      const err = new Error("servicio-activo");
+      err.friendly = msg;
+      throw err;
     }
-    if (error) throw error;
-    return (data && data[0]) || null;
   }
-  async function getCustodios(servicioId) {
+
+  async function createServicio(payload) {
+    console.log(`${LOG_API} insert servicio`, payload);
+    const { data, error } = await window.sb
+      .from("servicio")
+      .insert(payload, { returning: "representation" })
+      .select("id,placa,empresa")
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function createServicioCustodio(payload) {
+    console.log(`${LOG_API} insert servicio_custodio`, payload);
     const { data, error } = await window.sb
       .from("servicio_custodio")
-      .select("id, nombre_custodio, tipo_custodia, selfie(id)")
-      .eq("servicio_id", servicioId);
-    // === BEGIN HU:HU-CUSTODIA-UPDATE-FIX (NO TOCAR FUERA) ===
-    if (error) {
-      console.warn("[error]", {
-        scope: "dashboard-custodia/read",
-        servicio_id: servicioId,
-        status: error?.code || error?.message || "unknown",
-      });
-      throw error;
-    }
-    console.log("[custodia-read]", {
-      scope: "dashboard-custodia",
-      servicio_id: servicioId,
-      custodios: Array.isArray(data) ? data.length : 0,
-    });
-    // === END HU:HU-CUSTODIA-UPDATE-FIX ===
-    return data || [];
-  }
-  function isCompleto(c) {
-    const nombreOk = Boolean((c?.nombre_custodio || "").trim());
-    const tieneSelfie = Array.isArray(c?.selfie) ? c.selfie.length > 0 : false;
-    return nombreOk && tieneSelfie;
-  }
-  function kindFromTipoCustodia(t) {
-    return t === "Tipo A" ? "vehiculo" : "cabina";
+      .insert(payload, { returning: "representation" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data;
   }
 
-  async function detectServicioActivo(placaUpper, showModal) {
-    activeSvc = await findActiveService(empresa, placaUpper);
-    if (!activeSvc) {
-      modalAct?.classList.remove("show");
+  async function uploadSelfie(custodiaId, servicioCustodioId, blob) {
+    const mime = blob.type || "image/jpeg";
+    const bytes = await blobToHex(blob);
+    const { error } = await window.sb.from("selfie").insert(
+      {
+        custodia_id: custodiaId,
+        servicio_custodio_id: servicioCustodioId,
+        mime_type: mime,
+        bytes,
+      },
+      { returning: "minimal" }
+    );
+    if (error) throw error;
+  }
+
+  function persistSession(payload) {
+    try {
+      if (window.CustodiaSession?.save) {
+        window.CustodiaSession.save(payload);
+        return;
+      }
+    } catch (err) {
+      console.warn("[session] custom save error", err);
+    }
+    try {
+      const ttl = 4 * 60 * 60 * 1000;
+      const fallback = { ...payload, exp_ts: Date.now() + ttl };
+      localStorage.setItem(SESSION_FALLBACK_KEY, JSON.stringify(fallback));
+    } catch (err) {
+      console.warn("[session] fallback error", err);
+    }
+  }
+
+  function redirectToMapa(servicioId) {
+    try {
+      sessionStorage.setItem("servicio_id_actual", servicioId);
+    } catch {}
+    window.location.href = "/html/dashboard/mapa-resguardo.html";
+  }
+
+  function resetForm(refs, state, keepSelfie = true) {
+    refs.form.reset();
+    state.destinoCoords = null;
+    state.lastQuery = "";
+    clearSuggestions(refs);
+    if (!keepSelfie) {
+      state.selfieBlob = null;
+      state.selfieRemote = false;
+      state.selfieDataUrl = null;
+      const img = document.getElementById("selfie-thumb");
+      if (img) {
+        img.hidden = true;
+        img.removeAttribute("src");
+      }
+      updateSelfieHint(state, false);
+    }
+    if (refs.destinoStatus) {
+      refs.destinoStatus.textContent =
+        "Empieza a escribir para ver sugerencias o usa Buscar en el mapa.";
+      refs.destinoStatus.style.color = "#607d8b";
+    }
+  }
+
+  function showMsg(state, message) {
+    try {
+      if (state.snackbar?.MaterialSnackbar) {
+        state.snackbar.MaterialSnackbar.showSnackbar({ message });
+      } else {
+        alert(message);
+      }
+    } catch {
+      alert(message);
+    }
+  }
+
+  function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    btn.classList.toggle("loading", loading);
+    btn.disabled = loading;
+  }
+
+  function redirectToLogin() {
+    window.location.href = "/html/login/login.html";
+  }
+
+  function normalizeCliente(nombre) {
+    return nombre
+      .toUpperCase()
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function hexToBlob(hex, mime) {
+    try {
+      if (hex.startsWith("\\x")) hex = hex.slice(2);
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+      }
+      return new Blob([bytes], { type: mime || "image/jpeg" });
+    } catch (err) {
+      console.warn(`${LOG_CAMERA} hex parse`, err);
       return null;
     }
-    activeCustodios = await getCustodios(activeSvc.id);
-    if (!showModal) return activeSvc;
-    // Poblar modal
-    mactCliente.textContent = activeSvc.cliente?.nombre || "-";
-    mactDestino.textContent = activeSvc.destino_texto || "-";
-    mactList.innerHTML = "";
-    (activeCustodios || []).forEach((c) => {
-      const row = document.createElement("div");
-      row.className = "mini-item";
-      const nm = document.createElement("span");
-      nm.textContent = c.nombre_custodio || "(Sin nombre)";
-      const right = document.createElement("span");
-      const chipKind = document.createElement("span");
-      chipKind.className = "chip kind";
-      chipKind.textContent =
-        c.tipo_custodia === "Tipo A" ? "VehIculo" : "Cabina";
-      const chipState = document.createElement("span");
-      chipState.className = "chip " + (isCompleto(c) ? "ok" : "pend");
-      chipState.textContent = isCompleto(c) ? "Completo" : "Pendiente";
-      right.appendChild(chipKind);
-      right.appendChild(document.createTextNode(" "));
-      right.appendChild(chipState);
-      row.appendChild(nm);
-      row.appendChild(right);
-      mactList.appendChild(row);
-    });
-    modalAct.classList.add("show");
-    return activeSvc;
   }
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const cliente = (clienteEl.value || "").toUpperCase().trim();
-      const placa = (placaEl.value || "").toUpperCase().replace(/\s+/g, "");
-      const destinoTexto = (destinoEl.value || "").trim();
-      const bloques = bloquesCompletos();
-      const primaryBloque = bloques[0] || null;
-      const primaryKind = primaryBloque?.kind || null;
-      const primaryNombre = (primaryBloque?.nameInput.value || "").trim();
-      if (!cliente) return showMsg("Ingresa el cliente");
-      if (!placa || !isPlacaOk(placa))
-        return showMsg("Ingresa la placa (A-Z, 0-9, -)");
-      if (!destinoTexto) return showMsg("Ingresa la direccion destino");
-      if (!bloques.length)
-        return showMsg("Completa al menos un custodio (nombre + selfie)");
-
-      const tGlobal = tipoEl.value;
-      const expectedKinds = kindsForTipo(tGlobal);
-      const existing = await findActiveService(empresa, placa);
-      if (existing && !forceNew) {
-        // mostrar modal y detener envIo hasta que elija
-        await detectServicioActivo(placa, true);
-        return;
-      }
-      if (existing) {
-        const custs = await getCustodios(existing.id);
-        const completeKinds = new Set(
-          custs
-            .filter(isCompleto)
-            .map((c) => kindFromTipoCustodia(c.tipo_custodia))
-        );
-        const incompleteMap = new Map();
-        for (const c of custs) {
-          const k = kindFromTipoCustodia(c.tipo_custodia);
-          if (!isCompleto(c)) incompleteMap.set(k, c);
-        }
-
-        const actions = [];
-        for (const b of bloques) {
-          const k = b.kind;
-          if (!expectedKinds.includes(k)) continue;
-          const inc = incompleteMap.get(k);
-          if (inc) {
-            actions.push({
-              mode: "update",
-              id: inc.id,
-              nombre: b.nameInput.value.trim(),
-              selfie: b.selfieDataUrl,
-              kind: k,
-              tipo_custodia: inc.tipo_custodia || mapKindToTipo(k),
-              img: b.img || null,
-            });
-          } else if (!completeKinds.has(k)) {
-            const tipo_custodia = mapKindToTipo(k);
-            actions.push({
-              mode: "create",
-              k,
-              nombre: b.nameInput.value.trim(),
-              selfie: b.selfieDataUrl,
-              kind: k,
-              tipo_custodia,
-              img: b.img || null,
-            });
-          }
-        }
-        if (!actions.length) {
-          const ok = confirm(
-            `La placa ya esta registrada para este servicio: ${
-              existing.cliente?.nombre || ""
-            } - ${existing.destino_texto || ""}. Ir al mapa ahora?`
-          );
-          if (ok) {
-            sessionStorage.setItem("servicio_id_actual", existing.id);
-            location.href = "/html/dashboard/mapa-resguardo.html";
-          }
-          return;
-        }
-        let followSessionPayload = null;
-        for (const a of actions) {
-          if (a.mode === "update") {
-            const tipoCustodia = a.tipo_custodia || mapKindToTipo(a.kind);
-            const updResult = await updateCustodia({
-              scId: a.id,
-              nombre: a.nombre,
-              tipo: tipoCustodia,
-            });
-            if (!updResult.ok) throw updResult.error;
-            if (a.selfie) {
-              const selfieBlob = await dataUrlToBlob(a.selfie);
-              const selfieRes = await saveSelfie(a.id, selfieBlob);
-              if (!selfieRes.ok) throw selfieRes.error;
-              if (a.img) applySelfiePreview(a.img, selfieBlob);
-            }
-            if (
-              !followSessionPayload &&
-              (!primaryKind ||
-                a.kind === primaryKind ||
-                (primaryNombre && a.nombre === primaryNombre))
-            ) {
-              followSessionPayload = {
-                servicio_id: existing.id,
-                servicio_custodio_id: a.id,
-                nombre_custodio: a.nombre,
-                tipo_custodia: a.tipo_custodia || mapKindToTipo(a.kind),
-              };
-            }
-          } else {
-            const tipo_custodia = a.tipo_custodia || mapKindToTipo(a.kind);
-            const { data: cId, error: e3 } = await window.sb.rpc(
-              "agregar_custodio",
-              {
-                p_servicio_id: existing.id,
-                p_nombre: a.nombre,
-                p_tipo_custodia: tipo_custodia,
-              }
-            );
-            if (e3) throw e3;
-            if (a.selfie) {
-              const selfieBlob = await dataUrlToBlob(a.selfie);
-              const selfieRes = await saveSelfie(cId, selfieBlob);
-              if (!selfieRes.ok) throw selfieRes.error;
-              if (a.img) applySelfiePreview(a.img, selfieBlob);
-            }
-            if (
-              !followSessionPayload &&
-              (!primaryKind ||
-                a.kind === primaryKind ||
-                (primaryNombre && a.nombre === primaryNombre))
-            ) {
-              followSessionPayload = {
-                servicio_id: existing.id,
-                servicio_custodio_id: cId,
-                nombre_custodio: a.nombre,
-                tipo_custodia,
-              };
-            }
-          }
-        }
-        showMsg("Registro de custodio completado ?");
-        if (followSessionPayload) {
-          primeCustodiaSession(followSessionPayload, "registro-merge");
-        }
-        redirectMapa(existing.id, "registro-merge");
-        return;
-      }
-
-      // Crear servicio nuevo
-      const { data: servicio_id, error: errSvc } = await window.sb.rpc(
-        "crear_servicio",
-        {
-          p_empresa: empresa,
-          p_cliente_nombre: cliente,
-          p_tipo: tGlobal,
-          p_placa: placa,
-          p_destino_texto: destinoTexto,
-          p_destino_lat: destinoCoords?.lat ?? null,
-          p_destino_lng: destinoCoords?.lng ?? null,
-        }
+  function blobToHex(blob) {
+    return blob.arrayBuffer().then((buffer) => {
+      const bytes = new Uint8Array(buffer);
+      return (
+        "\\x" +
+        Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")
       );
-      if (errSvc) {
-        console.error(errSvc);
-        return showMsg("Error al crear servicio");
-      }
-      if (!servicio_id) return showMsg("No se recibio ID de servicio");
-      let followSessionPayload = null;
-      for (const b of bloques) {
-        const tipo_custodia = tipoForKind(b.kind);
-        const { data: cId, error: errC } = await window.sb.rpc(
-          "agregar_custodio",
-          {
-            p_servicio_id: servicio_id,
-            p_nombre: b.nameInput.value.trim(),
-            p_tipo_custodia: tipo_custodia,
-          }
-        );
-        if (errC) {
-          console.error(errC);
-          return showMsg("Error al agregar custodio");
-        }
-        if (b.selfieDataUrl) {
-          try {
-            const selfieBlob = await dataUrlToBlob(b.selfieDataUrl);
-            const selfieRes = await saveSelfie(cId, selfieBlob);
-            if (!selfieRes.ok) throw selfieRes.error;
-            if (b.img) applySelfiePreview(b.img, selfieBlob);
-          } catch (errSelfie) {
-            console.error(errSelfie);
-            return showMsg("Error al guardar selfie");
-          }
-        }
-        if (!followSessionPayload && (!primaryBloque || b === primaryBloque)) {
-          followSessionPayload = {
-            servicio_id,
-            servicio_custodio_id: cId,
-            nombre_custodio: b.nameInput.value.trim(),
-            tipo_custodia,
-          };
-        }
-      }
-      await emitirInicioServicio(servicio_id, {
-        cliente,
-        placa,
-        tipo: tGlobal,
-        destino: destinoTexto,
-      });
-      showMsg("Servicio registrado en Supabase ?");
-      if (followSessionPayload) {
-        primeCustodiaSession(followSessionPayload, "registro-nuevo");
-      }
-      redirectMapa(servicio_id, "registro-nuevo");
-    } catch (err) {
-      console.error(err);
-      showMsg("Error en el registro");
-    }
-  });
+    });
+  }
 
-  // Limpiar
-  document.getElementById("btn-limpiar")?.addEventListener("click", () => {
-    try {
-      custodiosUI.forEach((ui) => {
-        stopStream(ui);
-        ui.nameInput.value = "";
-        ui.selfieDataUrl = null;
-        ui.img.style.display = "none";
-        ui.video.style.display = "none";
-        ui.btnStart.disabled = false;
-        ui.btnShot.disabled = true;
-        ui.btnReset.disabled = true;
-        ui.status.textContent = "";
-      });
-    } catch {}
-    form.reset();
-    currentTipo = tipoEl.value;
-    renderCustodios();
-    clearSuggestions();
-    destinoCoords = null;
-    direccionEstado.textContent = "Formulario limpio.";
-    direccionEstado.style.color = "";
-  });
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 
-  // Acciones del modal
-  mBtnCancel?.addEventListener("click", () => {
-    modalAct.classList.remove("show");
-    forceNew = false;
-  });
-  mBtnVer?.addEventListener("click", () => {
-    if (!activeSvc) return;
-    sessionStorage.setItem("servicio_id_actual", activeSvc.id);
-    location.href = "/html/dashboard/mapa-resguardo.html";
-  });
-  mBtnNuevo?.addEventListener("click", () => {
-    forceNew = true;
-    modalAct.classList.remove("show");
-    showMsg("Registrar nuevo servicio");
-  });
-  mBtnJoin?.addEventListener("click", async () => {
-    try {
-      if (!activeSvc) return;
-      modalAct.classList.remove("show");
-      const custs = activeCustodios || (await getCustodios(activeSvc.id));
-      const tGlobal = tipoEl.value;
-      const expectedKinds = kindsForTipo(tGlobal);
-      const completeKinds = new Set(
-        custs
-          .filter(isCompleto)
-          .map((c) => kindFromTipoCustodia(c.tipo_custodia))
-      );
-      const incompleteMap = new Map();
-      for (const c of custs) {
-        const k = kindFromTipoCustodia(c.tipo_custodia);
-        if (!isCompleto(c)) incompleteMap.set(k, c);
-      }
-      const bloques = bloquesCompletos();
-      const primaryBloque = bloques[0] || null;
-      const primaryKind = primaryBloque?.kind || null;
-      const primaryNombre = (primaryBloque?.nameInput.value || "").trim();
-      const actions = [];
-      for (const b of bloques) {
-        const k = b.kind;
-        if (!expectedKinds.includes(k)) continue;
-        const inc = incompleteMap.get(k);
-        if (inc)
-          actions.push({
-            mode: "update",
-            id: inc.id,
-            nombre: b.nameInput.value.trim(),
-            selfie: b.selfieDataUrl,
-            kind: k,
-            tipo_custodia: inc.tipo_custodia || tipoForKind(k),
-            img: b.img || null,
-          });
-        else if (!completeKinds.has(k))
-          actions.push({
-            mode: "create",
-            k,
-            nombre: b.nameInput.value.trim(),
-            selfie: b.selfieDataUrl,
-            kind: k,
-            tipo_custodia: tipoForKind(k),
-            img: b.img || null,
-          });
-      }
-      let followSessionPayload = null;
-      for (const a of actions) {
-        if (a.mode === "update") {
-          const tipo_custodia = a.tipo_custodia || tipoForKind(a.kind);
-          const updResult = await updateCustodia({
-            scId: a.id,
-            nombre: a.nombre,
-            tipo: tipo_custodia,
-          });
-          if (!updResult.ok) throw updResult.error;
-          if (a.selfie) {
-            const selfieBlob = await dataUrlToBlob(a.selfie);
-            const selfieRes = await saveSelfie(a.id, selfieBlob);
-            if (!selfieRes.ok) throw selfieRes.error;
-            if (a.img) applySelfiePreview(a.img, selfieBlob);
-          }
-          if (
-            !followSessionPayload &&
-            (!primaryKind ||
-              a.kind === primaryKind ||
-              (primaryNombre && a.nombre === primaryNombre))
-          ) {
-            followSessionPayload = {
-              servicio_id: activeSvc.id,
-              servicio_custodio_id: a.id,
-              nombre_custodio: a.nombre,
-              tipo_custodia: a.tipo_custodia,
-            };
-          }
-        } else {
-          const tipo_custodia = a.tipo_custodia || tipoForKind(a.kind);
-          const { data: cId, error: e3 } = await window.sb.rpc(
-            "agregar_custodio",
-            {
-              p_servicio_id: activeSvc.id,
-              p_nombre: a.nombre,
-              p_tipo_custodia: tipo_custodia,
-            }
-          );
-          if (e3) throw e3;
-          if (a.selfie) {
-            const selfieBlob = await dataUrlToBlob(a.selfie);
-            const selfieRes = await saveSelfie(cId, selfieBlob);
-            if (!selfieRes.ok) throw selfieRes.error;
-            if (a.img) applySelfiePreview(a.img, selfieBlob);
-          }
-          if (
-            !followSessionPayload &&
-            (!primaryKind ||
-              a.kind === primaryKind ||
-              (primaryNombre && a.nombre === primaryNombre))
-          ) {
-            followSessionPayload = {
-              servicio_id: activeSvc.id,
-              servicio_custodio_id: cId,
-              nombre_custodio: a.nombre,
-              tipo_custodia,
-            };
-          }
-        }
-      }
-      showMsg("Registro completado ?");
-      if (followSessionPayload) {
-        primeCustodiaSession(followSessionPayload, "registro-modal");
-      }
-      redirectMapa(activeSvc.id, "registro-modal");
-    } catch (e) {
-      console.error(e);
-      showMsg("Error al completar");
-    }
-  });
-});
+  async function fetchAutocomplete(query, key) {
+    if (!key) return [];
+    const params = new URLSearchParams({
+      key,
+      q: query,
+      format: "json",
+      addressdetails: "0",
+      countrycodes: "pe",
+      limit: "5",
+    });
+    const res = await fetch(`https://us1.locationiq.com/v1/search?${params.toString()}`);
+    if (!res.ok) throw new Error("autocomplete-fail");
+    return res.json();
+  }
+
+  function debounce(fn, delay) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
+
+  function attachPlaceholderWatcher(form) {
+    const handler = (evt) => {
+      const input = evt.target;
+      if (!input.classList?.contains("mdl-textfield__input")) return;
+      const hasValue = Boolean(String(input.value || "").trim());
+      input.classList.toggle("has-value", hasValue);
+      const wrapper = input.closest(".mdl-textfield");
+      if (wrapper) wrapper.classList.toggle("is-dirty", hasValue);
+    };
+    form.addEventListener("input", handler, true);
+    form.addEventListener("change", handler, true);
+    form
+      .querySelectorAll(".mdl-textfield__input")
+      .forEach((input) => handler({ target: input }));
+    console.log("[task][HU-PLACEHOLDER-CONSISTENCIA] done", {
+      scope: "dashboard-custodia",
+    });
+  }
+})();
+// === END HU:HU-DASHBOARD-CUSTODIA-FORM ===

@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   "use strict";
 
   // @hu HU-CHECKIN-15M, HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-NO400-ALARM_EVENT
@@ -171,9 +171,7 @@
     if (SERVICIO_TIPO_MAP[upper]) return SERVICIO_TIPO_MAP[upper];
     if (upper === "TIPO_A") return "Tipo A";
     if (upper === "TIPO_B") return "Tipo B";
-    return upper
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return upper.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   function normalizeEmpresa(value) {
@@ -502,7 +500,7 @@
     if (data.kind === "push" && data.event) {
       if (state.mode === "admin") {
         handleIncomingEvent(data.event, data.payload || {}, { source: "push" });
-      /* === BEGIN HU:HU-CHECKIN-15M sw message (no tocar fuera) === */
+        /* === BEGIN HU:HU-CHECKIN-15M sw message (no tocar fuera) === */
       } else if (state.mode === "custodia" && data.event === "checkin") {
         const payload = data.payload || data;
         scheduleCheckinReminder(payload);
@@ -531,7 +529,9 @@
   function initCustodia(options) {
     initBase("custodia").catch(error);
     autoRequestAlerts({ sound: true, haptics: true }).catch(() => {});
-    requestNotificationsPermission({ reason: "init-custodia" }).catch(() => {});
+    global.PermHelper?.ensureNotificationPermission("init-custodia").catch(
+      () => {}
+    );
     preloadCheckinAudio();
     if (options && typeof options.onCheckin === "function") {
       state.custodia.onCheckin = options.onCheckin;
@@ -565,10 +565,14 @@
   async function emit(type, payload) {
     let normalizedType = type;
     let normalizedPayload = payload || {};
-    if (normalizedType === "panic_ack" || normalizedPayload?.type === "panic_ack") {
+    if (
+      normalizedType === "panic_ack" ||
+      normalizedPayload?.type === "panic_ack"
+    ) {
       normalizedType = "panic";
       const meta =
-        (normalizedPayload && normalizedPayload.metadata) &&
+        normalizedPayload &&
+        normalizedPayload.metadata &&
         typeof normalizedPayload.metadata === "object"
           ? { ...normalizedPayload.metadata }
           : {};
@@ -896,7 +900,7 @@
     } else if (type === "panic") {
       if (state.admin.handled.has(`${key}-panic-ack`)) return;
       activatePanic(record);
-    /* === BEGIN HU:HU-CHECKIN-15M incoming events (no tocar fuera) === */
+      /* === BEGIN HU:HU-CHECKIN-15M incoming events (no tocar fuera) === */
     } else if (type === "checkin" && state.mode === "custodia") {
       scheduleCheckinReminder(record);
       openCheckinPrompt(record);
@@ -914,7 +918,7 @@
         closeCheckinPanel("remote-ack");
       }
       notify({ type: "checkin_ok", record });
-    /* === END HU:HU-CHECKIN-15M === */
+      /* === END HU:HU-CHECKIN-15M === */
     }
   }
 
@@ -1087,30 +1091,10 @@
   }
   // === END HU:HU-AUDIO-GESTO ===
 
-  async function requestNotificationsPermission(meta) {
-    if (typeof global.Notification === "undefined") return null;
-    if (typeof global.Notification.requestPermission !== "function") {
-      return global.Notification.permission || null;
-    }
-    if (global.Notification.permission !== "default") {
-      console.log("[permissions] notifications:" + global.Notification.permission);
-      return global.Notification.permission;
-    }
-    try {
-      const result = await global.Notification.requestPermission();
-      console.log("[permissions] notifications:" + result, {
-        reason: meta?.reason || "generic",
-      });
-      return result;
-    } catch (err) {
-      console.warn("[permissions] notifications:error", err);
-      return "denied";
-    }
-  }
   /* === END HU:HU-AUDIO-GESTO === */
 
   async function primeAdminPermissions(options = {}) {
-    await requestNotificationsPermission({ reason: "admin-prime" });
+    await global.PermHelper?.ensureNotificationPermission("admin-prime");
     const perms = await enableAlerts({
       sound: options?.sound !== false,
       haptics: options?.haptics !== false,
@@ -1285,7 +1269,7 @@
       } catch (_) {}
     }
     if (!state.permissions.sound) {
-      showToast("Habilita el sonido para escuchar la alerta de pánico.");
+      showToast("Habilita el sonido para escuchar la alerta de pÃ¡nico.");
     }
     stopSismateAlarm("restart");
     state.siren.sismateActive = true;
@@ -1408,9 +1392,7 @@
 
   // === BEGIN HU:HU-PANICO-TTS intervalos (NO TOCAR FUERA) ===
   function buildPanicPhrase(record) {
-    const cliente = record?.cliente
-      ? String(record.cliente).trim()
-      : "CLIENTE";
+    const cliente = record?.cliente ? String(record.cliente).trim() : "CLIENTE";
     return `ALERTA \u2014 ${cliente}`.trim();
   }
 
@@ -1530,7 +1512,7 @@
       <div class="alarma-modal__dialog" role="document">
         <div class="alarma-modal__header">
           <div class="alarma-modal__title">ALERTA DE PANICO</div>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close" aria-label="Cerrar alerta">×</button>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close" aria-label="Cerrar alerta">Ã—</button>
         </div>
         <div class="alarma-modal__body" id="alarma-modal-body"></div>
         <div class="alarma-modal__actions">
@@ -1583,7 +1565,7 @@
         { label: "Cliente", value: cliente },
         { label: "Placa", value: record?.placa || "-" },
         { label: "Empresa", value: record?.empresa || "-" },
-        { label: "Ubicacion", value: formatPanicLocation(record) },
+        { label: "Ubicaci\u00f3n", value: formatPanicLocation(record) },
       ];
       const fieldsMarkup = rows
         .map(
@@ -1595,7 +1577,7 @@
         )
         .join("");
       body.innerHTML = `
-        <p class="alarma-modal__eyebrow">ALERTA – ${clip(
+        <p class="alarma-modal__eyebrow">ALERTA â€“ ${clip(
           cliente,
           MAX_STRING
         )}</p>
@@ -1609,14 +1591,16 @@
   function formatPanicLocation(record) {
     if (record?.direccion) return record.direccion;
     if (record?.lat != null && record?.lng != null) {
-      return `${Number(record.lat).toFixed(4)}, ${Number(record.lng).toFixed(4)}`;
+      return `${Number(record.lat).toFixed(4)}, ${Number(record.lng).toFixed(
+        4
+      )}`;
     }
     if (record?.metadata?.lat && record?.metadata?.lng) {
       return `${Number(record.metadata.lat).toFixed(4)}, ${Number(
         record.metadata.lng
       ).toFixed(4)}`;
     }
-    return "Sin ubicacion";
+    return "Sin ubicaci\u00f3n";
   }
 
   function markPanicHandled(record) {
@@ -1716,7 +1700,10 @@
         throw new Error("Notifications no soportadas");
       if (!navigator.serviceWorker)
         throw new Error("Service worker requerido para push");
-      const perm = await Notification.requestPermission();
+      const perm =
+        (await global.PermHelper?.ensureNotificationPermission(
+          metadata?.reason || "push-register"
+        )) || Notification.permission;
       if (perm !== "granted") {
         console.warn("[permissions] notifications:denied");
         throw new Error("Permiso de notificaciones denegado");
@@ -1871,7 +1858,8 @@
   }
 
   function ensureCheckinAudioBuffer(ctx) {
-    if (state.checkin.audioBuffer) return Promise.resolve(state.checkin.audioBuffer);
+    if (state.checkin.audioBuffer)
+      return Promise.resolve(state.checkin.audioBuffer);
     if (!ctx) return Promise.reject(new Error("AudioContext no disponible"));
     return loadCheckinAudioArrayBuffer()
       .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer.slice(0)))
@@ -1996,14 +1984,19 @@
     if (!panel) return;
     const micBtn = panel.querySelector(".js-checkin-voice");
     const thanks = panel.querySelector(".js-checkin-thanks");
+    const toggleText = panel.querySelector(".js-checkin-text-toggle");
+    const textField = panel.querySelector(".alarma-checkin__field");
     if (micBtn) {
       micBtn.classList.add("is-hidden");
       micBtn.setAttribute("aria-hidden", "true");
     }
+    if (toggleText) toggleText.hidden = true;
+    if (textField) textField.setAttribute("hidden", "hidden");
     if (thanks) {
       thanks.hidden = false;
       thanks.classList.add("is-visible");
     }
+    panel.dataset.transcript = "";
   }
 
   function resetCheckinPromptUI(panel) {
@@ -2011,17 +2004,29 @@
     const micBtn = panel.querySelector(".js-checkin-voice");
     const micLabel = panel.querySelector(".alarma-checkin__mic-label");
     const thanks = panel.querySelector(".js-checkin-thanks");
+    const toggleText = panel.querySelector(".js-checkin-text-toggle");
+    const textField = panel.querySelector(".alarma-checkin__field");
+    const input = panel.querySelector("#alarma-checkin-input");
+    const confirmBtn = panel.querySelector(".js-checkin-confirm");
     if (micBtn) {
       micBtn.disabled = false;
       micBtn.classList.remove("is-hidden", "is-listening");
       micBtn.removeAttribute("aria-hidden");
     }
-    if (micLabel) micLabel.textContent = "Presionar y hablar";
+    if (micLabel) micLabel.textContent = "Presiona y habla";
     if (thanks) {
       thanks.hidden = true;
       thanks.classList.remove("is-visible");
     }
+    if (toggleText) {
+      toggleText.hidden = false;
+      toggleText.textContent = "No puedo hablar, escribir\u00e9";
+    }
+    if (textField) textField.setAttribute("hidden", "hidden");
+    if (input) input.value = "";
+    if (confirmBtn) confirmBtn.disabled = true;
     panel.dataset.transcript = "";
+    panel.dataset.method = "voice";
   }
 
   function closeCheckinPanel(reason = "manual") {
@@ -2070,8 +2075,7 @@
     if (!panel) return;
     const session = loadCustodiaSessionSnapshot();
     const source =
-      (payload &&
-        (payload.record || payload.event || payload.payload)) ||
+      (payload && (payload.record || payload.event || payload.payload)) ||
       payload ||
       {};
     const metaSources = [
@@ -2147,7 +2151,7 @@
     }
     const metaEl = panel.querySelector(".js-checkin-meta");
     if (metaEl) {
-      metaEl.textContent = `Intento ${attempt} - Reporta tu ubicacion actual.`;
+      metaEl.textContent = `Intento ${attempt} \u00b7 Reporta tu ubicaci\u00f3n actual.`;
     }
     const hintEl = panel.querySelector(".alarma-checkin__hint");
     if (hintEl && !state.permissions.sound) {
@@ -2164,7 +2168,9 @@
     if (state.mode !== "custodia") return;
     const panel = ensureCheckinPanel();
     ensureCheckinOverlay();
-    requestNotificationsPermission({ reason: "checkin-modal" }).catch(() => {});
+    global.PermHelper?.ensureNotificationPermission("checkin-modal").catch(
+      () => {}
+    );
     if (!state.permissions.sound) {
       enableAlerts({ sound: true, haptics: true }).catch(() => {});
     }
@@ -2255,22 +2261,40 @@
     panel.setAttribute("aria-modal", "true");
     panel.tabIndex = -1;
     panel.innerHTML = `
-      <div class="alarma-checkin__dialog">
+      <div class="alarma-checkin__dialog alarma-checkin__dialog--hero">
         <div class="alarma-checkin__header">
           <p class="alarma-checkin__eyebrow">REPORTESE</p>
-          <p class="alarma-checkin__subtitle">Presiona el boton para que reportes tu ubicacion actual.</p>
-          <p class="alarma-checkin__context">
-            <span class="js-checkin-cliente">-</span> - <span class="js-checkin-servicio">-</span>
+          <h3 class="alarma-checkin__title">&iquest;D&oacute;nde te encuentras?</h3>
+          <p class="alarma-checkin__meta js-checkin-meta">Intento 1 &middot; Reporta tu ubicaci&oacute;n actual.</p>
+          <p class="alarma-checkin__instruction">
+            <span class="js-checkin-cliente">-</span>
+            <span class="alarma-checkin__dot" aria-hidden="true">&bull;</span>
+            <span class="js-checkin-servicio">-</span>
           </p>
         </div>
-        <p class="alarma-checkin__meta js-checkin-meta">Intento 1 - Reporta tu ubicacion actual.</p>
-        <p class="alarma-checkin__hint" hidden>Activa sonido para escuchar el recordatorio.</p>
-        <button type="button" class="alarma-checkin__mic-btn js-checkin-voice">
-          <img src="https://img.freepik.com/psd-gratis/3d-microphone-icon-on-red-circle_84443-56056.jpg?t=st=1762918840~exp=1762922440~hmac=0258d1ff707dd4ee4b68c223f7d9a05a0acee6db653f745fe2436a27082baafb&w=1480" class="alarma-checkin__mic-icon" alt="" aria-hidden="true" loading="lazy" decoding="async" />
-          <span class="alarma-checkin__mic-label">Presionar y hablar</span>
-        </button>
+        <div class="alarma-checkin__mic-wrap">
+          <button type="button" class="alarma-checkin__mic-btn js-checkin-voice" aria-label="Presiona el bot&oacute;n y habla" aria-live="assertive">
+            <span class="alarma-checkin__mic-ring" aria-hidden="true"></span>
+            <span class="alarma-checkin__mic-core" aria-hidden="true">
+              <span class="alarma-checkin__mic-icon"></span>
+            </span>
+            <span class="alarma-checkin__mic-label">Presiona y habla</span>
+          </button>
+        </div>
+        <p class="alarma-checkin__instruction-text">Presiona el bot&oacute;n y di tu ubicaci&oacute;n actual.</p>
+        <button type="button" class="alarma-checkin__text-toggle js-checkin-text-toggle">No puedo hablar, escribir&eacute;</button>
+        <div class="alarma-checkin__field" hidden>
+          <label for="alarma-checkin-input">Describe tu ubicaci&oacute;n</label>
+          <textarea
+            id="alarma-checkin-input"
+            class="alarma-checkin__input"
+            rows="3"
+            placeholder="Ej. Ingresando a puerta 3, sin novedad."
+          ></textarea>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-checkin-confirm" disabled>Enviar texto</button>
+        </div>
         <p class="alarma-checkin__thanks js-checkin-thanks" hidden>
-          Gracias por tu reporte. Envia las evidencias al grupal de WhatsApp.
+          Gracias por tu reporte. Env&iacute;a las evidencias al grupal de WhatsApp.
         </p>
         <p class="alarma-checkin__status js-checkin-status" aria-live="polite" hidden></p>
       </div>
@@ -2279,10 +2303,42 @@
     document.body.appendChild(panel);
     const voiceBtn = panel.querySelector(".js-checkin-voice");
     const voiceLabel = panel.querySelector(".alarma-checkin__mic-label");
+    const toggleTextBtn = panel.querySelector(".js-checkin-text-toggle");
+    const textField = panel.querySelector(".alarma-checkin__field");
+    const input = panel.querySelector("#alarma-checkin-input");
+    const confirmBtn = panel.querySelector(".js-checkin-confirm");
     voiceBtn?.addEventListener("click", () => captureCheckinVoice(panel));
+    if (toggleTextBtn && textField) {
+      toggleTextBtn.addEventListener("click", () => {
+        const hidden = textField.hasAttribute("hidden");
+        if (hidden) {
+          textField.removeAttribute("hidden");
+          panel.dataset.method = "text";
+          toggleTextBtn.textContent = "Cancelar texto";
+          input?.focus();
+        } else {
+          textField.setAttribute("hidden", "hidden");
+          panel.dataset.method = "voice";
+          toggleTextBtn.textContent = "No puedo hablar, escribir\u00e9";
+          if (input) input.value = "";
+          if (confirmBtn) confirmBtn.disabled = true;
+        }
+      });
+    }
+    if (input && confirmBtn) {
+      input.addEventListener("input", () => {
+        const hasValue = input.value.trim().length > 0;
+        confirmBtn.disabled = !hasValue;
+      });
+      confirmBtn.addEventListener("click", () => {
+        panel.dataset.method = "text";
+        panel.dataset.transcript = (input.value || "").trim();
+        confirmCheckin(panel);
+      });
+    }
     panel.dataset.method = "voice";
     panel.dataset.transcript = "";
-    if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
+    if (voiceLabel) voiceLabel.textContent = "Presiona y habla";
     resetCheckinPromptUI(panel);
     state.checkin.panel = panel;
     return panel;
@@ -2299,6 +2355,7 @@
     const voiceLabel = panel.querySelector(".alarma-checkin__mic-label");
     const thanksMsg = panel.querySelector(".js-checkin-thanks");
     panel.dataset.transcript = "";
+    panel.dataset.method = "voice";
     if (thanksMsg) thanksMsg.hidden = true;
     if (button) {
       button.disabled = true;
@@ -2307,9 +2364,12 @@
     if (voiceLabel) voiceLabel.textContent = "Escuchando...";
     stopCheckinAudioLoop("voice-button");
     try {
+      await global.PermHelper?.ensureMicPermission();
       if (navigator.mediaDevices?.getUserMedia) {
         try {
-          const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mic = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
           mic.getTracks().forEach((track) => track.stop());
           console.log("[permissions] mic:granted");
         } catch (micErr) {
@@ -2323,7 +2383,7 @@
             button.disabled = false;
             button.classList.remove("is-listening");
           }
-          if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
+          if (voiceLabel) voiceLabel.textContent = "Presiona y habla";
           return;
         }
       }
@@ -2333,8 +2393,8 @@
       recog.interimResults = false;
       recog.maxAlternatives = 2;
       recog.onresult = (event) => {
-        const transcript =
-          event.results?.[0]?.[0]?.transcript?.trim() || "";
+        const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
+        panel.dataset.method = "voice";
         panel.dataset.transcript = transcript;
         setCheckinStatus(panel, "Procesando respuesta...");
         console.log("[checkin][voice]", {
@@ -2355,7 +2415,7 @@
           button.disabled = false;
           button.classList.remove("is-listening");
         }
-        if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
+        if (voiceLabel) voiceLabel.textContent = "Presiona y habla";
       };
       recog.start();
     } catch (err) {
@@ -2365,15 +2425,20 @@
         button.disabled = false;
         button.classList.remove("is-listening");
       }
-      if (voiceLabel) voiceLabel.textContent = "Presionar y hablar";
+      if (voiceLabel) voiceLabel.textContent = "Presiona y habla";
     }
   }
   async function confirmCheckin(panelArg, options = {}) {
     const panel = panelArg || state.checkin.panel;
     if (!panel) return;
     if (state.checkin.busy) return;
-    const transcript = panel.dataset.transcript || "";
-    const texto = clip(transcript, MAX_STRING);
+    const input = panel.querySelector("#alarma-checkin-input");
+    const method = panel.dataset.method === "text" ? "text" : "voice";
+    const baseText =
+      method === "text"
+        ? (input && input.value?.trim()) || ""
+        : panel.dataset.transcript || "";
+    const texto = clip(baseText, MAX_STRING);
     const auto = Boolean(options.auto);
     if (!texto) {
       if (auto) {
@@ -2382,12 +2447,17 @@
           "No se pudo captar la voz. Intenta nuevamente."
         );
       } else {
-        showToast("Necesitamos escuchar tu ubicacion antes de confirmar.");
+        if (method === "text") {
+          showToast("Describe tu ubicaci\u00f3n antes de enviar.");
+        } else {
+          showToast(
+            "Necesitamos escuchar tu ubicaci\u00f3n antes de confirmar."
+          );
+        }
       }
       return;
     }
     const last = state.custodia.lastLocation;
-    const method = "voice";
     const attempt = Number(panel.dataset.attempt || 1);
     state.checkin.busy = true;
     try {
@@ -2459,7 +2529,8 @@
     ensureAudio: ensureAudioGesture,
     primeAdminPermissions,
     primeAlerts: attachAlertPrimer,
-    requestNotifications: requestNotificationsPermission,
+    requestNotifications: (meta) =>
+      global.PermHelper?.ensureNotificationPermission(meta?.reason || "alarma"),
     preloadCheckinAudio,
     /* === BEGIN HU:HU-CHECKIN-15M checkin api (no tocar fuera) === */
     openCheckinPrompt: (payload) => {
@@ -2478,7 +2549,9 @@
       return { ...state.permissions };
     },
     isPanicActive() {
-      return Boolean(state.admin?.currentPanicKey && state.siren?.sismateActive);
+      return Boolean(
+        state.admin?.currentPanicKey && state.siren?.sismateActive
+      );
     },
     /* === END HU:HU-AUDIO-GESTO === */
   };
@@ -2509,11 +2582,3 @@
     }
   }
 })(window);
-
-
-
-
-
-
-
-

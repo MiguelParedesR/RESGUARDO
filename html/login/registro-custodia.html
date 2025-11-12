@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro de Custodias</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
+
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" />
+
+  <link rel="stylesheet" href="../../css/registro-custodia.css" />
+  <link rel="stylesheet" href="../../css/partials/app-header.css" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../../config.js"></script>
+  <script defer src="../../js/lib/camera.js"></script>
+  <script defer src="../../js/lib/permissions.js"></script>
+  <script defer src="../../js/lib/selfie-icon.js"></script>
+  <script defer src="../../js/registro-custodia.js"></script>
+  <script defer src="../../js/lib/app-header.js"></script>
+  <script defer src="../../js/pwa.js"></script>
+</head>
+
+<body class="registro-body mdl-base">
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header registro-layout">
+    <div id="app-header" data-page-title="Registro de Custodias"></div>
+
+    <!-- === BEGIN HU:HU-REGISTRO-CUSTODIA layout (NO TOCAR FUERA) === -->
+    <main class="mdl-layout__content">
+      <section class="registro-hero">
+        <div class="registro-hero__copy">
+          <p class="registro-hero__eyebrow">Paso Único</p>
+          <h1>Activa tu acceso de custodia</h1>
+          <p>
+            Completa tus datos, captura una selfie y obtén tu PIN (últimos 4 del DNI) para ingresar al
+            panel de custodias.
+          </p>
+        </div>
+      </section>
+
+      <section class="registro-panel">
+        <div class="registro-card glass-card">
+          <form id="registro-custodia-form" class="registro-form" autocomplete="off" novalidate>
+            <div class="registro-field" id="campo-nombre">
+              <label for="nombre-completo">Nombre completo</label>
+              <input type="text" id="nombre-completo" name="nombre" placeholder="Ej. Carlos Javier Perez" required />
+            </div>
+
+            <div class="registro-field" id="campo-dni">
+              <label for="dni">DNI (solo dígitos)</label>
+              <input type="tel" id="dni" name="dni" inputmode="numeric" minlength="8" pattern="[0-9]{8,}"
+                placeholder="00000000" required />
+            </div>
+
+            <div class="registro-field" id="campo-empresa">
+              <label for="empresa">Empresa</label>
+              <select id="empresa" name="empresa" required>
+                <option value="">Selecciona una opción</option>
+                <option value="KARPAR">KARPAR</option>
+                <option value="ALVICEM">ALVICEM</option>
+                <option value="OTRA">Registrar otra empresa</option>
+              </select>
+            </div>
+
+            <div class="registro-field registro-field--inline" id="campo-empresa-otro" hidden>
+              <label for="empresa-otra">Nombre de la empresa</label>
+              <input type="text" id="empresa-otra" placeholder="Ingresa el nombre de la empresa" />
+            </div>
+
+            <div class="selfie-block" id="selfie-block">
+              <div class="selfie-header">
+                <p>Selfie</p>
+                <span>Solo para validar tu identidad</span>
+              </div>
+              <div class="selfie-content">
+                <button type="button" class="selfie-trigger" id="selfie-trigger">
+                  <span class="material-icons" aria-hidden="true">photo_camera</span>
+                  <span>Tomar selfie</span>
+                </button>
+                <div class="selfie-preview" id="selfie-preview" aria-live="polite">
+                  <img id="selfie-preview-img" alt="Previsualización de selfie" hidden />
+                  <span class="selfie-placeholder">Sin selfie</span>
+                </div>
+              </div>
+              <p class="selfie-hint">Pulsa el ícono para abrir la cámara. Luego podrás repetir la captura si lo
+                necesitas.</p>
+            </div>
+
+            <button type="submit" class="registro-btn" id="btn-registrar">
+              <span class="btn-label">Registrar custodia</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </form>
+
+          <div class="registro-success" id="registro-success" hidden>
+            <span class="material-icons" aria-hidden="true">check_circle</span>
+            <h3>Registro completado</h3>
+            <p>Tu PIN es siempre los <strong>últimos 4 dígitos</strong> de tu DNI.</p>
+            <button type="button" class="registro-btn" id="btn-volver-login">
+              Ir al login
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
+        aria-relevant="text">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+      </div>
+    </main>
+    <!-- === END HU:HU-REGISTRO-CUSTODIA === -->
+  </div>
+</body>
+
+</html>

@@ -2,7 +2,7 @@
 // Requiere: window.sb (config.js) y Leaflet cargado en la pagina.
 // La pagina debe tener: <div id="map-track"></div>, <span id="distancia-label"></span>, <button id="btn-finalizar"></button>
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const SEND_EVERY_MS = 30_000;
   const ARRIVE_M = 50;
   const REDIRECT_DELAY = 2000;
@@ -50,8 +50,23 @@ document.addEventListener("DOMContentLoaded", () => {
     location.replace(DASHBOARD_URL);
     return;
   }
+  try {
+      const ownerOk = await verifyMapOwner(servicioCustodioId, custSession.custodia_id);
+    if (!ownerOk) {
+      showMsg("Ya no eres el titular del servicio. Vuelve a Mis Servicios y selecciona SEGUIR.");
+      window.CustodiaSession?.clear?.();
+      location.replace(DASHBOARD_URL);
+      return;
+    }
+  } catch (err) {
+    console.error("[mapa][owner-guard]", err);
+    showMsg("No se pudo verificar tu acceso. Intenta nuevamente.");
+    location.replace(DASHBOARD_URL);
+    return;
+  }
   const custodioNombre = custSession.nombre_custodio || "Custodia";
   const custodioTipo = custSession.tipo_custodia || "";
+  const custodiaIdActual = custSession.custodia_id || null;
   const extendSession = () => {
     try {
       window.CustodiaSession?.touch();
@@ -137,6 +152,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const estadoTextoEl = document.getElementById("estado-texto");
   const destinoTextoEl = document.getElementById("destino-texto");
   const panicBtn = document.getElementById("alarma-panic-btn");
+  const btnCustodias = document.getElementById("btn-custodias-mobile");
+  const custodiosSidebar = document.getElementById("custodios-sidebar");
+  const custodiosListEl = document.getElementById("custodios-list");
+  const custodiosCloseBtn = document.getElementById("custodios-close");
+  const custodiosOverlay = document.getElementById("custodios-overlay");
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
@@ -206,6 +226,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
+  const custodiosCache = { data: [], fetchedAt: 0 };
   let geoPermissionLogged = false;
 
   function distanciaM(lat1, lng1, lat2, lng2) {
@@ -220,6 +241,147 @@ document.addEventListener("DOMContentLoaded", () => {
         Math.sin(dLng / 2) *
         Math.sin(dLng / 2);
     return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  async function verifyMapOwner(scId, custodiaId) {
+    if (!scId || !custodiaId) return false;
+    const { data, error } = await window.sb
+      .from("servicio_custodio")
+      .select("custodia_id")
+      .eq("id", scId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.custodia_id === custodiaId;
+  }
+
+  async function ensureGeoPermission(tag) {
+    if (!window.PermHelper?.ensureGeoPermission) return null;
+    try {
+      const status = await window.PermHelper.ensureGeoPermission({
+        enableHighAccuracy: true,
+        timeout: 20_000,
+      });
+      if (status) {
+        console.log("[perm] geo:" + status, { tag });
+      }
+      return status;
+    } catch (err) {
+      console.warn("[perm] geo helper", err);
+      return null;
+    }
+  }
+
+  async function refreshCustodiosList(force = false) {
+    if (!custodiosListEl) return;
+    const now = Date.now();
+    if (
+      !force &&
+      custodiosCache.data.length &&
+      now - custodiosCache.fetchedAt < 60 * 1000
+    ) {
+      renderCustodiosList(custodiosCache.data);
+      return;
+    }
+    custodiosListEl.innerHTML =
+      "<p class='cust-empty'>Cargando custodias...</p>";
+    try {
+      const { data, error } = await window.sb
+        .from("servicio_custodio")
+        .select(
+          "id, nombre_custodio, tipo_custodia, custodia_id, created_at, custodia:custodia_id(nombre, empresa, empresa_otro)"
+        )
+        .eq("servicio_id", servicioId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      custodiosCache.data = data || [];
+      custodiosCache.fetchedAt = Date.now();
+      renderCustodiosList(custodiosCache.data);
+    } catch (err) {
+      console.warn("[mapa] custodios list", err);
+      custodiosListEl.innerHTML =
+        "<p class='cust-empty'>No se pudo cargar el listado de custodios.</p>";
+    }
+  }
+
+  function renderCustodiosList(list) {
+    if (!custodiosListEl) return;
+    custodiosListEl.innerHTML = "";
+    if (!list?.length) {
+      custodiosListEl.innerHTML =
+        "<p class='cust-empty'>Este servicio aún no tiene custodias registradas.</p>";
+      return;
+    }
+    list.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "cust-row";
+      const info = document.createElement("div");
+      info.className = "cust-info";
+      const nombre =
+        item.nombre_custodio ||
+        item.custodia?.nombre ||
+        "Sin nombre asignado";
+      const empresa =
+        item.custodia?.empresa ||
+        item.custodia?.empresa_otro ||
+        "Empresa sin asignar";
+      info.innerHTML = `
+        <p class="cust-name">${nombre}</p>
+        <p class="cust-meta">${item.tipo_custodia || "Sin tipo"} · ${empresa}</p>
+        <p class="cust-meta">Registrado: ${formatRelativeTime(
+          item.created_at
+        )}</p>
+      `;
+      const badge = document.createElement("span");
+      let badgeClass = "chip pend";
+      let badgeText = "Pendiente";
+      if (item.custodia_id) {
+        badgeClass = "chip ok";
+        badgeText = "Titular";
+      }
+      if (custodiaIdActual && item.custodia_id === custodiaIdActual) {
+        badgeClass = "chip owner";
+        badgeText = "Tu registro";
+      }
+      badge.className = badgeClass;
+      badge.textContent = badgeText;
+      row.appendChild(info);
+      row.appendChild(badge);
+      custodiosListEl.appendChild(row);
+    });
+  }
+
+  function openCustodiosSidebar(forceRefresh = false) {
+    if (!custodiosSidebar) return;
+    custodiosSidebar.classList.add("is-open");
+    custodiosSidebar.setAttribute("aria-hidden", "false");
+    if (custodiosOverlay) {
+      custodiosOverlay.hidden = false;
+      custodiosOverlay.classList.add("is-visible");
+    }
+    refreshCustodiosList(forceRefresh);
+  }
+
+  function closeCustodiosSidebar() {
+    if (custodiosSidebar) {
+      custodiosSidebar.classList.remove("is-open");
+      custodiosSidebar.setAttribute("aria-hidden", "true");
+    }
+    if (custodiosOverlay) {
+      custodiosOverlay.classList.remove("is-visible");
+      custodiosOverlay.hidden = true;
+    }
+  }
+
+  function formatRelativeTime(value) {
+    if (!value) return "Sin registro";
+    const diff = Date.now() - new Date(value).getTime();
+    if (diff < 90_000) return "Hace instantes";
+    const minutes = Math.round(diff / 60000);
+    if (minutes < 60) return `Hace ${minutes} min`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `Hace ${hours} h`;
+    const days = Math.round(hours / 24);
+    return `Hace ${days} d`;
   }
 
   async function cargarServicio() {
@@ -260,6 +422,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (destinoTextoEl) destinoTextoEl.textContent = destino?.texto || "-";
       handleServicioUpdate(data);
+      await refreshCustodiosList(true);
 
       initMap();
       subscribeServicio();
@@ -367,7 +530,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function iniciarTracking() {
+  async function iniciarTracking() {
     if (!navigator.geolocation) {
       console.error("[mapa] Geolocalizacion no soportada");
       return;
@@ -375,6 +538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
     const pinUser = ICON.carrito;
     // === END HU:HU-MAPA-CARRITO ===
+    await ensureGeoPermission("tracking-start");
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!geoPermissionLogged) {
@@ -981,3 +1145,8 @@ function showFollowControl(show) {
     btn.style.display = show ? "inline-flex" : "none";
   } catch {}
 }
+  btnCustodias?.addEventListener("click", () => {
+    openCustodiosSidebar(true);
+  });
+  custodiosCloseBtn?.addEventListener("click", () => closeCustodiosSidebar());
+  custodiosOverlay?.addEventListener("click", () => closeCustodiosSidebar());

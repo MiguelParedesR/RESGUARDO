@@ -1,326 +1,456 @@
-﻿/* login.js – Accesos para ADMIN / CUSTODIA / CONSULTA
-   -----------------------------------------------
-   ADMIN y CONSULTA:
-     - Solo clave (sin usuario)
-     - Validación contra función Supabase: auth_check_pass(p_role, p_pass)
-   CUSTODIA:
-     - Clave dinámica = DDMM + EMPRESA
-     - Zona horaria: America/Lima
-   -----------------------------------------------
-   Dependencias: config.js (window.sb), guard.js (opcional)
-*/
+const CUSTODIA_PROFILE_KEY = "custodia_profile";
+const CUSTODIA_SESSION_KEY = "auth_role";
+const CUSTODIA_EXP_MS = 24 * 60 * 60 * 1000; // 24h
+const ROUTES = {
+  ADMIN: "/html/dashboard/dashboard-admin.html",
+  CONSULTA: "/html/dashboard/dashboard-consulta.html",
+  CUSTODIA: "/html/dashboard/custodia-registros.html",
+};
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ======= Crear loader global (overlay con spinner) =======
-  const loader = document.createElement("div");
-  loader.id = "app-loader";
-  loader.innerHTML = `
-        <div class="loader-backdrop">
-            <div class="loader-content">
-                <div class="loader-spinner"></div>
-                <p>Validando credenciales...</p>
-            </div>
-        </div>
-    `;
-  document.body.appendChild(loader);
-  loader.style.display = "none"; // oculto inicialmente
-
-  const showLoader = (msg = "Validando credenciales...") => {
-    loader.querySelector("p").textContent = msg;
-    loader.style.display = "flex";
-  };
-  const hideLoader = () => {
-    loader.style.display = "none";
+  injectLoaderStyles();
+  const state = {
+    activeRole: "ADMIN",
+    custodiaNeedsDni: false,
+    custodiaCandidates: [],
+    custodiaPin: null,
   };
 
-  // ======= Helper de botón con spinner =======
-  function setButtonLoading(btn, loading, labelWhile = "Verificando…") {
-    if (!btn) return;
-    const labelEl = btn.querySelector(".btn-label");
-    if (loading) {
-      btn.classList.add("loading");
-      btn.disabled = true;
-      if (labelEl) labelEl.textContent = labelWhile;
-    } else {
-      btn.classList.remove("loading");
-      btn.disabled = false;
-      if (labelEl) labelEl.textContent = "INGRESAR";
-    }
-  }
-
-  // ======= Validación visual =======
-  function markInvalid(container, message = "Este campo es obligatorio") {
-    if (!container) return;
-    container.classList.add("is-invalid");
-    container.setAttribute("data-error", message);
-  }
-  function clearInvalid(container) {
-    if (!container) return;
-    container.classList.remove("is-invalid");
-    container.removeAttribute("data-error");
-  }
-
-  // ======= Snackbar helper (MDL) con fallback a alert() =======
+  const loader = createLoader();
   const snackbar = document.getElementById("app-snackbar");
-  const showMsg = (message) => {
+  const roleButtons = document.querySelectorAll("[data-role-tab]");
+  const forms = document.querySelectorAll("[data-role-form]");
+
+  const adminForm = document.getElementById("admin-form");
+  const consultaForm = document.getElementById("consulta-form");
+  const custodiaForm = document.getElementById("custodia-form");
+  const custodiaDniField = document.getElementById("custodia-dni-field");
+  const custodiaDniInput = document.getElementById("custodia-dni");
+  const custodiaPinInput = document.getElementById("custodia-pin");
+  const custodiaHint = document.getElementById("custodia-hint");
+
+  /* ---------- UI Helpers ---------- */
+  function createLoader() {
+    const el = document.createElement("div");
+    el.id = "app-loader";
+    el.innerHTML = `
+      <div class="loader-backdrop">
+        <div class="loader-content">
+          <div class="loader-spinner"></div>
+          <p>Validando credenciales...</p>
+        </div>
+      </div>
+    `;
+    el.style.display = "none";
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function injectLoaderStyles() {
+    if (document.getElementById("login-loader-style")) return;
+    const style = document.createElement("style");
+    style.id = "login-loader-style";
+    style.textContent = `
+      #app-loader {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(6, 4, 12, 0.65);
+        backdrop-filter: blur(6px);
+        z-index: 9999;
+      }
+      .loader-backdrop {
+        padding: 24px;
+      }
+      .loader-content {
+        text-align: center;
+        color: #f5f5f5;
+        font-family: "Inter", "Roboto", system-ui, sans-serif;
+      }
+      .loader-spinner {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #ffffff;
+        animation: spin 0.9s linear infinite;
+        margin: 0 auto 12px;
+      }
+      #app-loader p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function setLoaderVisible(visible, message = "Validando credenciales...") {
+    if (!loader) return;
+    const msgEl = loader.querySelector("p");
+    if (msgEl) msgEl.textContent = message;
+    loader.style.display = visible ? "flex" : "none";
+  }
+
+  function showMsg(message) {
     try {
-      if (snackbar?.MaterialSnackbar)
+      if (snackbar?.MaterialSnackbar) {
         snackbar.MaterialSnackbar.showSnackbar({ message });
-      else alert(message);
+      } else {
+        alert(message);
+      }
     } catch {
       alert(message);
     }
-  };
-
-  // ======= Funciones helper de fecha / clave dinámica =======
-  function todayDM_Lima() {
-    const now = new Date();
-    const fmt = new Intl.DateTimeFormat("es-PE", {
-      timeZone: "America/Lima",
-      day: "2-digit",
-      month: "2-digit",
-    });
-    const parts = fmt.formatToParts(now);
-    const dd = parts.find((p) => p.type === "day")?.value || "00";
-    const mm = parts.find((p) => p.type === "month")?.value || "00";
-    return dd + mm; // "DDMM"
   }
 
-  function expectedCustodiaKey(empresa) {
-    return (
-      todayDM_Lima() +
-      String(empresa || "")
-        .toUpperCase()
-        .replace(/\s+/g, "")
-    );
+  function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    btn.classList.toggle("loading", loading);
+    btn.disabled = loading;
   }
 
-  // ======= Validación en Supabase (auth_check_pass) =======
-  async function supabaseValidate(role, pass) {
-    try {
-      if (!window.sb) {
-        console.warn("[login.js] Supabase no inicializado. Revisa config.js");
-        return false;
-      }
-      const { data, error } = await window.sb.rpc("auth_check_pass", {
-        p_role: role.toUpperCase(),
-        p_pass: pass,
-      });
-      if (error) {
-        console.error("[login.js] Supabase error:", error.message);
-        return false;
-      }
-      return data === true;
-    } catch (e) {
-      console.error("[login.js] Validación falló:", e);
-      return false;
+  function markInvalid(field, message = "Dato inválido") {
+    if (!field) return;
+    field.classList.add("is-invalid");
+    field.setAttribute("data-error", message);
+  }
+
+  function clearInvalid(field) {
+    if (!field) return;
+    field.classList.remove("is-invalid");
+    field.removeAttribute("data-error");
+  }
+
+  function resetCustodiaDisambiguation() {
+    state.custodiaNeedsDni = false;
+    state.custodiaCandidates = [];
+    state.custodiaPin = null;
+    if (custodiaDniField) {
+      custodiaDniField.hidden = true;
+      custodiaDniField.removeAttribute("data-error");
+      custodiaDniField.classList.remove("is-invalid");
+    }
+    if (custodiaDniInput) {
+      custodiaDniInput.value = "";
+      custodiaDniInput.removeAttribute("required");
+    }
+    if (custodiaHint) {
+      custodiaHint.textContent =
+        "Ingresa tu PIN y pulsa ingresar. Si es tu primera vez, regístrate para obtenerlo.";
     }
   }
 
-  // ======= Redirección unificada post-login =======
-  function goHomeOrFallback(role) {
+  function requireCustodiaDni(candidates) {
+    state.custodiaNeedsDni = true;
+    state.custodiaCandidates = candidates;
+    if (custodiaDniField) custodiaDniField.hidden = false;
+    if (custodiaDniInput) custodiaDniInput.setAttribute("required", "required");
+    if (custodiaHint) {
+      custodiaHint.textContent =
+        "Encontramos más de una custodia con este PIN. Ingresa tu DNI completo para continuar.";
+    }
+  }
+
+  function attachClearOnInput(inputId, fieldId) {
+    const input = document.getElementById(inputId);
+    const field = document.getElementById(fieldId);
+    if (input && field) {
+      input.addEventListener("input", () => clearInvalid(field));
+    }
+  }
+
+  function setActiveRole(role) {
+    state.activeRole = role;
+    roleButtons.forEach((btn) => {
+      const isActive = btn.getAttribute("data-role-tab") === role;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    forms.forEach((form) => {
+      const targetRole = form.getAttribute("data-role-form");
+      form.classList.toggle("is-active", targetRole === role);
+    });
+    if (role !== "CUSTODIA") {
+      resetCustodiaDisambiguation();
+    }
+    console.log("[login] role selected", role);
+  }
+
+  roleButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const role = btn.getAttribute("data-role-tab");
+      if (role) setActiveRole(role);
+    });
+  });
+
+  setActiveRole(state.activeRole);
+
+  attachClearOnInput("admin-pass", "admin-pass-field");
+  attachClearOnInput("consulta-pass", "consulta-pass-field");
+  attachClearOnInput("custodia-pin", "custodia-pin-field");
+  attachClearOnInput("custodia-dni", "custodia-dni-field");
+
+  /* ---------- Supabase helpers ---------- */
+  function ensureSupabase() {
+    if (!window.sb) {
+      console.error("[login] Supabase client no disponible");
+      showMsg("Configura la conexión a Supabase antes de iniciar sesión.");
+      return false;
+    }
+    return true;
+  }
+
+  async function rpcAuth(role, pass) {
+    console.log("[api] rpc auth_check_pass", { role });
+    const { data, error } = await window.sb.rpc("auth_check_pass", {
+      p_role: role.toUpperCase(),
+      p_pass: pass,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
+  async function queryCustodiaLoginsByPin(pin) {
+    console.log("[api] GET custodia_login by pin", { pin });
+    return window.sb
+      .from("custodia_login")
+      .select("custodia_id,pin_last4")
+      .eq("pin_last4", pin);
+  }
+
+  async function queryCustodiaProfileById(custodiaId) {
+    console.log("[api] GET custodia profile", { custodiaId });
+    return window.sb
+      .from("custodia")
+      .select("id,nombre,empresa,empresa_otro,dni,dni_last4,is_active")
+      .eq("id", custodiaId)
+      .single();
+  }
+
+  async function queryCustodiaByDni(dni, candidateIds) {
+    console.log("[api] GET custodia by dni", { dni, candidateIds });
+    let query = window.sb
+      .from("custodia")
+      .select("id,nombre,empresa,empresa_otro,dni,dni_last4,is_active")
+      .eq("dni", dni);
+    if (candidateIds?.length) {
+      query = query.in("id", candidateIds);
+    }
+    return query.maybeSingle();
+  }
+
+  function persistCustodiaProfile(profile) {
+    const payload = {
+      ...profile,
+      saved_at: new Date().toISOString(),
+      exp_ts: Date.now() + CUSTODIA_EXP_MS,
+      isCustodia: true,
+    };
+    localStorage.setItem(CUSTODIA_PROFILE_KEY, JSON.stringify(payload));
+  }
+
+  function goHome(role) {
     try {
       if (window.guard?.goHome) {
         window.guard.goHome();
         return;
       }
     } catch {
-      /* fallback */
+      /* ignore */
     }
-
-    role = String(role || "").toUpperCase();
-    switch (role) {
-      case "ADMIN":
-        location.href = "/html/dashboard/dashboard-admin.html";
-        break;
-      case "CUSTODIA":
-        location.href = "/html/dashboard/custodia-registros.html";
-        break;
-      case "CONSULTA":
-        location.href = "/html/dashboard/dashboard-consulta.html";
-        break;
-      default:
-        location.href = "/html/login/login.html";
-    }
+    const target = ROUTES[role] || "/index.html";
+    window.location.href = target;
   }
 
-  // =========================================================
-  // =================== LOGIN ADMINISTRADOR ==================
-  // =========================================================
-  const adminForm = document.getElementById("admin-form");
+  /* ---------- ADMIN ---------- */
   if (adminForm) {
-    adminForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    adminForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!ensureSupabase()) return;
       const passField = document.getElementById("admin-pass-field");
       const passInput = document.getElementById("admin-pass");
       const btn = document.getElementById("admin-login");
-      clearInvalid(passField);
       const pass = passInput.value.trim();
       if (!pass) {
-        markInvalid(passField);
+        markInvalid(passField, "Ingresa la clave");
         passInput.focus();
         return;
       }
-
       setButtonLoading(btn, true);
-      const ok = await supabaseValidate("ADMIN", pass);
-      setButtonLoading(btn, false);
-
-      if (!ok) return showMsg("Clave incorrecta o no registrada");
-      sessionStorage.setItem("auth_role", "ADMIN");
-      sessionStorage.setItem("auth_user", "ADMIN");
-      showMsg("Bienvenido, Administrador");
-      setTimeout(() => goHomeOrFallback("ADMIN"), 900);
-    });
-  }
-
-  // =========================================================
-  // ====================== LOGIN CUSTODIA ====================
-  // =========================================================
-  const custodiaForm = document.getElementById("custodia-form");
-  if (custodiaForm) {
-    custodiaForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const empresa = document.getElementById("empresa").value.trim();
-      const passField = document.getElementById("custodia-pass-field");
-      const passInput = document.getElementById("custodia-pass");
-      const btn = document.getElementById("custodia-login");
-      clearInvalid(passField);
-      const input = String(document.getElementById("custodia-pass").value)
-        .toUpperCase()
-        .replace(/\s+/g, "");
-      const expected = expectedCustodiaKey(empresa);
-
-      if (!empresa) return showMsg("Seleccione una empresa");
-      if (!passInput.value) {
-        markInvalid(passField);
-        passInput.focus();
-        return;
-      }
-
-      setButtonLoading(btn, true);
-      setTimeout(() => {
-        if (input !== expected) {
-          setButtonLoading(btn, false);
-          return showMsg("Clave din�mica incorrecta");
+      try {
+        const ok = await rpcAuth("ADMIN", pass);
+        if (!ok) {
+          markInvalid(passField, "Clave incorrecta");
+          showMsg("Clave incorrecta o no registrada.");
+          return;
         }
-
-        sessionStorage.setItem("auth_role", "CUSTODIA");
-        sessionStorage.setItem("auth_empresa", empresa);
+        sessionStorage.setItem(CUSTODIA_SESSION_KEY, "ADMIN");
+        showMsg("Bienvenido, Admin");
+        goHome("ADMIN");
+      } catch (error) {
+        console.error("[login] admin login error", error);
+        showMsg("No se pudo validar. Intenta nuevamente.");
+      } finally {
         setButtonLoading(btn, false);
-        showMsg("Bienvenido, Custodia");
-        setTimeout(() => goHomeOrFallback("CUSTODIA"), 900);
-      }, 600);
+      }
     });
   }
 
-  // =========================================================
-  // ====================== LOGIN CONSULTA ====================
-  // =========================================================
-  const consultaForm = document.getElementById("consulta-form");
+  /* ---------- CONSULTA ---------- */
   if (consultaForm) {
-    consultaForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    consultaForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!ensureSupabase()) return;
       const passField = document.getElementById("consulta-pass-field");
       const passInput = document.getElementById("consulta-pass");
       const btn = document.getElementById("consulta-login");
-      clearInvalid(passField);
       const pass = passInput.value.trim();
       if (!pass) {
-        markInvalid(passField);
+        markInvalid(passField, "Ingresa la clave");
         passInput.focus();
         return;
       }
+      setButtonLoading(btn, true);
+      try {
+        const ok = await rpcAuth("CONSULTA", pass);
+        if (!ok) {
+          markInvalid(passField, "Clave incorrecta");
+          showMsg("Clave incorrecta o no registrada.");
+          return;
+        }
+        sessionStorage.setItem(CUSTODIA_SESSION_KEY, "CONSULTA");
+        showMsg("Bienvenido, Consulta");
+        goHome("CONSULTA");
+      } catch (error) {
+        console.error("[login] consulta login error", error);
+        showMsg("No se pudo validar. Intenta nuevamente.");
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    });
+  }
+
+  /* ---------- CUSTODIA ---------- */
+  if (custodiaForm) {
+    custodiaForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!ensureSupabase()) return;
+
+      const pinField = document.getElementById("custodia-pin-field");
+      const btn = document.getElementById("custodia-login");
+      const pin = custodiaPinInput.value.trim();
+
+      if (!/^[0-9]{4}$/.test(pin)) {
+        markInvalid(pinField, "El PIN debe tener 4 dígitos");
+        custodiaPinInput.focus();
+        return;
+      }
+
+      const needsDni = state.custodiaNeedsDni;
+      const dniValue = custodiaDniInput?.value?.trim();
+      if (needsDni) {
+        if (!/^[0-9]{8,}$/.test(dniValue || "")) {
+          markInvalid(custodiaDniField, "Ingresa tu DNI completo");
+          custodiaDniInput.focus();
+          return;
+        }
+      }
 
       setButtonLoading(btn, true);
-      const ok = await supabaseValidate("CONSULTA", pass);
-      setButtonLoading(btn, false);
+      setLoaderVisible(true, "Validando PIN de custodia...");
 
-      if (!ok) return showMsg("Clave incorrecta o no registrada");
-      sessionStorage.setItem("auth_role", "CONSULTA");
-      sessionStorage.setItem("auth_user", "CONSULTA");
-      showMsg("Bienvenido, Consulta");
-      setTimeout(() => goHomeOrFallback("CONSULTA"), 900);
+      try {
+        if (needsDni) {
+          await handleCustodiaDniFlow(dniValue);
+        } else {
+          await handleCustodiaPinFlow(pin);
+        }
+      } catch (error) {
+        console.error("[login] custodia login error", error);
+        showMsg("No se pudo validar tu acceso. Inténtalo nuevamente.");
+      } finally {
+        setButtonLoading(btn, false);
+        setLoaderVisible(false);
+      }
     });
   }
 
-  // ======= Cambio de pestañas: trace del tipo de acceso =======
-  document.querySelectorAll(".mdl-tabs__tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const role = tab.getAttribute("data-role");
-      if (role) console.log("Tipo de acceso seleccionado:", role);
-    });
-  });
-  // ======= Acordeón vertical: selección de rol =======
-  const accordion = document.getElementById("roles-accordion");
-  if (accordion) {
-    const items = Array.from(accordion.querySelectorAll(".role-item"));
-    const headers = Array.from(accordion.querySelectorAll(".role-header"));
-    const setActive = (item) => {
-      items.forEach((i) => {
-        const active = i === item && !i.classList.contains("active");
-        i.classList.toggle("active", active);
-        const h = i.querySelector(".role-header");
-        if (h) h.setAttribute("aria-expanded", active ? "true" : "false");
-      });
-      const role = item?.getAttribute("data-role");
-      if (role) console.log("Tipo de acceso seleccionado:", role);
-    };
-    headers.forEach((h) =>
-      h.addEventListener("click", () => setActive(h.closest(".role-item")))
-    );
-  }
-  // Limpiar estado inválido al teclear
-  [
-    ["admin-pass", "admin-pass-field"],
-    ["custodia-pass", "custodia-pass-field"],
-    ["consulta-pass", "consulta-pass-field"],
-  ].forEach(([inputId, fieldId]) => {
-    const input = document.getElementById(inputId);
-    const field = document.getElementById(fieldId);
-    if (input && field) {
-      input.addEventListener("input", () => {
-        if (input.value) clearInvalid(field);
-      });
+  async function handleCustodiaPinFlow(pin) {
+    const { data, error } = await queryCustodiaLoginsByPin(pin);
+    if (error) throw error;
+    if (!data?.length) {
+      markInvalid(document.getElementById("custodia-pin-field"), "PIN no registrado");
+      showMsg("PIN no encontrado. Verifica tus datos o regístrate.");
+      return;
     }
-  });
 
-  // ======= Estilos inline para el loader =======
-  const style = document.createElement("style");
-  style.textContent = `
-        #app-loader {
-            position: fixed;
-            inset: 0;
-            background: rgba(255, 255, 255, 0.85);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            backdrop-filter: blur(4px);
-        }
-        .loader-content {
-            text-align: center;
-            color: #37474f;
-            font-family: "Roboto", system-ui, sans-serif;
-        }
-        .loader-spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #ccc;
-            border-top: 4px solid #2196f3;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        #app-loader p {
-            font-size: 15px;
-            margin: 0;
-            color: #37474f;
-        }
-    `;
-  document.head.appendChild(style);
+    if (data.length > 1) {
+      state.custodiaPin = pin;
+      requireCustodiaDni(data.map((row) => row.custodia_id));
+      showMsg("Ingresa tu DNI completo para continuar.");
+      return;
+    }
+
+    const custodiaId = data[0].custodia_id;
+    await finalizeCustodiaLoginById(custodiaId);
+  }
+
+  async function handleCustodiaDniFlow(dni) {
+    const { data, error } = await queryCustodiaByDni(
+      dni,
+      state.custodiaCandidates
+    );
+    if (error) throw error;
+    if (!data) {
+      markInvalid(custodiaDniField, "DNI no coincide con el PIN");
+      showMsg("No encontramos una custodia con ese DNI y PIN.");
+      return;
+    }
+    await finalizeCustodiaLogin(data);
+  }
+
+  async function finalizeCustodiaLoginById(custodiaId) {
+    const { data, error } = await queryCustodiaProfileById(custodiaId);
+    if (error) throw error;
+    await finalizeCustodiaLogin(data);
+  }
+
+  async function finalizeCustodiaLogin(profileResponse) {
+    if (!profileResponse) {
+      showMsg("No se pudo cargar el perfil de custodia.");
+      return;
+    }
+    if (profileResponse.is_active === false) {
+      showMsg("Tu perfil está inactivo. Contacta a un administrador.");
+      return;
+    }
+
+    const profile = {
+      id: profileResponse.id,
+      nombre: profileResponse.nombre,
+      empresa: profileResponse.empresa,
+      empresa_otro: profileResponse.empresa_otro,
+      dni: profileResponse.dni,
+      dni_last4: profileResponse.dni_last4,
+      empresa_label:
+        profileResponse.empresa ||
+        profileResponse.empresa_otro ||
+        "Sin empresa",
+    };
+
+    persistCustodiaProfile(profile);
+    sessionStorage.setItem(CUSTODIA_SESSION_KEY, "CUSTODIA");
+    localStorage.setItem("custodia_is_logged", "true");
+    console.log("[login] custodia profile ready", {
+      id: profile.id,
+      nombre: profile.nombre,
+      empresa: profile.empresa_label,
+    });
+
+    resetCustodiaDisambiguation();
+    showMsg("Bienvenido, custodia");
+    goHome("CUSTODIA");
+  }
 });
