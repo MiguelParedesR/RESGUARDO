@@ -307,14 +307,15 @@
     const mime = state.selfieBlob.type || "image/jpeg";
     const bytes = await blobToHex(state.selfieBlob);
     console.log(`${API_PREFIX} insert selfie`, { mime, size: state.selfieBlob.size });
-    const { error } = await window.sb
-      .from("selfie")
-      .insert({
-        custodia_id: custodia.id,
-        servicio_custodio_id: null,
-        mime_type: mime,
-        bytes,
-      });
+    const payload = {
+      custodia_id: custodia.id,
+      mime_type: mime,
+      bytes,
+    };
+    if (state.selfieContext?.servicioCustodioId) {
+      payload.servicio_custodio_id = state.selfieContext.servicioCustodioId;
+    }
+    const { error } = await window.sb.from("selfie").insert(payload);
     if (error) throw error;
   }
 

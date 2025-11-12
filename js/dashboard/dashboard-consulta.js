@@ -314,16 +314,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function renderServicioCard(svc) {
     const card = document.createElement("div");
     card.className = "servicio-card";
-    const placa = (svc.placa || "S/N").toUpperCase();
-    const estadoTexto = (svc.estado || "ACTIVO").toUpperCase();
     card.innerHTML = `
-      <header class="servicio-head">
-        <div class="servicio-head-meta">
-          <span class="placa-chip">${h(placa)}</span>
-          <span class="servicio-state">${h(estadoTexto)}</span>
-        </div>
-        <span class="servicio-created">${svc.created_at ? fmtFecha(svc.created_at) : ""}</span>
-      </header>
       <ul class="servicio-meta">
         ${buildMetaItem({
           icon: "style",
@@ -340,7 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
         })}
         ${buildMetaItem({
           icon: "person",
-          label: "Contacto",
+          label: "Custodia(s)",
           value: "Sin titular",
           meta: "contacto",
           spanAttr: 'data-field="contacto"',
@@ -372,12 +363,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tipoEl) tipoEl.textContent = resumen;
       const titular =
         custodios?.find((cust) => cust.custodia?.nombre) || custodios?.[0];
-      if (contactoEl) {
-        contactoEl.textContent =
-          titular?.custodia?.nombre ||
-          titular?.nombre_custodio ||
-          "Sin titular";
-      }
+      const contactoNombre =
+        titular?.custodia?.nombre ||
+        titular?.nombre_custodio ||
+        "Sin titular";
+      if (contactoEl) contactoEl.textContent = contactoNombre;
       const fotos = buildSelfieItems(custodios || []);
       configureFotosButton(fotosBtn, fotos);
       if (contactoAvatar) {
@@ -389,12 +379,10 @@ document.addEventListener("DOMContentLoaded", () => {
           contactoAvatar.innerHTML = `<img src="${avatarPhoto.src}" alt="Selfie de ${h(
             titular?.custodia?.nombre || titular?.nombre_custodio || "Custodia"
           )}">`;
-        } else if (titular) {
-          contactoAvatar.textContent =
-            (titular.custodia?.nombre || titular.nombre_custodio || "C")
-              .trim()
-              .charAt(0)
-              .toUpperCase() || "C";
+        } else {
+          const initial =
+            (contactoNombre || "C").trim().charAt(0).toUpperCase() || "C";
+          contactoAvatar.textContent = initial;
         }
       }
       renderCustodiosMiniList(custodiosBlock, custodios);
