@@ -372,6 +372,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  btnCustodias?.addEventListener("click", () => {
+    openCustodiosSidebar(true);
+  });
+  custodiosCloseBtn?.addEventListener("click", () => closeCustodiosSidebar());
+  custodiosOverlay?.addEventListener("click", () => closeCustodiosSidebar());
+
   function formatRelativeTime(value) {
     if (!value) return "Sin registro";
     const diff = Date.now() - new Date(value).getTime();
@@ -1145,8 +1151,3 @@ function showFollowControl(show) {
     btn.style.display = show ? "inline-flex" : "none";
   } catch {}
 }
-  btnCustodias?.addEventListener("click", () => {
-    openCustodiosSidebar(true);
-  });
-  custodiosCloseBtn?.addEventListener("click", () => closeCustodiosSidebar());
-  custodiosOverlay?.addEventListener("click", () => closeCustodiosSidebar());

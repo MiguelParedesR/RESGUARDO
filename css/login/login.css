@@ -1,7 +1,7 @@
 :root {
   --login-bg: linear-gradient(135deg, #f5f6fb 0%, #dfe7f7 100%);
-  --login-bg-overlay: rgba(245, 246, 251, 0.94);
-  --login-bg-image: url("../../assets/img/login-hero-bg.jpg");
+  --login-bg-overlay: rgba(245, 246, 251, 0.85);
+  --login-bg-image: url("/assets/img/resguardo-bg.png");
   --glass-bg: rgba(255, 255, 255, 0.9);
   --glass-border: rgba(15, 23, 42, 0.08);
   --accent: #ff4d67;
@@ -159,8 +159,8 @@
   gap: 8px;
   border-radius: 16px;
   padding: 10px 16px;
-  background: rgba(15, 23, 42, 0.05);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.12);
   transition: border 0.2s ease, background 0.2s ease;
 }
 
