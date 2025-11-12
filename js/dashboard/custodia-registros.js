@@ -236,42 +236,25 @@
     const card = document.createElement("article");
     card.className = "svc-card";
     const pingInfo = buildPingInfo(row.ultimoPing);
-    const destino = row.svc.destino || "Sin definir";
+    const destino =
+      row.svc.destino || row.svc.destino_texto || "Sin definir";
+    const clienteFormatted = formatCliente(row.svc.clienteNombre);
+    const tipoFormatted = formatTipo(row.svc.tipo);
+    const custodiasTexto = formatCustodias(row.custodios);
+
     card.innerHTML = `
       <header class="svc-card__header">
         <div>
           <span class="svc-chip">${row.svc.placa || "SIN PLACA"}</span>
-          <p class="svc-client">${row.svc.clienteNombre}</p>
-        </div>
-        <div class="svc-ping ${pingInfo.className}">
-          <span class="svc-ping__dot" aria-hidden="true"></span>
-          <span>${pingInfo.text}</span>
         </div>
       </header>
       <div class="svc-info-grid">
-        ${buildInfoItem("Cliente", row.svc.clienteNombre, "apartment")}
+        ${buildInfoItem("Cliente", clienteFormatted, "apartment")}
         ${buildInfoItem("Destino", destino, "place")}
-        ${buildInfoItem("Tipo", row.svc.tipo, "category")}
-        ${buildInfoItem("Estado", row.svc.estado || "Activo", "flag")}
-        ${buildInfoItem("Creado", formatDateShort(row.svc.creado), "event")}
-        ${buildInfoItem("Último ping", pingInfo.detail, "rss_feed")}
+        ${buildInfoItem("Tipo", tipoFormatted, "category")}
+        ${buildInfoItem("Custodia(s) asignada(s)", custodiasTexto, "groups")}
       </div>
     `;
-
-    const ownersSection = document.createElement("section");
-    ownersSection.className = "svc-owners";
-    ownersSection.innerHTML = `<p class="svc-owners__title">Custodias asignadas</p>`;
-    if (row.custodios && row.custodios.length) {
-      row.custodios.forEach((custodio) => {
-        ownersSection.appendChild(buildCustCard(custodio));
-      });
-    } else {
-      const empty = document.createElement("p");
-      empty.className = "cust-card__meta";
-      empty.textContent = "Este servicio aún no tiene custodias asignadas.";
-      ownersSection.appendChild(empty);
-    }
-    card.appendChild(ownersSection);
 
     const actions = document.createElement("div");
     actions.className = "svc-actions";
@@ -316,43 +299,36 @@
         ? value.trim()
         : String(value ?? "Sin registro");
     return `
-      <article class="info-item">
+      <article class="info-item" role="group" aria-label="${label}">
         <span class="info-item__label">
           <span class="material-icons" aria-hidden="true">${icon}</span>${label}
         </span>
-        <p class="info-item__value">${safeValue}</p>
+        <span class="info-item__value">${safeValue}</span>
       </article>
     `;
   }
 
-  function buildCustCard(custodio) {
-    const item = document.createElement("div");
-    const badge = getCustBadge(custodio);
-    const nombre = custodio.nombre_custodio || "Sin nombre";
-    const tipo = custodio.tipo_custodia || "Sin tipo";
-    const avatar =
-      nombre?.trim().charAt(0).toUpperCase() ||
-      (custodio.custodia_id ? "C" : "?");
-    item.className = "cust-card";
-    item.innerHTML = `
-      <div class="cust-card__avatar">${avatar}</div>
-      <div>
-        <p class="cust-card__name">${nombre}</p>
-        <p class="cust-card__meta">${tipo}</p>
-      </div>
-      <span class="cust-card__badge ${badge.className}">${badge.text}</span>
-    `;
-    return item;
+  function formatCliente(nombre) {
+    return (nombre || "Sin cliente").toUpperCase();
   }
 
-  function getCustBadge(custodio) {
-    if (!custodio.custodia_id) {
-      return { text: "Sin titular", className: "is-pending" };
-    }
-    if (custodio.custodia_id === state.profile.id) {
-      return { text: "Tu registro", className: "is-owner" };
-    }
-    return { text: "Titular", className: "is-other" };
+  function formatTipo(value) {
+    if (!value) return "S/N";
+    const match = String(value).match(/[a-zA-Z]/);
+    if (match) return match[0].toUpperCase();
+    const trimmed = String(value).trim();
+    return trimmed ? trimmed.charAt(0).toUpperCase() : "S/N";
+  }
+
+  function formatCustodias(lista) {
+    if (!lista || !lista.length) return "Sin custodias asignadas";
+    return lista
+      .map((custodio) => {
+        const nombre = custodio.nombre_custodio || "Sin nombre";
+        const tipo = formatTipo(custodio.tipo_custodia);
+        return `${nombre} (${tipo})`;
+      })
+      .join(", ");
   }
 
   function buildPingInfo(value) {
