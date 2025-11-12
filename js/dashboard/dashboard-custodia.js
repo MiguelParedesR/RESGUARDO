@@ -510,6 +510,7 @@
 
   async function fetchAutocomplete(query, key) {
     if (!key) return [];
+    if (!query || query.length < 2) return [];
     const params = new URLSearchParams({
       key,
       q: query,
@@ -519,7 +520,11 @@
       limit: "5",
     });
     const res = await fetch(`https://us1.locationiq.com/v1/search?${params.toString()}`);
-    if (!res.ok) throw new Error("autocomplete-fail");
+    if (res.status === 404) return [];
+    if (!res.ok) {
+      console.warn(`${LOG_API} autocomplete status`, res.status);
+      throw new Error("autocomplete-fail");
+    }
     return res.json();
   }
 
