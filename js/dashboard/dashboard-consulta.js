@@ -325,10 +325,27 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="servicio-created">${svc.created_at ? fmtFecha(svc.created_at) : ""}</span>
       </header>
       <ul class="servicio-meta">
-        ${buildMetaItem("directions_car", "Placa", placa)}
-        ${buildMetaItem("style", "Tipo", svc.tipo || "Sin tipo", 'data-field="tipo"')}
-        ${buildMetaItem("place", "Destino", svc.destino_texto || "Sin destino")}
-        ${buildMetaItem("person", "Contacto", "Sin titular", 'data-field="contacto"')}
+        ${buildMetaItem({ icon: "directions_car", label: "Placa", value: placa, meta: "placa" })}
+        ${buildMetaItem({
+          icon: "style",
+          label: "Tipo",
+          value: svc.tipo || "Sin tipo",
+          meta: "tipo",
+          spanAttr: 'data-field="tipo"',
+        })}
+        ${buildMetaItem({
+          icon: "place",
+          label: "Destino",
+          value: svc.destino_texto || "Sin destino",
+          meta: "destino",
+        })}
+        ${buildMetaItem({
+          icon: "person",
+          label: "Contacto",
+          value: "Sin titular",
+          meta: "contacto",
+          spanAttr: 'data-field="contacto"',
+        })}
       </ul>
       <div class="servicio-actions">
         <button type="button" class="btn-secondary is-muted" data-action="ver-fotos" disabled>
@@ -375,13 +392,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return card;
   }
 
-  function buildMetaItem(icon, label, value, extra = "") {
+  function buildMetaItem({ icon, label, value, meta = "", spanAttr = "" }) {
     return `
-      <li>
+      <li ${meta ? `data-meta="${meta}"` : ""}>
         <span class="material-icons icon" aria-hidden="true">${icon}</span>
         <div class="meta-copy">
           <span class="label">${h(label)}</span>
-          <span class="value" ${extra}>${h(value || "-")}</span>
+          <span class="value" ${spanAttr}>${h(value || "-")}</span>
         </div>
       </li>
     `;
@@ -579,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
         custodia_id,
         nombre_custodio,
         created_at,
-        custodia:servicio_custodio_custodia_id_fkey (
+        custodia:custodia_id (
           id,
           nombre,
           empresa,

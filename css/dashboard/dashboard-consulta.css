@@ -536,6 +536,16 @@ z-index: 700;
   .cliente-title { font-size: 22px; letter-spacing: 0.2px; }
   .cliente-subtitle { font-size: 12px; }
   .placa-card { border-radius: 12px; }
+  .servicio-card { padding: 14px; }
+  .servicio-head { gap: 6px; }
+  .servicio-head-meta { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .servicio-created { font-size: 11px; }
+  .servicio-meta li { grid-template-columns: 1fr; }
+  .servicio-meta .icon { display: none; }
+  .servicio-meta li[data-meta="placa"] { display: none; }
+  .servicio-meta .meta-copy { gap: 1px; }
+  .btn-secondary { width: 100%; justify-content: center; }
+  .custodios-block { padding: 10px; }
 }
 
 /* Force visible, scrollable content on mobile */
@@ -560,4 +570,30 @@ z-index: 700;
 @media (max-width: 599px) {
   .is-consulta .sidebar { display: none !important; }
   .is-consulta .header-search { display: flex; }
+}
+.servicio-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.servicio-head-meta { display:flex; flex-direction:column; gap:6px; }
+.servicio-created { font-size: 12px; color: var(--ink-300); }
+.placa-chip {
+    display: inline-flex;
+    align-items: center;
+    gap:6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #1f2c86;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.servicio-state {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #10a37f;
+    font-weight: 700;
+    letter-spacing: 0.08em;
 }
