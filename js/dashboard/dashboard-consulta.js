@@ -76,6 +76,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const scrim = document.getElementById("scrim");
   const searchClientes = document.getElementById("search-clientes");
   const listaClientes = document.getElementById("lista-clientes");
+  const sidebarLoader = document.getElementById("clientes-loader");
+  const sidebarEmpty = document.getElementById("sidebar-empty");
+  const sidebarEmptyText = document.getElementById("sidebar-empty-text");
   const selectClientesMobile = document.getElementById(
     "select-clientes-mobile"
   );
@@ -114,13 +117,44 @@ document.addEventListener("DOMContentLoaded", () => {
   let clientesCache = [];
   let clienteSeleccionado = null;
 
-  function renderSidebar(clientes) {
+  function setSidebarLoading(loading) {
+    if (sidebarLoader) sidebarLoader.hidden = !loading;
+    if (listaClientes) listaClientes.classList.toggle("is-dimmed", loading);
+  }
+
+  function showSidebarEmpty(show, message) {
+    if (!sidebarEmpty) return;
+    sidebarEmpty.hidden = !show;
+    if (show && message && sidebarEmptyText) {
+      sidebarEmptyText.textContent = message;
+    }
+  }
+
+  function clientInitial(nombre) {
+    return (nombre || "?").trim().charAt(0).toUpperCase() || "?";
+  }
+
+  function renderSidebar(clientes, emptyMessage) {
     if (!listaClientes) return;
     listaClientes.innerHTML = "";
+    if (!clientes?.length) {
+      showSidebarEmpty(true, emptyMessage || "Sin clientes registrados.");
+      return;
+    }
+    showSidebarEmpty(false);
+    const currentId = clienteSeleccionado?.id;
     for (const c of clientes) {
       const li = document.createElement("li");
       li.dataset.id = c.id;
-      li.innerHTML = "<span>" + h(c.nombre) + "</span>";
+      li.innerHTML = `
+        <span class="client-pill">${h(clientInitial(c.nombre))}</span>
+        <div class="client-info">
+          <p class="client-name">${h(c.nombre)}</p>
+          <p class="client-meta">Toca para ver servicios activos</p>
+        </div>`;
+      if (currentId && String(currentId) === String(c.id)) {
+        li.classList.add("is-active");
+      }
       li.addEventListener("click", async () => {
         clienteSeleccionado = c;
         for (const item of listaClientes.querySelectorAll("li"))
@@ -140,20 +174,28 @@ document.addEventListener("DOMContentLoaded", () => {
       renderSidebar(clientesCache);
       return;
     }
+    const filtered = clientesCache.filter((c) =>
+      (c.nombre || "").toLowerCase().includes(q)
+    );
     renderSidebar(
-      clientesCache.filter((c) => (c.nombre || "").toLowerCase().includes(q))
+      filtered,
+      filtered.length
+        ? null
+        : "No hay resultados — intenta con otro nombre."
     );
   }
 
   async function cargarClientes() {
     try {
+      setSidebarLoading(true);
+      showSidebarEmpty(false);
       const { data, error } = await window.sb
         .from("cliente")
         .select("id, nombre")
         .order("nombre", { ascending: true });
       if (error) throw error;
       clientesCache = data || [];
-      renderSidebar(clientesCache);
+      renderSidebar(clientesCache, "Sin clientes registrados.");
       // build mobile select options
       if (selectClientesMobile) {
         selectClientesMobile.innerHTML =
@@ -168,6 +210,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error(e);
       showMsg("No se pudieron cargar los clientes");
+      renderSidebar([], "Error al cargar clientes.");
+    }
+    finally {
+      setSidebarLoading(false);
     }
   }
 
@@ -268,17 +314,27 @@ document.addEventListener("DOMContentLoaded", () => {
   async function renderServicioCard(svc) {
     const card = document.createElement("div");
     card.className = "servicio-card";
+    const placa = (svc.placa || "S/N").toUpperCase();
+    const estadoTexto = (svc.estado || "ACTIVO").toUpperCase();
     card.innerHTML = `
-      <div class="servicio-chip">${h((svc.placa || "S/N").toUpperCase())}</div>
-      <div class="servicio-lines">
-        <div class="servicio-line">
-          <span class="label">Tipo</span>
-          <span class="value" data-field="tipo">${h(svc.tipo || "-")}</span>
+      <header class="servicio-head">
+        <div class="servicio-head-meta">
+          <span class="placa-chip">${h(placa)}</span>
+          <span class="servicio-state">${h(estadoTexto)}</span>
         </div>
-        <div class="servicio-line">
-          <span class="label">Destino</span>
-          <span class="value">${h(svc.destino_texto || "Sin destino")}</span>
-        </div>
+        <span class="servicio-created">${svc.created_at ? fmtFecha(svc.created_at) : ""}</span>
+      </header>
+      <ul class="servicio-meta">
+        ${buildMetaItem("directions_car", "Placa", placa)}
+        ${buildMetaItem("style", "Tipo", svc.tipo || "Sin tipo", 'data-field="tipo"')}
+        ${buildMetaItem("place", "Destino", svc.destino_texto || "Sin destino")}
+        ${buildMetaItem("person", "Contacto", "Sin titular", 'data-field="contacto"')}
+      </ul>
+      <div class="servicio-actions">
+        <button type="button" class="btn-secondary is-muted" data-action="ver-fotos" disabled>
+          <i class="material-icons" aria-hidden="true">photo_library</i>
+          <span>Ver fotos</span>
+        </button>
       </div>
     `;
     const custodiosBlock = document.createElement("div");
@@ -287,19 +343,48 @@ document.addEventListener("DOMContentLoaded", () => {
       "<p class='custodios-empty'>Cargando custodias...</p>";
     card.appendChild(custodiosBlock);
 
+    const fotosBtn = card.querySelector("[data-action='ver-fotos']");
+    const contactoEl = card.querySelector("[data-field='contacto']");
+    const tipoEl = card.querySelector("[data-field='tipo']");
+
     try {
       const custodios = await fetchCustodiosDetalle(svc.id);
       const resumen = buildTipoResumen(custodios || []);
-      const tipoEl = card.querySelector("[data-field='tipo']");
       if (tipoEl) tipoEl.textContent = resumen;
+      const titular =
+        custodios?.find((cust) => cust.custodia?.nombre) || custodios?.[0];
+      if (contactoEl) {
+        contactoEl.textContent =
+          titular?.custodia?.nombre ||
+          titular?.nombre_custodio ||
+          "Sin titular";
+      }
+      configureFotosButton(fotosBtn, custodios, svc);
       renderCustodiosMiniList(custodiosBlock, custodios);
     } catch (err) {
       console.warn("[consulta] custodios detalle error", err);
       custodiosBlock.innerHTML =
         "<p class='custodios-empty'>No se pudo cargar la información de custodias.</p>";
+      if (fotosBtn) {
+        fotosBtn.disabled = true;
+        fotosBtn.classList.add("is-muted");
+        fotosBtn.querySelector("span").textContent = "Sin fotos";
+      }
     }
 
     return card;
+  }
+
+  function buildMetaItem(icon, label, value, extra = "") {
+    return `
+      <li>
+        <span class="material-icons icon" aria-hidden="true">${icon}</span>
+        <div class="meta-copy">
+          <span class="label">${h(label)}</span>
+          <span class="value" ${extra}>${h(value || "-")}</span>
+        </div>
+      </li>
+    `;
   }
 
   function buildTipoResumen(custodios) {
@@ -569,6 +654,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
       container.appendChild(item);
     });
+  }
+
+  function configureFotosButton(btn, custodios) {
+    if (!btn) return;
+    const items = buildSelfieItems(custodios || []);
+    if (!items.length) {
+      btn.disabled = true;
+      btn.classList.add("is-muted");
+      const label = btn.querySelector("span");
+      if (label) label.textContent = "Sin fotos";
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.remove("is-muted");
+    const label = btn.querySelector("span");
+    if (label) label.textContent = `Ver fotos (${items.length})`;
+    btn.__fotos = items;
+    if (!btn.dataset.bound) {
+      btn.addEventListener("click", () => {
+        if (Array.isArray(btn.__fotos) && btn.__fotos.length) {
+          showFotosCustodia(btn.__fotos);
+        }
+      });
+      btn.dataset.bound = "1";
+    }
+  }
+
+  function buildSelfieItems(entries) {
+    const list = [];
+    (entries || []).forEach((cust) => {
+      const nombre =
+        (cust.custodia?.nombre || cust.nombre_custodio || "Custodia").trim();
+      const files = [
+        ...(Array.isArray(cust.custodia?.selfies)
+          ? cust.custodia.selfies
+          : []),
+        ...(Array.isArray(cust.sc_selfies) ? cust.sc_selfies : []),
+      ];
+      files.forEach((file) => {
+        if (!file?.bytes) return;
+        const mime = file.mime_type || "image/jpeg";
+        list.push({
+          src: `data:${mime};base64,${toBase64(file.bytes)}`,
+          label: `Custodia: ${nombre}`,
+        });
+      });
+    });
+    return list;
   }
 
   function getSelfieSrc(entry) {

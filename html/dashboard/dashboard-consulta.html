@@ -1,4 +1,5 @@
-﻿﻿<!doctype html>
+﻿﻿
+<!doctype html>
 <html lang="es">
 
 <head>
@@ -32,7 +33,6 @@
 <body class="mdl-base is-consulta">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <div id="app-header" data-page-title="Consulta"></div>
-
         <main class="mdl-layout__content">
             <section class="page page--fluid">
                 <div class="mobile-controls" aria-label="Selección de cliente (móvil)">
@@ -47,19 +47,39 @@
                 <div class="layout-consulta">
                     <aside id="sidebar" class="sidebar" aria-label="Lista de clientes">
                         <div class="sidebar-inner">
-                            <div class="sidebar-search">
-                                <i class="material-icons" aria-hidden="true">search</i>
-                                <input id="search-clientes" type="search" placeholder="Buscar cliente..."
-                                    aria-label="Buscar cliente" />
+                            <header class="sidebar-header">
+                                <span class="material-icons sidebar-header__icon" aria-hidden="true">apartment</span>
+                                <div>
+                                    <p class="sidebar-header__eyebrow">Directorio</p>
+                                    <h3 class="sidebar-header__title">Clientes</h3>
+                                </div>
+                            </header>
+                            <div class="sidebar-search-block">
+                                <label for="search-clientes" class="sidebar-label">
+                                    <span class="material-icons" aria-hidden="true">search</span>
+                                    Buscar cliente
+                                </label>
+                                <div class="sidebar-search">
+                                    <input id="search-clientes" type="search" placeholder="Escribe un nombre..."
+                                        aria-label="Buscar cliente" />
+                                </div>
+                            </div>
+                            <div id="clientes-loader" class="sidebar-loader" hidden>
+                                <span class="loader-dot" aria-hidden="true"></span>
+                                <span>Cargando clientes...</span>
                             </div>
                             <nav class="sidebar-list" aria-label="Clientes">
                                 <ul id="lista-clientes"></ul>
+                                <div id="sidebar-empty" class="sidebar-empty" hidden>
+                                    <i class="material-icons" aria-hidden="true">group_off</i>
+                                    <p id="sidebar-empty-text">Sin clientes registrados.</p>
+                                </div>
                             </nav>
                         </div>
                     </aside>
                     <div class="dashboard">
                         <button id="btn-reset" class="mdl-button mdl-js-button fab" aria-label="Nueva consulta">
-                            <i class="material-icons" aria-hidden="true">refresh</i>
+                            <i class="material-icons" aria-hidden="true">add_circle</i>
                             <span>Nueva consulta</span>
                         </button>
                         <div id="placas-container"></div>

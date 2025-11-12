@@ -272,7 +272,7 @@
     color: #000;
 }
 
-/* AnimaciÃ³n de entrada */
+/* Animación de entrada */
 .panel.show {
     transform: translateY(0);
     opacity: 1;
@@ -312,7 +312,7 @@
     color: #00796b;
 }
 
-/* --- AdaptaciÃ³n mÃ³vil --- */
+/* --- Adaptación móvil --- */
 @media (max-width: 768px) {
     .panel {
         left: 50%;
@@ -351,3 +351,4 @@
     letter-spacing: 0.04em;
 }
 /* === END HU:HU-MAPA-CARRITO === */
+
