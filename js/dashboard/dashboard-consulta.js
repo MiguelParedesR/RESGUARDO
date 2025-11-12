@@ -325,7 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="servicio-created">${svc.created_at ? fmtFecha(svc.created_at) : ""}</span>
       </header>
       <ul class="servicio-meta">
-        ${buildMetaItem({ icon: "directions_car", label: "Placa", value: placa, meta: "placa" })}
         ${buildMetaItem({
           icon: "style",
           label: "Tipo",
@@ -345,6 +344,7 @@ document.addEventListener("DOMContentLoaded", () => {
           value: "Sin titular",
           meta: "contacto",
           spanAttr: 'data-field="contacto"',
+          includeAvatar: true,
         })}
       </ul>
       <div class="servicio-actions">
@@ -362,6 +362,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fotosBtn = card.querySelector("[data-action='ver-fotos']");
     const contactoEl = card.querySelector("[data-field='contacto']");
+    const contactoAvatar = card.querySelector(".contact-avatar");
+    if (contactoAvatar) contactoAvatar.textContent = "C";
     const tipoEl = card.querySelector("[data-field='tipo']");
 
     try {
@@ -376,7 +378,25 @@ document.addEventListener("DOMContentLoaded", () => {
           titular?.nombre_custodio ||
           "Sin titular";
       }
-      configureFotosButton(fotosBtn, custodios, svc);
+      const fotos = buildSelfieItems(custodios || []);
+      configureFotosButton(fotosBtn, fotos);
+      if (contactoAvatar) {
+        const avatarPhoto = fotos.find((item) => {
+          const custId = titular?.custodia?.id || titular?.custodia_id;
+          return custId && item.custodiaId === custId;
+        });
+        if (avatarPhoto?.src) {
+          contactoAvatar.innerHTML = `<img src="${avatarPhoto.src}" alt="Selfie de ${h(
+            titular?.custodia?.nombre || titular?.nombre_custodio || "Custodia"
+          )}">`;
+        } else if (titular) {
+          contactoAvatar.textContent =
+            (titular.custodia?.nombre || titular.nombre_custodio || "C")
+              .trim()
+              .charAt(0)
+              .toUpperCase() || "C";
+        }
+      }
       renderCustodiosMiniList(custodiosBlock, custodios);
     } catch (err) {
       console.warn("[consulta] custodios detalle error", err);
@@ -392,10 +412,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return card;
   }
 
-  function buildMetaItem({ icon, label, value, meta = "", spanAttr = "" }) {
+  function buildMetaItem({
+    icon,
+    label,
+    value,
+    meta = "",
+    spanAttr = "",
+    includeAvatar = false,
+  }) {
     return `
       <li ${meta ? `data-meta="${meta}"` : ""}>
-        <span class="material-icons icon" aria-hidden="true">${icon}</span>
+        ${
+          includeAvatar
+            ? '<div class="contact-avatar" aria-hidden="true"></div>'
+            : `<span class="material-icons icon" aria-hidden="true">${icon}</span>`
+        }
         <div class="meta-copy">
           <span class="label">${h(label)}</span>
           <span class="value" ${spanAttr}>${h(value || "-")}</span>
@@ -673,9 +704,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function configureFotosButton(btn, custodios) {
+  function configureFotosButton(btn, items) {
     if (!btn) return;
-    const items = buildSelfieItems(custodios || []);
     if (!items.length) {
       btn.disabled = true;
       btn.classList.add("is-muted");
@@ -715,6 +745,8 @@ document.addEventListener("DOMContentLoaded", () => {
         list.push({
           src: `data:${mime};base64,${toBase64(file.bytes)}`,
           label: `Custodia: ${nombre}`,
+          custodiaId: cust.custodia?.id || cust.custodia_id || null,
+          servicioCustodioId: cust.id,
         });
       });
     });

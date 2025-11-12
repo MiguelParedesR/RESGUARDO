@@ -11,6 +11,7 @@
   box-shadow: 0 10px 30px rgba(4, 8, 20, 0.5);
   border-bottom: 1px solid var(--app-header-border);
   backdrop-filter: blur(12px);
+  z-index: 1200;
 }
 
 .mdl-layout__header-row {

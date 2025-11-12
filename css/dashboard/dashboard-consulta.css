@@ -71,7 +71,7 @@ z-index: 700;
 .sidebar-empty i { font-size:26px; color: var(--ink-300); }
 .sidebar-empty[hidden] { display:none; }
 
-.scrim { position: fixed; inset:0; background: rgba(13,18,28,.32); backdrop-filter: blur(1px); display:none; z-index: 600; opacity: 0; transition: opacity .2s ease; }
+.scrim { position: fixed; left:0; right:0; top: var(--header-h); bottom:0; background: rgba(13,18,28,.32); backdrop-filter: blur(1px); display:none; z-index: 600; opacity: 0; transition: opacity .2s ease; }
 .scrim[hidden] { display:none; opacity: 0; }
 .scrim:not([hidden]) { display:block; opacity: 1; }
 
@@ -562,7 +562,7 @@ z-index: 700;
 
 @media (max-width: 1023px) {
   .is-consulta .layout-consulta { padding-left: 0; }
-  .is-consulta .sidebar { top: 0; left: 0; height: 100vh; width: min(88vw, 320px); transform: translateX(-100%); transition: transform .25s ease; border-right: 1px solid #edf0f7; }
+  .is-consulta .sidebar { top: var(--header-h); left: 0; height: calc(100vh - var(--header-h)); width: min(88vw, 320px); transform: translateX(-100%); transition: transform .25s ease; border-right: 1px solid #edf0f7; }
   .is-consulta .sidebar.open { transform: translateX(0); }
   .is-consulta .scrim { display: block; }
 }
@@ -597,3 +597,17 @@ z-index: 700;
     font-weight: 700;
     letter-spacing: 0.08em;
 }
+.contact-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    background: rgba(63,81,181,.12);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--brand);
+    font-weight: 700;
+    overflow:hidden;
+    text-transform: uppercase;
+}
+.contact-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
