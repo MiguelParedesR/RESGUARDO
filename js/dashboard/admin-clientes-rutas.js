@@ -11,6 +11,8 @@
     polyline: null,
     editingRutaId: null,
     loadingClientes: false,
+    iaHistory: [],
+    iaLastRoute: null,
   };
 
   const ui = {};
@@ -23,6 +25,7 @@
       return;
     }
     mapUI();
+    if (ui.btnIaApply) ui.btnIaApply.disabled = true;
     bindEvents();
     setupMap();
     loadClientes().catch((err) => {
@@ -55,7 +58,8 @@
     ui.modalIA = document.getElementById("modal-ia");
     ui.iaPrompt = document.getElementById("ia-prompt");
     ui.iaStatus = document.getElementById("ia-status");
-    ui.iaResult = document.getElementById("ia-result");
+    ui.iaChatlog = document.getElementById("ia-chatlog");
+    ui.btnIaApply = document.getElementById("btn-ia-apply");
     ui.btnIaRun = document.getElementById("btn-ia-run");
   }
 
@@ -80,7 +84,10 @@
       .forEach((btn) =>
         btn.addEventListener("click", () => ui.modalIA.close())
       );
-    ui.modalIA?.addEventListener("close", () => setIaLoading(false));
+    ui.modalIA?.addEventListener("close", () => {
+      setIaLoading(false);
+      ui.iaStatus.textContent = "";
+    });
 
     ui.buscarClientes?.addEventListener(
       "input",
@@ -91,6 +98,7 @@
     ui.btnGuardarRuta?.addEventListener("click", handleGuardarRuta);
     ui.btnGenerarRuta?.addEventListener("click", openIaModal);
     ui.btnIaRun?.addEventListener("click", handleIaGenerate);
+    ui.btnIaApply?.addEventListener("click", applyIaRoute);
   }
 
   function setupMap() {
@@ -110,6 +118,8 @@
     }).addTo(state.map);
     state.map.on("click", (evt) => {
       state.puntos.push({ lat: evt.latlng.lat, lng: evt.latlng.lng });
+      state.iaLastRoute = null;
+      if (ui.btnIaApply) ui.btnIaApply.disabled = true;
       refreshPolyline();
       enableSave();
     });
@@ -257,6 +267,8 @@
     ui.rutaNombre.value = "";
     ui.rutaDescripcion.value = "";
     ui.rutaTolerancia.value = 120;
+    state.iaLastRoute = null;
+    if (ui.btnIaApply) ui.btnIaApply.disabled = true;
     refreshPolyline();
     enableSave(false);
   }
@@ -410,16 +422,10 @@
       showMsg("Selecciona un cliente antes de usar la IA.");
       return;
     }
-    if (ui.iaPrompt) {
-      ui.iaPrompt.value =
-        ui.iaPrompt.value.trim() ||
-        `Necesito ideas para nombrar y describir una ruta segura para ${state.clienteSeleccionado.nombre}.`;
-    }
-    if (ui.iaResult) {
-      ui.iaResult.hidden = true;
-      ui.iaResult.textContent = "";
-    }
-    if (ui.iaStatus) ui.iaStatus.textContent = "";
+    renderIaHistory();
+    ui.iaPrompt.value = "";
+    ui.iaStatus.textContent = "";
+    ui.btnIaApply.disabled = !state.iaLastRoute;
     ui.modalIA?.showModal();
     ui.iaPrompt?.focus();
   }
@@ -435,43 +441,74 @@
       ui.iaStatus.textContent = "Describe qué necesitas generar.";
       return;
     }
-    setIaLoading(true, "Generando sugerencia...");
+    appendIaMessage("user", prompt);
+    setIaLoading(true, "Consultando IA...");
     try {
       const context = buildIaContext();
-      const response = await fetch("/.netlify/functions/ruta-ai-helper", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, context }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || "No se pudo generar la ruta.");
+      const payload = await requestIaRoute({ prompt, context });
+      if (!payload?.route) {
+        throw new Error("La IA no devolvió coordenadas.");
       }
-      const suggestion = (payload.suggestion || "").trim();
-      if (suggestion) {
-        if (ui.iaResult) {
-          ui.iaResult.hidden = false;
-          ui.iaResult.textContent = suggestion;
-        }
-        if (!ui.rutaDescripcion.value.trim()) {
-          ui.rutaDescripcion.value = suggestion;
-        }
-        if (ui.iaStatus) {
-          ui.iaStatus.textContent =
-            "Listo. Ajusta el texto antes de guardar la ruta.";
-        }
-      } else if (ui.iaStatus) {
-        ui.iaStatus.textContent =
-          "La IA no devolvió respuesta. Intenta con más detalles.";
-      }
+      state.iaLastRoute = payload.route;
+      ui.btnIaApply.disabled = false;
+      appendIaMessage("assistant", summarizeRoute(payload.route));
+      ui.iaStatus.textContent = "Ruta lista. Aplica o consulta nuevamente.";
     } catch (err) {
       console.error("[rutas][ia]", err);
-      if (ui.iaStatus)
-        ui.iaStatus.textContent =
-          err.message || "Error al contactar al asistente.";
+      appendIaMessage(
+        "assistant",
+        err.message || "No se pudo generar la ruta. Intenta nuevamente."
+      );
+      ui.iaStatus.textContent =
+        err.message || "Error al contactar al asistente.";
     } finally {
       setIaLoading(false);
     }
+  }
+
+  function applyIaRoute() {
+    if (!state.iaLastRoute?.path?.length) {
+      showMsg("No hay una ruta generada para aplicar.");
+      return;
+    }
+    const coords = state.iaLastRoute.path
+      .map(([lng, lat]) => ({
+        lat: Number(lat),
+        lng: Number(lng),
+      }))
+      .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng));
+    if (coords.length < 2) {
+      showMsg("La ruta recibida no es válida.");
+      return;
+    }
+    state.puntos = coords;
+    refreshPolyline(true);
+    enableSave(true);
+    ui.modalIA?.close();
+  }
+
+  function appendIaMessage(role, text) {
+    const message = { role, text };
+    state.iaHistory.push(message);
+    if (state.iaHistory.length > 20) state.iaHistory.shift();
+    renderIaHistory();
+  }
+
+  function renderIaHistory() {
+    if (!ui.iaChatlog) return;
+    ui.iaChatlog.innerHTML = "";
+    if (!state.iaHistory.length) {
+      ui.iaChatlog.innerHTML =
+        '<div class="ia-message ia-message--assistant">Describe cómo debe ser la ruta y la IA propondrá un trazado aproximado.</div>';
+      return;
+    }
+    state.iaHistory.forEach((msg) => {
+      const bubble = document.createElement("div");
+      bubble.className = `ia-message ia-message--${msg.role}`;
+      bubble.textContent = msg.text;
+      ui.iaChatlog.appendChild(bubble);
+    });
+    ui.iaChatlog.scrollTop = ui.iaChatlog.scrollHeight;
   }
 
   function setIaLoading(loading, message = "") {
@@ -487,6 +524,61 @@
       descripcionActual: ui.rutaDescripcion.value || "",
       puntos: state.puntos,
     };
+  }
+
+  async function requestIaRoute(body) {
+    const payload = {
+      prompt: body.prompt,
+      context: body.context,
+    };
+    const endpoints = [];
+    if (window.APP_CONFIG?.AI_HELPER_URL) {
+      endpoints.push(window.APP_CONFIG.AI_HELPER_URL);
+    }
+    endpoints.push("/.netlify/functions/ruta-ai-helper");
+    if (
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "localhost"
+    ) {
+      endpoints.push("http://localhost:8888/.netlify/functions/ruta-ai-helper");
+    }
+    let lastError = null;
+    for (const endpoint of endpoints) {
+      if (!endpoint) continue;
+      const url = endpoint.startsWith("http")
+        ? endpoint
+        : `${window.location.origin}${endpoint}`;
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          lastError = new Error(data.error || `IA: ${res.status}`);
+          continue;
+        }
+        return data;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error("No se pudo contactar con la IA.");
+  }
+
+  function summarizeRoute(route) {
+    const start = formatCoord(route.start);
+    const end = formatCoord(route.end);
+    const points = Array.isArray(route.path) ? route.path.length : 0;
+    return `Origen: ${start}\nDestino: ${end}\nPuntos generados: ${points}\nUsa “Aplicar ruta al mapa” para visualizarla.`;
+  }
+
+  function formatCoord(pair) {
+    if (!Array.isArray(pair) || pair.length < 2) return "N/D";
+    const [lng, lat] = pair;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "N/D";
+    return `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
   }
 
   function formatDate(value) {

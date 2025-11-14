@@ -64,7 +64,15 @@ export async function handler(event) {
       });
     }
     const suggestion = extractText(data);
-    return json(200, { suggestion });
+    const route = parseRouteJSON(suggestion);
+    if (!route) {
+      return json(422, {
+        error:
+          "La IA no devolvió el formato esperado. Intenta ser más específico.",
+        raw: suggestion,
+      });
+    }
+    return json(200, { route, raw: suggestion });
   } catch (err) {
     console.error("[ai-helper] fetch error", err);
     return json(502, { error: "No se pudo contactar a la IA." });
@@ -89,9 +97,19 @@ function buildPrompt(prompt, context = {}) {
         .join(" | ")}`
     : "";
 
-  return `Eres un asistente de logística que propone rutas seguras para custodias en Lima, Perú. 
-Utiliza lenguaje claro, profesional y enfocado en seguridad.
-Debes sugerir un nombre breve para la ruta y una descripción de máximo 3 oraciones que explique el recorrido y recomendaciones.
+  return `Eres un asistente de logística que sugiere rutas seguras en Lima, Perú.
+Debes responder únicamente con un JSON válido utilizando exactamente la siguiente estructura:
+{
+  "start": [lngInicio, latInicio],
+  "end": [lngFin, latFin],
+  "path": [
+    [lng1, lat1],
+    [lng2, lat2]
+  ]
+}
+Cada arreglo debe contener números en grados decimales (longitud, latitud).
+El arreglo "path" debe incluir todos los puntos de la ruta en orden, comenzando en "start" y terminando en "end".
+No agregues texto adicional antes o después del JSON.
 
 Contexto disponible:
 ${cliente}
@@ -101,16 +119,41 @@ ${descripcionActual}
 ${puntos}
 
 Instrucción del usuario:
-${prompt}
-
-Devuelve solo el texto de la sugerencia (sin etiquetas especiales ni listas).`;
+${prompt}`;
 }
 
 function extractText(data) {
   try {
     const parts = data?.candidates?.[0]?.content?.parts || [];
-    return parts.map((part) => part.text || "").join("\n").trim();
+    return parts
+      .map((part) => part.text || "")
+      .join("\n")
+      .trim();
   } catch {
     return "";
   }
+}
+
+function parseRouteJSON(text) {
+  if (!text) return null;
+  try {
+    const json = JSON.parse(text);
+    if (!Array.isArray(json.start) || !Array.isArray(json.end)) return null;
+    if (!Array.isArray(json.path) || json.path.length < 2) return null;
+    return {
+      start: normalizePair(json.start),
+      end: normalizePair(json.end),
+      path: json.path.map((pair) => normalizePair(pair)).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizePair(pair) {
+  if (!Array.isArray(pair) || pair.length < 2) return null;
+  const lng = Number(pair[0]);
+  const lat = Number(pair[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return [lng, lat];
 }
