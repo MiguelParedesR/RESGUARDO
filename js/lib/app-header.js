@@ -29,6 +29,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (titleEl) titleEl.textContent = title;
 
+    const navScope = host.getAttribute("data-nav");
+    const nav = document.querySelector(".app-header-nav");
+    setupNavigation(nav, navScope);
+
     const btnHome = document.getElementById("app-header-home");
     const btnLogout = document.getElementById("app-header-logout");
     btnHome?.setAttribute("href", "/html/index.html");
@@ -44,5 +48,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   } catch (e) {
     console.warn("[app-header] not loaded", e);
+  }
+
+  function setupNavigation(nav, scope) {
+    if (!nav) return;
+    if (scope !== "admin") {
+      nav.hidden = true;
+      nav.setAttribute("aria-hidden", "true");
+      return;
+    }
+    nav.hidden = false;
+    nav.setAttribute("aria-hidden", "false");
+    const links = nav.querySelectorAll("a[data-nav-key]");
+    if (!links.length) return;
+    const pathname = window.location.pathname.toLowerCase();
+    const activeKey = resolveNavKey(pathname);
+    links.forEach((link) => {
+      const key = link.getAttribute("data-nav-key");
+      const isActive = key === activeKey;
+      link.classList.toggle("is-active", isActive);
+      if (isActive) {
+        link.setAttribute("aria-current", "page");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  function resolveNavKey(pathname) {
+    if (pathname.includes("admin-clientes-rutas")) return "rutas";
+    if (pathname.includes("admin-custodias")) return "custodias";
+    if (pathname.includes("dashboard-admin")) return "servicios";
+    return "";
   }
 });

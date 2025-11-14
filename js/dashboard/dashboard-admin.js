@@ -43,6 +43,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }),
   };
 
+  // === BEGIN HU:HU-RUTA-DESVIO-FRONT-ADMIN (ui refs) ===
+  const routeAlertPanel = document.getElementById("route-alert-admin");
+  const routeAlertTitle = document.getElementById("route-alert-title");
+  const routeAlertBody = document.getElementById("route-alert-body");
+  const routeAlertMeta = document.getElementById("route-alert-meta");
+  const routeAlertViewBtn = document.getElementById("route-alert-view");
+  const routeAlertDismissBtn = document.getElementById("route-alert-dismiss");
+  routeAlertViewBtn?.addEventListener("click", () => handleRouteAlertView());
+  routeAlertDismissBtn?.addEventListener("click", () =>
+    dismissRouteAlert("clear")
+  );
+  // === END HU:HU-RUTA-DESVIO-FRONT-ADMIN ===
+
   const hasAlarma = typeof window.Alarma === "object";
   const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
   let audioCtx = null;
@@ -89,6 +102,9 @@ document.addEventListener("DOMContentLoaded", () => {
     focusLayer = null,
     routeLayerFocus = null,
     panicLayer = null;
+  let rutaClienteLayer = null;
+  const rutaClienteCache = new Map();
+  let routeAlertRecord = null;
   let panicMarker = null;
   let servicesCache = [];
   let servicesLoaded = false;
@@ -837,7 +853,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const q = window.sb
         .from("servicio")
         .select(
-          "id,empresa,placa,estado,tipo,created_at,destino_texto,destino_lat,destino_lng,cliente:cliente_id(nombre)"
+          "id,empresa,placa,estado,tipo,created_at,destino_texto,destino_lat,destino_lng,cliente:cliente_id(id,nombre)"
         )
         .order("id", { ascending: false });
       if (fEstado.value !== "TODOS") q.eq("estado", fEstado.value);
@@ -981,8 +997,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!servicioId) return;
     const key = String(servicioId);
     const current = serviceFlags.get(key) || {};
-    if (value) {
-      current[flag] = true;
+    if (value !== undefined && value !== null && value !== false) {
+      current[flag] = value === true ? true : value;
       serviceFlags.set(key, current);
     } else if (current[flag]) {
       delete current[flag];
@@ -1003,6 +1019,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (flags.checkinPending) {
       badges.push(
         '<span class="alarma-badge alarma-badge--warn">CHECK-IN PENDIENTE</span>'
+      );
+    }
+    if (flags.routeDesvio) {
+      badges.push(
+        `<span class="alarma-badge alarma-badge--warn js-route-focus" role="button" tabindex="0" data-sid="${servicioId}">DESVÍO</span>`
       );
     }
     return badges.join("");
@@ -1080,6 +1101,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (reopen) {
           e.stopPropagation();
           reopenActivePanic(reopen.dataset.sid || s.id);
+          return;
+        }
+        const routeFocus = e.target.closest(".js-route-focus");
+        if (routeFocus) {
+          e.stopPropagation();
+          reopenRouteAlert(routeFocus.dataset.sid || s.id);
           return;
         }
         const btn = e.target.closest("button[data-act]");
@@ -1212,6 +1239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // para reutilizar en la vista de resguardo sin duplicar.
     ensureMap();
     if (!map) return;
+    clearRutaClienteLayer("focus-marker");
     try {
       focusLayer?.clearLayers();
     } catch (e) {}
@@ -1340,6 +1368,11 @@ document.addEventListener("DOMContentLoaded", () => {
         .eq("id", id);
       if (error) throw error;
       showMsg("Servicio finalizado");
+      if (routeAlertPanel?.dataset.sid === String(id)) {
+        dismissRouteAlert("clear");
+      } else {
+        updateServiceFlag(id, "routeDesvio", false);
+      }
       await loadServices();
     } catch (e) {
       console.error(e);
@@ -1421,9 +1454,276 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (evt.type === "checkin_ok" && evt.record?.servicio_id) {
       updateServiceFlag(evt.record.servicio_id, "checkinPending", false);
       refreshList();
+    } else if (evt.type === "ruta_desviada") {
+      const record = normalizeRouteDeviationRecord(evt.record || evt.payload || evt);
+      handleRouteDeviation(record);
     }
   }
   // === END HU:HU-PANICO-MODAL-UNICO ===
+
+  // === BEGIN HU:HU-RUTA-DESVIO-FRONT-ADMIN ===
+  function normalizeRouteDeviationRecord(raw) {
+    if (!raw) return null;
+    const metadata =
+      raw.metadata && typeof raw.metadata === "object"
+        ? { ...raw.metadata }
+        : {};
+    const servicioId =
+      raw.servicio_id || metadata.servicio_id || metadata.servicio || null;
+    const clienteNombre =
+      raw.cliente ||
+      metadata.cliente ||
+      servicesCache.find((s) => s.id === servicioId)?.cliente?.nombre ||
+      null;
+    return {
+      servicio_id: servicioId,
+      empresa: raw.empresa || metadata.empresa || null,
+      cliente: clienteNombre,
+      placa: raw.placa || metadata.placa || null,
+      tipo: raw.tipo || metadata.tipo || null,
+      lat: raw.lat ?? metadata.lat ?? null,
+      lng: raw.lng ?? metadata.lng ?? null,
+      timestamp: raw.timestamp || metadata.timestamp || new Date().toISOString(),
+      metadata,
+    };
+  }
+
+  function handleRouteDeviation(record) {
+    if (!record?.servicio_id) return;
+    routeAlertRecord = record;
+    updateServiceFlag(record.servicio_id, "routeDesvio", record);
+    refreshList();
+    showRouteAlert(record);
+    const svc = servicesCache.find((s) => s.id === record.servicio_id);
+    if (svc) {
+      selectService(svc);
+    }
+    if (alertsEnabled) {
+      try {
+        navigator.vibrate?.([280, 120, 320, 120, 420]);
+      } catch (err) {
+        console.warn("[route] vibrate error", err);
+      }
+    }
+  }
+
+  function showRouteAlert(record) {
+    if (!routeAlertPanel || !record) return;
+    routeAlertPanel.hidden = false;
+    routeAlertPanel.setAttribute("aria-hidden", "false");
+    routeAlertPanel.dataset.sid = record.servicio_id || "";
+    const clienteLabel = (record.cliente || "Cliente").toUpperCase();
+    if (routeAlertTitle) {
+      routeAlertTitle.textContent = `Ruta desviada – ${clienteLabel}`;
+    }
+    if (routeAlertBody) {
+      const placa = record.placa || "sin placa";
+      routeAlertBody.textContent = `La custodia (${placa}) se desvió de la ruta asignada para ${clienteLabel}.`;
+    }
+    if (routeAlertMeta) {
+      routeAlertMeta.textContent = formatRouteMeta(record.metadata);
+    }
+  }
+
+  function dismissRouteAlert(reason = "dismiss") {
+    if (!routeAlertPanel) return;
+    routeAlertPanel.hidden = true;
+    routeAlertPanel.setAttribute("aria-hidden", "true");
+    if (reason === "clear") {
+      const sid = routeAlertPanel.dataset.sid;
+      if (sid) {
+        updateServiceFlag(sid, "routeDesvio", false);
+        refreshList();
+      }
+      routeAlertPanel.dataset.sid = "";
+      routeAlertRecord = null;
+      clearRutaClienteLayer("dismiss");
+    }
+  }
+
+  async function handleRouteAlertView() {
+    if (!routeAlertRecord) return;
+    if (routeAlertViewBtn) {
+      routeAlertViewBtn.disabled = true;
+    }
+    try {
+      await ensureServiceSelectedById(routeAlertRecord.servicio_id);
+      const rutaPayload = await fetchRutaClienteFeature(routeAlertRecord);
+      if (!rutaPayload?.geojson && routeAlertRecord?.lat == null) {
+        showMsg("No se encontró una ruta activa para este cliente.");
+        return;
+      }
+      drawRutaClienteFeature(rutaPayload?.geojson || null, routeAlertRecord);
+    } catch (err) {
+      console.warn("[route] view error", err);
+      showMsg("No se pudo mostrar la ruta asignada.");
+    } finally {
+      if (routeAlertViewBtn) {
+        routeAlertViewBtn.disabled = false;
+      }
+    }
+  }
+
+  async function fetchRutaClienteFeature(record) {
+    if (!window.sb) return null;
+    const rutaId =
+      record.metadata?.ruta_cliente_id || record.metadata?.rutaId || null;
+    const clienteId =
+      record.metadata?.cliente_id ||
+      getClienteIdForServicio(record.servicio_id) ||
+      null;
+    const cacheKey = rutaId ? `ruta:${rutaId}` : clienteId ? `cli:${clienteId}` : null;
+    if (!cacheKey) return null;
+    if (rutaClienteCache.has(cacheKey)) {
+      return rutaClienteCache.get(cacheKey);
+    }
+    let builder = window.sb
+      .from("ruta_cliente")
+      .select("id, cliente_id, nombre, descripcion, geojson")
+      .eq("is_active", true);
+    if (rutaId) {
+      builder = builder.eq("id", rutaId).maybeSingle();
+    } else {
+      builder = builder
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    }
+    const { data, error } = await builder;
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+    if (!data?.geojson) return null;
+    const feature = normalizeRutaFeature(data.geojson);
+    if (!feature) return null;
+    const payload = { ...data, geojson: feature };
+    rutaClienteCache.set(cacheKey, payload);
+    return payload;
+  }
+
+  function drawRutaClienteFeature(feature, record) {
+    const layer = ensureRutaClienteLayer();
+    layer.clearLayers();
+    let bounds = null;
+    if (feature) {
+      const geoLayer = L.geoJSON(feature, {
+        style: {
+          color: "#1d4ed8",
+          weight: 5,
+          opacity: 0.95,
+          dashArray: "10 6",
+        },
+      }).addTo(layer);
+      bounds = geoLayer.getBounds();
+    }
+    if (record.lat != null && record.lng != null) {
+      L.circleMarker([record.lat, record.lng], {
+        radius: 10,
+        color: "#f97316",
+        fillColor: "#fb923c",
+        fillOpacity: 0.9,
+        weight: 3,
+      })
+        .bindTooltip("Último ping desviado")
+        .addTo(layer);
+      if (bounds?.isValid && bounds.isValid()) {
+        bounds = bounds.extend([record.lat, record.lng]);
+      } else {
+        bounds = L.latLngBounds([record.lat, record.lng]);
+      }
+    }
+    if (bounds?.isValid && bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.15), { padding: [48, 60], maxZoom: 16 });
+    }
+  }
+
+  function ensureRutaClienteLayer() {
+    ensureMap();
+    if (!rutaClienteLayer && map) {
+      rutaClienteLayer = L.layerGroup().addTo(map);
+    }
+    return rutaClienteLayer;
+  }
+
+  function clearRutaClienteLayer(reason = "manual") {
+    if (rutaClienteLayer) {
+      rutaClienteLayer.clearLayers();
+    }
+  }
+
+  async function ensureServiceSelectedById(servicioId) {
+    if (!servicioId) return null;
+    let svc = servicesCache.find((s) => s.id === servicioId);
+    if (svc) {
+      selectService(svc);
+      return svc;
+    }
+    await loadServices();
+    svc = servicesCache.find((s) => s.id === servicioId);
+    if (svc) selectService(svc);
+    return svc;
+  }
+
+  function getClienteIdForServicio(servicioId) {
+    const svc = servicesCache.find((s) => s.id === servicioId);
+    return svc?.cliente?.id || null;
+  }
+
+  function formatRouteMeta(meta = {}) {
+    const parts = [];
+    if (Number.isFinite(meta.distancia_m || meta.distancia)) {
+      const dist = meta.distancia_m ?? meta.distancia;
+      parts.push(`Distancia fuera: ${Math.round(dist)} m`);
+    }
+    if (Number.isFinite(meta.tolerancia_m)) {
+      parts.push(`Tolerancia ${Math.round(meta.tolerancia_m)} m`);
+    }
+    if (meta.ultimo_ping) {
+      parts.push(`Último ping ${formatRelativeTimestamp(meta.ultimo_ping)}`);
+    }
+    if (meta.ruta_nombre) {
+      parts.push(meta.ruta_nombre);
+    }
+    return parts.length
+      ? parts.join(" · ")
+      : "Confirma la ubicación y ruta del servicio.";
+  }
+
+  function normalizeRutaFeature(rawGeojson) {
+    if (!rawGeojson) return null;
+    let parsed = rawGeojson;
+    if (typeof rawGeojson === "string") {
+      try {
+        parsed = JSON.parse(rawGeojson);
+      } catch (err) {
+        console.warn("[route] geojson inválido", err);
+        return null;
+      }
+    }
+    if (parsed.type === "Feature" && parsed.geometry?.type === "LineString") {
+      return parsed;
+    }
+    if (parsed.type === "LineString") {
+      return { type: "Feature", geometry: parsed };
+    }
+    return null;
+  }
+
+  function formatRelativeTimestamp(value) {
+    if (!value) return null;
+    const time = new Date(value).getTime();
+    if (Number.isNaN(time)) return null;
+    const diff = Date.now() - time;
+    if (diff < 90_000) return "hace instantes";
+    const minutes = Math.round(diff / 60000);
+    if (minutes < 60) return `hace ${minutes} min`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `hace ${hours} h`;
+    const days = Math.round(hours / 24);
+    return `hace ${days} d`;
+  }
+  // === END HU:HU-RUTA-DESVIO-FRONT-ADMIN ===
 
   function dismissPanicAlert() {
     clearPanicMarker();
@@ -1455,6 +1755,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       console.warn("[panic] modal reopen error", err);
+    }
+  }
+
+  function reopenRouteAlert(servicioId) {
+    if (!servicioId || !routeAlertPanel) return;
+    const flags = serviceFlags.get(String(servicioId));
+    const record = flags?.routeDesvio || null;
+    if (record) {
+      routeAlertRecord = record;
+      showRouteAlert(record);
     }
   }
 

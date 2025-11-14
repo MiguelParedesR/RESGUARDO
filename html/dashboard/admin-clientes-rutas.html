@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clientes & Rutas</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
+
+  <!-- MDL -->
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="../../css/dashboard/admin-clientes-rutas.css" />
+  <link rel="stylesheet" href="../../css/partials/app-header.css" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../../config.js"></script>
+
+  <script defer src="../../js/guard.js"></script>
+  <script defer src="../../js/lib/app-header.js"></script>
+  <script defer src="../../js/dashboard/admin-clientes-rutas.js"></script>
+  <script defer src="../../js/pwa.js"></script>
+</head>
+
+<body class="mdl-base">
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <div id="app-header" data-page-title="Clientes & Rutas" data-nav="admin"></div>
+
+    <!-- === BEGIN HU:HU-ADMIN-RUTAS-CRUD layout (NO TOCAR FUERA) === -->
+    <main class="mdl-layout__content">
+      <section class="page page--rutas">
+        <div class="layout">
+          <aside class="panel panel--clientes" aria-label="Listado de clientes">
+            <header class="panel__head">
+              <div>
+                <p class="panel__eyebrow">Clientes</p>
+                <h2>Directorio</h2>
+              </div>
+              <button id="btn-nuevo-cliente" class="btn-primary" type="button">
+                <i class="material-icons" aria-hidden="true">add</i>
+                <span>Nuevo cliente</span>
+              </button>
+            </header>
+            <div class="field">
+              <label for="buscar-clientes">Buscar cliente</label>
+              <div class="field__input">
+                <i class="material-icons" aria-hidden="true">search</i>
+                <input id="buscar-clientes" type="search" placeholder="Escribe un nombre..." />
+              </div>
+            </div>
+            <div id="clientes-lista" class="lista-clientes" role="list"></div>
+            <p id="clientes-empty" class="panel__empty" hidden>No se encontraron clientes.</p>
+          </aside>
+
+          <section class="panel panel--rutas">
+            <header class="panel__head panel__head--rutas">
+              <div>
+                <p class="panel__eyebrow">Gestión</p>
+                <h2 id="cliente-actual-titulo">Selecciona un cliente</h2>
+              </div>
+              <div class="panel__actions">
+                <button id="btn-limpiar-ruta" class="btn-ghost" type="button">
+                  <i class="material-icons" aria-hidden="true">delete_sweep</i>
+                  <span>Limpiar ruta</span>
+                </button>
+                <button id="btn-guardar-ruta" class="btn-primary" type="button" disabled>
+                  <i class="material-icons" aria-hidden="true">save</i>
+                  <span>Guardar ruta</span>
+                </button>
+              </div>
+            </header>
+
+            <div class="grid-form">
+              <div class="form-fields">
+                <div class="field">
+                  <label for="ruta-nombre">Nombre de la ruta</label>
+                  <input id="ruta-nombre" type="text" placeholder="Ej. Ruta principal a Sede Callao" />
+                </div>
+                <div class="field">
+                  <label for="ruta-descripcion">Descripción (opcional)</label>
+                  <textarea id="ruta-descripcion" rows="3" placeholder="Detalle o notas para la custodia"></textarea>
+                </div>
+                <div class="field field--inline">
+                  <label for="ruta-tolerancia">Tolerancia (m)</label>
+                  <input id="ruta-tolerancia" type="number" min="10" step="10" value="120" />
+                </div>
+                <div class="field">
+                  <label>Herramientas</label>
+                  <div class="tool-row">
+                    <button id="btn-generar-ruta" class="btn-ghost" type="button">
+                      <i class="material-icons" aria-hidden="true">auto_fix_high</i>
+                      <span>Generar por IA (próximamente)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="map-wrapper">
+                <div id="map-rutas" aria-label="Editor de ruta"></div>
+                <p class="map-hint">
+                  Haz clic sobre el mapa para agregar puntos. El botón "Limpiar ruta" quita todos los puntos.
+                </p>
+              </div>
+            </div>
+
+            <div class="rutas-listado">
+              <header>
+                <h3>Rutas registradas</h3>
+              </header>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Tolerancia</th>
+                    <th>Estado</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-rutas">
+                  <tr>
+                    <td colspan="5" class="tabla-empty">Selecciona un cliente para ver sus rutas.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <!-- === END HU:HU-ADMIN-RUTAS-CRUD === -->
+
+    <!-- Modales -->
+    <dialog id="modal-cliente" class="modal">
+      <form method="dialog" class="modal__card">
+        <header>
+          <h3 id="modal-cliente-title">Nuevo cliente</h3>
+          <button type="button" class="icon-btn" data-close>
+            <i class="material-icons" aria-hidden="true">close</i>
+          </button>
+        </header>
+        <div class="modal__body">
+          <div class="field">
+            <label for="cliente-nombre">Nombre del cliente</label>
+            <input id="cliente-nombre" type="text" required />
+          </div>
+        </div>
+        <footer>
+          <button type="button" class="btn-ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn-primary" id="btn-cliente-guardar">Guardar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="modal-confirm" class="modal modal--confirm">
+      <form method="dialog" class="modal__card">
+        <header>
+          <h3 id="modal-confirm-title">Confirmar acción</h3>
+        </header>
+        <div class="modal__body">
+          <p id="modal-confirm-message">¿Deseas continuar?</p>
+        </div>
+        <footer>
+          <button type="button" class="btn-ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn-danger" id="btn-confirm-aceptar">Eliminar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="polite">
+      <div class="mdl-snackbar__text"></div>
+      <button class="mdl-snackbar__action" type="button"></button>
+    </div>
+  </div>
+</body>
+
+</html>

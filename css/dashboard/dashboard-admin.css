@@ -627,6 +627,92 @@ body.filters-open .map-panel::after {
 }
 
 
+.route-alert {
+    margin: 12px 14px 0;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(244, 67, 54, 0.25);
+    background: #fff6f6;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.route-alert[hidden] {
+    display: none !important;
+}
+
+.route-alert__content {
+    flex: 1 1 auto;
+}
+
+.route-alert__eyebrow {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: #f44336;
+}
+
+.route-alert__title {
+    margin: 6px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.route-alert__body {
+    margin: 0;
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.45;
+}
+
+.route-alert__meta {
+    margin: 8px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #d1432f;
+}
+
+.route-alert__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.route-alert__actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.route-alert__actions .btn-accent {
+    background: #f44336;
+    color: #fff;
+}
+
+.route-alert__actions .btn-accent:hover {
+    background: #d32f2f;
+}
+
+.route-alert__actions .btn-ghost {
+    color: #0f172a;
+}
+
+@media (max-width: 720px) {
+    .route-alert {
+        flex-direction: column;
+    }
+
+    .route-alert__actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+
 
 #map-admin {
     width: 100%;

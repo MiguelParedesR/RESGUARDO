@@ -919,6 +919,8 @@
       }
       notify({ type: "checkin_ok", record });
       /* === END HU:HU-CHECKIN-15M === */
+    } else if (type === "ruta_desviada") {
+      notify({ type: "ruta_desviada", record });
     }
   }
 

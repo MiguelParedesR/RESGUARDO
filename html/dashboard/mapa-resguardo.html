@@ -82,6 +82,35 @@
 
       <div id="custodios-overlay" class="cust-overlay" hidden></div>
 
+      <!-- === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === -->
+      <section id="ruta-alert" class="alarma-route" aria-hidden="true">
+        <div class="alarma-route__backdrop" data-ruta-alert-close="backdrop"></div>
+        <article class="alarma-route__card" role="dialog" aria-modal="true" aria-labelledby="ruta-alert-title">
+          <header class="alarma-route__head">
+            <p class="alarma-route__eyebrow">Desvío detectado</p>
+            <button type="button" class="alarma-route__close" data-ruta-alert-close="close" aria-label="Cerrar alerta de ruta">
+              <i class="material-icons" aria-hidden="true">close</i>
+            </button>
+          </header>
+          <div class="alarma-route__body">
+            <h3 id="ruta-alert-title" class="alarma-route__title">Te has desviado de la ruta establecida</h3>
+            <p id="ruta-alert-copy" class="alarma-route__copy">
+              Verifica tu posición y regresa al trazo indicado para continuar con el servicio.
+            </p>
+            <p id="ruta-alert-meta" class="alarma-route__meta" aria-live="polite"></p>
+          </div>
+          <footer class="alarma-route__actions">
+            <button type="button" id="ruta-alert-view" class="mdl-button mdl-js-button mdl-button--raised">
+              Ver ruta
+            </button>
+            <button type="button" class="mdl-button mdl-js-button" data-ruta-alert-close="dismiss">
+              Entendido
+            </button>
+          </footer>
+        </article>
+      </section>
+      <!-- === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === -->
+
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
         <div class="mdl-snackbar__text"></div>
         <button class="mdl-snackbar__action" type="button"></button>

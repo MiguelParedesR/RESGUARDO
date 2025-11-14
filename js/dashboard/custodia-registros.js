@@ -25,10 +25,20 @@
     },
   };
 
+  // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+  const CLIENTE_SEARCH_DEBOUNCE = 320;
+  // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+
   const state = {
     profile: null,
     empresa: "",
-    clientes: [],
+    // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+    clienteQuery: "",
+    clienteResults: [],
+    isSearchingClientes: false,
+    selectedClienteName: "",
+    routeCache: new Map(),
+    // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
     selectedCliente: "",
     servicios: [],
     isLoading: false,
@@ -38,6 +48,9 @@
   };
 
   const ui = {};
+  // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+  let clienteSearchTimer = null;
+  // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -56,39 +69,59 @@
     state.empresa = profile.empresa || profile.empresa_otro || "";
     mapUI();
     bindEvents();
-    loadClientes().catch((err) => {
-      console.error(`${LOG_API} clientes`, err);
-      showMsg("No se pudieron cargar los clientes.");
-    });
+    searchClientes("")
+      .catch((err) => {
+        console.error(`${LOG_API} clientes`, err);
+        showMsg("No se pudieron cargar los clientes.");
+      });
   }
 
   function mapUI() {
     ui.snackbar = document.getElementById("app-snackbar");
     ui.cards = document.getElementById("cards-custodia");
     ui.placeholder = document.getElementById("cards-placeholder");
-    ui.clienteSelect = document.getElementById("cliente-select");
+    // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+    ui.clienteSearchInput = document.getElementById("cliente-search");
+    ui.clienteSearchField = document.getElementById("cliente-search-field");
+    ui.clienteResults = document.getElementById("cliente-results");
+    ui.clienteFeedback = document.getElementById("cliente-feedback");
+    ui.clienteAddBtn = document.getElementById("cliente-add-btn");
     ui.clienteClear = document.getElementById("cliente-clear");
+    ui.routeModal = document.getElementById("modal-ruta-cliente");
+    ui.routeModalName = document.getElementById("route-modal-name");
+    ui.routeModalDesc = document.getElementById("route-modal-desc");
+    ui.newClienteModal = document.getElementById("modal-cliente-nuevo");
+    ui.newClienteInput = document.getElementById("cliente-nombre");
+    ui.newClienteFeedback = document.getElementById("cliente-modal-feedback");
+    ui.newClienteSave = document.getElementById("cliente-modal-save");
+    if (ui.clienteResults) ui.clienteResults.hidden = true;
+    updateClienteFeedback("Escribe para buscar clientes.");
+    // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
     ui.modalAdd = document.getElementById("modal-add-custodia");
     ui.modalDescription = document.getElementById("add-modal-description");
     ui.modalConfirm = document.getElementById("add-modal-confirm");
   }
 
   function bindEvents() {
-    ui.clienteSelect?.addEventListener("change", (evt) => {
-      state.selectedCliente = evt.target.value || "";
-      if (state.selectedCliente) {
-        loadServicios(state.selectedCliente);
-      } else {
-        state.servicios = [];
-        render();
-      }
+    // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+    ui.clienteSearchInput?.addEventListener("input", handleClienteSearchInput);
+    ui.clienteSearchInput?.addEventListener("focus", () => {
+      if (state.clienteResults.length) setClienteResultsVisible(true);
     });
-    ui.clienteClear?.addEventListener("click", () => {
-      state.selectedCliente = "";
-      if (ui.clienteSelect) ui.clienteSelect.value = "";
-      state.servicios = [];
-      render();
-    });
+    ui.clienteSearchInput?.addEventListener("keydown", handleClienteSearchKey);
+    ui.clienteResults?.addEventListener("click", handleClienteResultClick);
+    ui.clienteClear?.addEventListener("click", handleClienteClear);
+    ui.clienteAddBtn?.addEventListener("click", openNewClienteModal);
+    document.addEventListener("click", handleClienteSearchBlur, true);
+    document.addEventListener("keydown", handleEscapeClose);
+    document
+      .querySelectorAll("[data-route-close]")
+      .forEach((el) => el.addEventListener("click", closeRouteModal));
+    document
+      .querySelectorAll("[data-cliente-close]")
+      .forEach((el) => el.addEventListener("click", closeNewClienteModal));
+    ui.newClienteSave?.addEventListener("click", handleNewClienteSave);
+    // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
     document
       .querySelectorAll("[data-add-close]")
       .forEach((el) => el.addEventListener("click", () => closeAddModal()));
@@ -112,45 +145,283 @@
     }
   }
 
-  async function loadClientes() {
-    const { data, error } = await window.sb
-      .from("servicio")
-      .select("cliente_id, cliente:cliente_id(id, nombre)")
-      .eq("empresa", state.empresa)
-      .eq("estado", "ACTIVO");
-    if (error) throw error;
-    const map = new Map();
-    (data || []).forEach((row) => {
-      const clienteId = row.cliente_id || row.cliente?.id;
-      const nombre = row.cliente?.nombre || "Cliente sin asignar";
-      if (!clienteId) return;
-      if (!map.has(clienteId)) {
-        map.set(clienteId, {
-          id: String(clienteId),
-          nombre,
-        });
-      }
+  // === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
+  function handleClienteSearchInput(evt) {
+    const value = evt.target.value || "";
+    state.clienteQuery = value;
+    if (clienteSearchTimer) clearTimeout(clienteSearchTimer);
+    clienteSearchTimer = setTimeout(() => {
+      searchClientes(value).catch((err) => {
+        console.error(`${LOG_API} clientes search`, err);
+      });
+    }, CLIENTE_SEARCH_DEBOUNCE);
+  }
+
+  function handleClienteSearchKey(evt) {
+    if (evt.key !== "Enter") return;
+    const first = state.clienteResults?.[0];
+    if (first) {
+      selectCliente(first);
+      setClienteResultsVisible(false);
+      evt.preventDefault();
+    }
+  }
+
+  function handleClienteResultClick(evt) {
+    const btn = evt.target.closest(".cliente-search__result-btn");
+    if (!btn) return;
+    const { clienteId, clienteNombre } = btn.dataset;
+    selectCliente({
+      id: clienteId,
+      nombre: clienteNombre || btn.textContent.trim(),
     });
-    state.clientes = Array.from(map.values()).sort((a, b) =>
-      a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+  }
+
+  function handleClienteClear() {
+    state.selectedCliente = "";
+    state.selectedClienteName = "";
+    state.clienteQuery = "";
+    state.servicios = [];
+    state.clienteResults = [];
+    if (ui.clienteSearchInput) ui.clienteSearchInput.value = "";
+    setClienteResultsVisible(false);
+    toggleAddClienteButton(false);
+    updateClienteFeedback("Escribe para buscar clientes.");
+    render();
+  }
+
+  function handleClienteSearchBlur(evt) {
+    if (
+      ui.clienteSearchField?.contains(evt.target) ||
+      ui.clienteResults?.contains(evt.target) ||
+      ui.clienteAddBtn?.contains(evt.target)
+    ) {
+      return;
+    }
+    setClienteResultsVisible(false);
+  }
+
+  function handleEscapeClose(evt) {
+    if (evt.key !== "Escape") return;
+    const routeOpen = ui.routeModal?.getAttribute("aria-hidden") === "false";
+    const clienteOpen =
+      ui.newClienteModal?.getAttribute("aria-hidden") === "false";
+    if (clienteOpen) {
+      closeNewClienteModal();
+      evt.stopPropagation();
+      return;
+    }
+    if (routeOpen) {
+      closeRouteModal();
+      evt.stopPropagation();
+    }
+  }
+
+  function setClienteResultsVisible(visible) {
+    if (!ui.clienteResults || !ui.clienteSearchField) return;
+    ui.clienteResults.hidden = !visible;
+    ui.clienteSearchField.setAttribute(
+      "aria-expanded",
+      visible ? "true" : "false"
     );
-    renderClienteSelect();
   }
 
-  function renderClienteSelect() {
-    if (!ui.clienteSelect) return;
-    const current = state.selectedCliente;
-    ui.clienteSelect.innerHTML =
-      '<option value="">Selecciona un clienteâ€¦</option>';
-    state.clientes.forEach((cliente) => {
-      const option = document.createElement("option");
-      option.value = cliente.id;
-      option.textContent = cliente.nombre;
-      if (cliente.id === current) option.selected = true;
-      ui.clienteSelect.appendChild(option);
+  function updateClienteFeedback(message) {
+    if (!ui.clienteFeedback) return;
+    ui.clienteFeedback.textContent = message || "";
+  }
+
+  function toggleAddClienteButton(visible, prefill = "") {
+    if (!ui.clienteAddBtn) return;
+    if (visible && prefill.trim().length >= 1) {
+      ui.clienteAddBtn.hidden = false;
+      ui.clienteAddBtn.dataset.prefill = prefill.trim();
+    } else {
+      ui.clienteAddBtn.hidden = true;
+      delete ui.clienteAddBtn.dataset.prefill;
+    }
+  }
+
+  function openNewClienteModal() {
+    if (!ui.newClienteModal) return;
+    const prefill =
+      ui.clienteAddBtn?.dataset.prefill || state.clienteQuery || "";
+    if (ui.newClienteInput) ui.newClienteInput.value = prefill.trim();
+    setNewClienteFeedback("");
+    ui.newClienteModal.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => ui.newClienteInput?.focus());
+  }
+
+  function closeNewClienteModal() {
+    if (!ui.newClienteModal) return;
+    ui.newClienteModal.setAttribute("aria-hidden", "true");
+  }
+
+  function setNewClienteFeedback(message, isError = false) {
+    if (!ui.newClienteFeedback) return;
+    ui.newClienteFeedback.textContent = message || "";
+    ui.newClienteFeedback.style.color = isError ? "#d32f2f" : "var(--ink-300)";
+  }
+
+  async function handleNewClienteSave() {
+    const nombre = (ui.newClienteInput?.value || "").trim();
+    if (!nombre || nombre.length < 3) {
+      setNewClienteFeedback("Ingresa al menos 3 caracteres.", true);
+      ui.newClienteInput?.focus();
+      return;
+    }
+    setNewClienteFeedback("");
+    setButtonLoading(ui.newClienteSave, true);
+    try {
+      const { data, error } = await window.sb
+        .from("cliente")
+        .insert({ nombre })
+        .select("id, nombre")
+        .single();
+      if (error) throw error;
+      closeNewClienteModal();
+      showMsg("Cliente agregado correctamente.");
+      selectCliente(data);
+      searchClientes(nombre).catch(() => {});
+    } catch (err) {
+      console.error(`${LOG_API} cliente nuevo`, err);
+      setNewClienteFeedback("Error al guardar el cliente.", true);
+      showMsg("No se pudo agregar el cliente.");
+    } finally {
+      setButtonLoading(ui.newClienteSave, false);
+    }
+  }
+
+  function selectCliente(cliente) {
+    if (!cliente?.id) return;
+    state.selectedCliente = cliente.id;
+    state.selectedClienteName = cliente.nombre || "";
+    state.clienteQuery = cliente.nombre || "";
+    if (ui.clienteSearchInput) ui.clienteSearchInput.value = state.clienteQuery;
+    setClienteResultsVisible(false);
+    toggleAddClienteButton(false);
+    loadServicios(state.selectedCliente);
+    maybeShowRutaCliente(cliente.id, cliente.nombre);
+  }
+
+  async function searchClientes(query = "") {
+    state.isSearchingClientes = true;
+    updateClienteFeedback("Buscando clientes...");
+    try {
+      const normalized = (query || "").trim().toUpperCase();
+      const pattern = normalized ? `${normalized}%` : "%";
+      const { data, error } = await window.sb
+        .from("cliente")
+        .select("id, nombre, created_at")
+        .ilike("nombre_upper", pattern)
+        .order("nombre", { ascending: true })
+        .limit(20);
+      if (error) throw error;
+      state.clienteResults = data || [];
+      renderClienteResults();
+      if (!state.clienteResults.length) {
+        toggleAddClienteButton(true, normalized);
+        updateClienteFeedback(
+          normalized
+            ? "Sin coincidencias. Puedes agregar un nuevo cliente."
+            : "Aún no hay clientes registrados."
+        );
+      } else {
+        toggleAddClienteButton(false);
+        updateClienteFeedback(
+          `${state.clienteResults.length} cliente(s) encontrado(s)`
+        );
+      }
+    } catch (err) {
+      state.clienteResults = [];
+      renderClienteResults();
+      toggleAddClienteButton(false);
+      updateClienteFeedback("Error al buscar clientes.");
+      throw err;
+    } finally {
+      state.isSearchingClientes = false;
+    }
+  }
+
+  function renderClienteResults() {
+    if (!ui.clienteResults) return;
+    ui.clienteResults.innerHTML = "";
+    if (!state.clienteResults.length) {
+      setClienteResultsVisible(false);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    state.clienteResults.forEach((cliente) => {
+      const item = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cliente-search__result-btn";
+      btn.dataset.clienteId = cliente.id;
+      btn.dataset.clienteNombre = cliente.nombre;
+      btn.setAttribute(
+        "aria-selected",
+        cliente.id === state.selectedCliente ? "true" : "false"
+      );
+      const name = document.createElement("span");
+      name.className = "cliente-search__result-name";
+      name.textContent = cliente.nombre;
+      btn.appendChild(name);
+      item.appendChild(btn);
+      frag.appendChild(item);
     });
+    ui.clienteResults.appendChild(frag);
+    const shouldShow = document.activeElement === ui.clienteSearchInput;
+    setClienteResultsVisible(shouldShow);
   }
 
+  async function maybeShowRutaCliente(clienteId, clienteNombre) {
+    if (!clienteId || !ui.routeModal) return;
+    if (state.routeCache.has(clienteId)) {
+      const cached = state.routeCache.get(clienteId);
+      if (cached) showRouteModal(cached, clienteNombre);
+      return;
+    }
+    try {
+      const { data, error } = await window.sb
+        .from("ruta_cliente")
+        .select("id, nombre, descripcion")
+        .eq("cliente_id", clienteId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") throw error;
+      const route = data || null;
+      state.routeCache.set(clienteId, route);
+      if (route) showRouteModal(route, clienteNombre);
+    } catch (err) {
+      console.warn(`${LOG_API} ruta_cliente`, err);
+    }
+  }
+
+  function showRouteModal(route, clienteNombre) {
+    if (!ui.routeModal) return;
+    const title = route?.nombre || clienteNombre || "Ruta asignada";
+    if (ui.routeModalName) ui.routeModalName.textContent = title;
+    if (ui.routeModalDesc) {
+      if (route?.descripcion) {
+        ui.routeModalDesc.textContent = route.descripcion;
+        ui.routeModalDesc.hidden = false;
+      } else {
+        ui.routeModalDesc.hidden = true;
+      }
+    }
+    ui.routeModal.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() =>
+      ui.routeModal?.querySelector(".route-modal__cta")?.focus()
+    );
+  }
+
+  function closeRouteModal() {
+    if (!ui.routeModal) return;
+    ui.routeModal.setAttribute("aria-hidden", "true");
+  }
+  // === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA ===
   async function loadServicios(clienteId) {
     if (!clienteId) return;
     state.isLoading = true;

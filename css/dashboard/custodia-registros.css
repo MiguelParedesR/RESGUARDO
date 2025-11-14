@@ -133,6 +133,129 @@ body {
   font-size: 0.9rem;
 }
 
+/* === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === */
+.custodia-panel--filters .cliente-search {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.custodia-panel--filters .cliente-search__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+
+.custodia-panel--filters .cliente-search__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1px solid #dfe4f3;
+  padding: 8px 14px;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.cliente-search__field input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 1rem;
+  padding: 6px 0;
+}
+
+.cliente-search__field input:focus {
+  outline: none;
+}
+
+.cliente-search__field i {
+  color: var(--ink-300);
+}
+
+.cliente-search__feedback {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-300);
+  min-height: 18px;
+}
+
+.cliente-search__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: var(--elev-panel);
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.cliente-search__results[hidden] {
+  display: none;
+}
+
+.cliente-search__results li + li {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.cliente-search__result-btn {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 12px 14px;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cliente-search__result-btn:hover,
+.cliente-search__result-btn:focus-visible {
+  background: var(--primary-soft);
+  outline: none;
+}
+
+.cliente-search__result-name {
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.cliente-search__result-meta {
+  font-size: 0.85rem;
+  color: var(--ink-300);
+}
+
+.cliente-search__add {
+  align-self: flex-start;
+  gap: 6px;
+}
+
+.btn-link {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+/* === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === */
+
 .custodia-panel--filters .select-field {
   border-radius: 18px;
   border: 1px solid #dfe4f3;
@@ -541,6 +664,107 @@ body {
   opacity: 0.75;
   pointer-events: none;
 }
+
+/* === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === */
+.route-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: none;
+}
+
+.route-modal[aria-hidden="false"] {
+  display: block;
+}
+
+.route-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.route-modal__card {
+  position: relative;
+  margin: 0 auto;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 420px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: var(--elev-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.route-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-modal__lead {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.9rem;
+}
+
+.route-modal__route {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-900);
+  font-size: 1.1rem;
+}
+
+.route-modal__desc {
+  margin: 0;
+  color: var(--ink-500);
+  line-height: 1.5;
+}
+
+.route-modal__label {
+  font-weight: 600;
+  color: var(--ink-500);
+  margin-bottom: 6px;
+}
+
+.route-modal__input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.route-modal__input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.route-modal__feedback {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  min-height: 18px;
+  color: var(--ink-300);
+}
+
+.route-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.route-modal__cta {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 24px;
+  text-transform: none;
+  font-weight: 600;
+}
+/* === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === */
 
 @media (max-width: 640px) {
   .add-modal__card {

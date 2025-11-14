@@ -157,6 +157,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const custodiosListEl = document.getElementById("custodios-list");
   const custodiosCloseBtn = document.getElementById("custodios-close");
   const custodiosOverlay = document.getElementById("custodios-overlay");
+  // === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA (UI refs) ===
+  const rutaAlertEl = document.getElementById("ruta-alert");
+  const rutaAlertCopyEl = document.getElementById("ruta-alert-copy");
+  const rutaAlertMetaEl = document.getElementById("ruta-alert-meta");
+  const rutaAlertViewBtn = document.getElementById("ruta-alert-view");
+  const rutaAlertCloseEls = document.querySelectorAll("[data-ruta-alert-close]");
+  // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
@@ -223,11 +230,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   let routeToastShown = false;
   let routeLocalDown = !ROUTE_USE_LOCAL;
   // === END HU:HU-RUTA-TRAZADO ===
+  // === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA (state) ===
+  const rutaClienteCache = new Map();
+  let rutaAlertData = null;
+  let rutaClienteLayer = null;
+  // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
   let lastSent = 0;
   let servicioChannel = null;
   let finishModal = null;
   const custodiosCache = { data: [], fetchedAt: 0 };
   let geoPermissionLogged = false;
+  // === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA (events) ===
+  rutaAlertCloseEls.forEach((el) =>
+    el.addEventListener("click", (evt) => {
+      const cause =
+        evt.currentTarget?.getAttribute("data-ruta-alert-close") || "button";
+      closeRutaAlert(cause);
+    })
+  );
+  rutaAlertViewBtn?.addEventListener("click", () => handleRutaAlertView());
+  document.addEventListener("keydown", (evt) => {
+    if (evt.key === "Escape" && isRutaAlertOpen()) {
+      closeRutaAlert("escape");
+    }
+  });
+  // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
 
   function distanciaM(lat1, lng1, lat2, lng2) {
     const R = 6371000; // metros
@@ -395,7 +422,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const { data, error } = await window.sb
         .from("servicio")
         .select(
-          "id, empresa, placa, tipo, destino_lat, destino_lng, destino_texto, estado, last_checkin_at, cliente:cliente_id(nombre)"
+          "id, empresa, placa, tipo, destino_lat, destino_lng, destino_texto, estado, last_checkin_at, cliente:cliente_id(id, nombre)"
         )
         .eq("id", servicioId)
         .single();
@@ -627,6 +654,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
     clearRouteLayer("channels-cleanup");
     // === END HU:HU-RUTA-TRAZADO ===
+    clearRutaClienteLayer("channels-cleanup"); // HU-RUTA-DESVIO-FRONT-CUSTODIA
   }
 
   // === BEGIN HU:HU-RUTA-TRAZADO Ruta Partida-Destino (NO TOCAR FUERA) ===
@@ -788,6 +816,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const evtServicioId =
       record.servicio_id || record.servicioId || evt.servicio_id;
     if (evtServicioId && String(evtServicioId) !== servicioId) return;
+    if (evt.type === "ruta_desviada") {
+      handleRutaDesvioRecord(record);
+      return;
+    }
     if (evt.type === "checkin_ok") {
       lastCheckinAt = Date.now();
       localCheckinAttempt = 0;
@@ -901,6 +933,194 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   /* === END HU:HU-CHECKIN-15M === */
+
+  /* === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === */
+  function handleRutaDesvioRecord(record) {
+    if (!record) return;
+    const metadata =
+      record.metadata && typeof record.metadata === "object"
+        ? { ...record.metadata }
+        : {};
+    const targetServicio =
+      record.servicio_id ||
+      metadata.servicio_id ||
+      metadata.servicio ||
+      servicioId;
+    if (targetServicio && String(targetServicio) !== servicioId) return;
+    rutaAlertData = {
+      servicioId,
+      cliente: record.cliente || servicioInfo?.cliente?.nombre || "este cliente",
+      clienteId:
+        metadata.cliente_id ||
+        servicioInfo?.cliente?.id ||
+        metadata.clienteId ||
+        null,
+      rutaClienteId: metadata.ruta_cliente_id || null,
+      metadata,
+    };
+    updateRutaAlertContent();
+    openRutaAlert();
+  }
+
+  function openRutaAlert() {
+    if (!rutaAlertEl || !rutaAlertData) return;
+    rutaAlertEl.setAttribute("aria-hidden", "false");
+    document.body.classList.add("alarma-route-open");
+    requestAnimationFrame(() => rutaAlertViewBtn?.focus());
+  }
+
+  function closeRutaAlert(reason = "manual") {
+    if (!rutaAlertEl) return;
+    rutaAlertEl.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("alarma-route-open");
+    if (reason === "dismiss") {
+      rutaAlertData = rutaAlertData
+        ? { ...rutaAlertData, acknowledged: true }
+        : rutaAlertData;
+    }
+  }
+
+  function isRutaAlertOpen() {
+    return rutaAlertEl?.getAttribute("aria-hidden") === "false";
+  }
+
+  function updateRutaAlertContent() {
+    if (!rutaAlertData) return;
+    if (rutaAlertCopyEl) {
+      const clienteLabel = rutaAlertData.cliente || "este cliente";
+      rutaAlertCopyEl.textContent = `Te has desviado de la ruta establecida para ${clienteLabel}. Verifica tu posición y regresa al trazo indicado por el sistema.`;
+    }
+    if (rutaAlertMetaEl) {
+      const meta = rutaAlertData.metadata || {};
+      const pieces = [];
+      const dist = Number(meta.distancia_m);
+      const tol = Number(meta.tolerancia_m);
+      if (Number.isFinite(dist)) {
+        pieces.push(`Distancia fuera: ${Math.round(dist)} m`);
+      }
+      if (Number.isFinite(tol)) {
+        pieces.push(`Tolerancia ${Math.round(tol)} m`);
+      }
+      if (meta.ultimo_ping) {
+        pieces.push(`Último ping ${formatRelativeTime(meta.ultimo_ping)}`);
+      }
+      if (meta.ruta_nombre) {
+        pieces.push(meta.ruta_nombre);
+      }
+      rutaAlertMetaEl.textContent =
+        pieces.join(" · ") || "Confirma tu posición para continuar.";
+    }
+  }
+
+  async function handleRutaAlertView() {
+    if (!rutaAlertData || !window.sb) return;
+    if (rutaAlertViewBtn) {
+      rutaAlertViewBtn.disabled = true;
+      rutaAlertViewBtn.setAttribute("aria-busy", "true");
+    }
+    try {
+      const routeData = await fetchRutaAsignada(rutaAlertData);
+      if (!routeData?.geojson) {
+        showMsg("No se encontró una ruta activa para este cliente.");
+        return;
+      }
+      drawRutaClienteLayer(routeData.geojson);
+      showMsg("Ruta asignada resaltada en el mapa.");
+    } catch (err) {
+      console.error("[mapa][ruta-alert] error ruta", err);
+      showMsg("No se pudo cargar la ruta asignada.");
+    } finally {
+      if (rutaAlertViewBtn) {
+        rutaAlertViewBtn.disabled = false;
+        rutaAlertViewBtn.removeAttribute("aria-busy");
+      }
+    }
+  }
+
+  async function fetchRutaAsignada(target) {
+    const rutaId = target.rutaClienteId || null;
+    const clienteId = target.clienteId || null;
+    const cacheKey = rutaId ? `ruta:${rutaId}` : clienteId ? `cli:${clienteId}` : null;
+    if (!cacheKey) {
+      throw new Error("Cliente sin identificador para ruta asignada");
+    }
+    if (rutaClienteCache.has(cacheKey)) {
+      return rutaClienteCache.get(cacheKey);
+    }
+    let builder = window.sb
+      .from("ruta_cliente")
+      .select("id, nombre, descripcion, geojson, tolerancia_metros, cliente_id")
+      .eq("is_active", true);
+    if (rutaId) {
+      builder = builder.eq("id", rutaId).maybeSingle();
+    } else {
+      builder = builder
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    }
+    const { data, error } = await builder;
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+    if (!data) return null;
+    const feature = normalizeRutaFeature(data.geojson);
+    if (!feature) return null;
+    const payload = { ...data, geojson: feature };
+    rutaClienteCache.set(cacheKey, payload);
+    return payload;
+  }
+
+  function drawRutaClienteLayer(feature) {
+    if (!map || !feature) return;
+    clearRutaClienteLayer("replace");
+    rutaClienteLayer = L.geoJSON(feature, {
+      style: {
+        color: "#2563eb",
+        weight: 5,
+        opacity: 0.95,
+        dashArray: "10 6",
+      },
+    }).addTo(map);
+    const bounds = rutaClienteLayer.getBounds();
+    if (bounds?.isValid && bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.12), { padding: [48, 48] });
+    }
+  }
+
+  function clearRutaClienteLayer(reason = "manual") {
+    if (rutaClienteLayer && map) {
+      try {
+        map.removeLayer(rutaClienteLayer);
+      } catch (_) {}
+    }
+    if (reason === "channels-cleanup") {
+      rutaClienteCache.clear();
+    }
+    rutaClienteLayer = null;
+  }
+
+  function normalizeRutaFeature(rawGeojson) {
+    if (!rawGeojson) return null;
+    let parsed = rawGeojson;
+    if (typeof rawGeojson === "string") {
+      try {
+        parsed = JSON.parse(rawGeojson);
+      } catch (err) {
+        console.warn("[mapa][ruta-alert] geojson inválido", err);
+        return null;
+      }
+    }
+    if (parsed.type === "Feature" && parsed.geometry?.type === "LineString") {
+      return parsed;
+    }
+    if (parsed.type === "LineString") {
+      return { type: "Feature", geometry: parsed };
+    }
+    return null;
+  }
+  /* === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === */
 
   function handleServicioUpdate(row) {
     if (!row) return;
@@ -1103,6 +1323,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           console.warn("[alarma] emit finalize", err);
         }
         window.CustodiaSession?.clear?.();
+        closeRutaAlert("servicio-finalizado"); // HU-RUTA-DESVIO-FRONT-CUSTODIA
+        clearRutaClienteLayer("servicio-finalizado"); // HU-RUTA-DESVIO-FRONT-CUSTODIA
         showMsg("Servicio finalizado correctamente.");
         btnFinalizar.disabled = true;
         cleanupCheckinMonitoring("finalizado-manual");

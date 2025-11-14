@@ -403,6 +403,18 @@
     if (!state.selfieBlob) {
       throw new Error("Selfie requerida");
     }
+    const servicioCustodioId = state.selfieContext?.servicioCustodioId;
+    if (!servicioCustodioId) {
+      console.info(
+        `${API_PREFIX} selfie omitida`,
+        "Sin servicio_custodio_id disponible",
+        { custodia: custodia?.id }
+      );
+      showMsg(
+        "Tu selfie se solicitará nuevamente cuando te asignen a un servicio."
+      );
+      return null;
+    }
     const mime = state.selfieBlob.type || "image/jpeg";
     const bytes = await blobToHex(state.selfieBlob);
     console.log(`${API_PREFIX} insert selfie`, {
@@ -411,14 +423,13 @@
     });
     const payload = {
       custodia_id: custodia.id,
+      servicio_custodio_id: servicioCustodioId,
       mime_type: mime,
       bytes,
     };
-    if (state.selfieContext?.servicioCustodioId) {
-      payload.servicio_custodio_id = state.selfieContext.servicioCustodioId;
-    }
     const { error } = await window.sb.from("selfie").insert(payload);
     if (error) throw error;
+    return payload;
   }
 
   async function blobToHex(blob) {

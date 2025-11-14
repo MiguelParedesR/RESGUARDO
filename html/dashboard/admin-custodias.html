@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel de Custodias</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
+
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+
+  <link rel="stylesheet" href="../../css/dashboard/admin-custodias.css" />
+  <link rel="stylesheet" href="../../css/partials/app-header.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../../config.js"></script>
+
+  <script defer src="../../js/guard.js"></script>
+  <script defer src="../../js/lib/app-header.js"></script>
+  <script defer src="../../js/dashboard/admin-custodias.js"></script>
+  <script defer src="../../js/pwa.js"></script>
+</head>
+
+<body class="mdl-base">
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <div id="app-header" data-page-title="Panel de Custodias" data-nav="admin"></div>
+
+    <!-- === BEGIN HU:HU-ADMIN-CUSTODIAS-PANEL (NO TOCAR FUERA) === -->
+    <main class="mdl-layout__content">
+      <section class="page page--custodias">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Custodias</p>
+            <h1>Gestión de custodias registradas</h1>
+          </div>
+          <div class="filters">
+            <div class="filter">
+              <label for="filtro-estado">Estado</label>
+              <select id="filtro-estado">
+                <option value="TODOS">Todos</option>
+                <option value="ACTIVO">Activos</option>
+                <option value="INACTIVO">Inactivos</option>
+              </select>
+            </div>
+            <div class="filter">
+              <label for="filtro-empresa">Empresa</label>
+              <select id="filtro-empresa">
+                <option value="TODAS">Todas</option>
+                <option value="ALVICEM">ALVICEM</option>
+                <option value="KARPAR">KARPAR</option>
+                <option value="OTRA">Otra</option>
+              </select>
+            </div>
+            <div class="filter filter--search">
+              <label for="buscar-custodias">Buscar</label>
+              <div class="field-input">
+                <i class="material-icons" aria-hidden="true">search</i>
+                <input id="buscar-custodias" type="search" placeholder="Nombre o DNI" />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Selfie</th>
+                <th>Nombre</th>
+                <th>DNI</th>
+                <th>Empresa</th>
+                <th>Estado</th>
+                <th>Creado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-custodias">
+              <tr>
+                <td colspan="7" class="tabla-empty">Cargando custodias...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <!-- === END HU:HU-ADMIN-CUSTODIAS-PANEL === -->
+
+    <dialog id="modal-detalle" class="modal">
+      <form method="dialog" class="modal-card">
+        <header>
+          <div>
+            <p class="eyebrow">Detalle</p>
+            <h3 id="detalle-nombre">Custodia</h3>
+          </div>
+          <button class="icon-btn" type="button" data-close>
+            <i class="material-icons" aria-hidden="true">close</i>
+          </button>
+        </header>
+        <div class="modal-body">
+          <div class="detalle-selfie">
+            <img id="detalle-selfie" alt="Selfie de la custodia" />
+          </div>
+          <div class="detalle-info">
+            <p><strong>DNI:</strong> <span id="detalle-dni">--</span></p>
+            <p><strong>Empresa:</strong> <span id="detalle-empresa">--</span></p>
+            <p><strong>Estado:</strong> <span id="detalle-estado">--</span></p>
+            <p><strong>Creado:</strong> <span id="detalle-creado">--</span></p>
+          </div>
+        </div>
+        <footer>
+          <button type="button" class="btn-ghost" data-close>Cerrar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="polite">
+      <div class="mdl-snackbar__text"></div>
+      <button class="mdl-snackbar__action" type="button"></button>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -43,16 +43,29 @@
                 Selecciona un cliente para revisar los servicios activos y continúa solo si eres el titular asignado.
               </p>
             </div>
-            <label for="cliente-select" class="sr-only">Selecciona un cliente</label>
-            <div class="select-field">
-              <select id="cliente-select" class="controls__select" aria-label="Selecciona un cliente">
-                <option value="">Selecciona un cliente…</option>
-              </select>
-              <button id="cliente-clear" class="icon-btn icon-btn--ghost" type="button"
-                aria-label="Limpiar selección">
-                <i class="material-icons" aria-hidden="true">clear</i>
+            <!-- === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
+            <div class="cliente-search">
+              <label for="cliente-search" class="cliente-search__label">Cliente (carga)</label>
+              <div id="cliente-search-field" class="cliente-search__field" role="combobox" aria-haspopup="listbox"
+                aria-expanded="false" aria-owns="cliente-results">
+                <i class="material-icons" aria-hidden="true">search</i>
+                <input id="cliente-search" type="search" autocomplete="off" enterkeyhint="search"
+                  placeholder="Escribe el nombre del cliente" aria-controls="cliente-results" aria-autocomplete="list"
+                  aria-label="Buscar cliente" />
+                <button id="cliente-clear" class="icon-btn icon-btn--ghost" type="button" aria-label="Limpiar búsqueda">
+                  <i class="material-icons" aria-hidden="true">clear</i>
+                </button>
+              </div>
+              <p id="cliente-feedback" class="cliente-search__feedback" role="status" aria-live="polite"></p>
+              <ul id="cliente-results" class="cliente-search__results" role="listbox"
+                aria-label="Resultados de clientes"></ul>
+              <button type="button" id="cliente-add-btn" class="btn-link cliente-search__add"
+                aria-label="Agregar nuevo cliente" hidden>
+                <i class="material-icons" aria-hidden="true">person_add</i>
+                <span>Agregar nuevo cliente</span>
               </button>
             </div>
+            <!-- === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
           </aside>
 
           <div class="custodia-main">
@@ -118,14 +131,62 @@
               <button type="button" class="mdl-button mdl-js-button add-modal__cancel" data-add-close>
                 Cancelar
               </button>
-              <button type="button" id="add-modal-confirm"
-                class="mdl-button mdl-js-button add-modal__confirm">
+              <button type="button" id="add-modal-confirm" class="mdl-button mdl-js-button add-modal__confirm">
                 Confirmar
               </button>
             </footer>
           </div>
         </section>
         <!-- === END HU:HU-CUSTODIA-REGISTROS-FLUJO === -->
+        <!-- === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
+        <section id="modal-ruta-cliente" class="route-modal" aria-hidden="true">
+          <div class="route-modal__backdrop" data-route-close></div>
+          <div class="route-modal__card" role="dialog" aria-modal="true" aria-labelledby="route-modal-title">
+            <header class="route-modal__head">
+              <h3 id="route-modal-title">Ruta asignada para este cliente</h3>
+              <button type="button" class="icon-btn route-modal__close" data-route-close aria-label="Cerrar modal">
+                <i class="material-icons" aria-hidden="true">close</i>
+              </button>
+            </header>
+            <div class="route-modal__body">
+              <p class="route-modal__lead">Tu ruta asignada es:</p>
+              <p id="route-modal-name" class="route-modal__route"></p>
+              <p id="route-modal-desc" class="route-modal__desc" hidden></p>
+            </div>
+            <footer class="route-modal__actions">
+              <button type="button" class="mdl-button mdl-js-button route-modal__cta" data-route-close>
+                Entendido
+              </button>
+            </footer>
+          </div>
+        </section>
+
+        <section id="modal-cliente-nuevo" class="route-modal" aria-hidden="true">
+          <div class="route-modal__backdrop" data-cliente-close></div>
+          <div class="route-modal__card" role="dialog" aria-modal="true" aria-labelledby="cliente-modal-title">
+            <header class="route-modal__head">
+              <h3 id="cliente-modal-title">Agregar nuevo cliente</h3>
+              <button type="button" class="icon-btn route-modal__close" data-cliente-close aria-label="Cerrar modal">
+                <i class="material-icons" aria-hidden="true">close</i>
+              </button>
+            </header>
+            <div class="route-modal__body">
+              <label for="cliente-nombre" class="route-modal__label">Nombre del cliente</label>
+              <input id="cliente-nombre" type="text" class="route-modal__input" maxlength="120" placeholder="Ej. Ripley"
+                aria-label="Nombre del nuevo cliente" />
+              <p id="cliente-modal-feedback" class="route-modal__feedback" role="status" aria-live="assertive"></p>
+            </div>
+            <footer class="route-modal__actions">
+              <button type="button" class="mdl-button mdl-js-button" data-cliente-close>
+                Cancelar
+              </button>
+              <button type="button" id="cliente-modal-save" class="mdl-button mdl-js-button mdl-button--raised">
+                Guardar cliente
+              </button>
+            </footer>
+          </div>
+        </section>
+        <!-- === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
       </section>
 
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">

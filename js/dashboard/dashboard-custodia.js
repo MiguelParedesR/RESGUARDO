@@ -36,7 +36,17 @@
     return {
       form: document.getElementById("form-custodia"),
       tipo: document.getElementById("tipo"),
-      cliente: document.getElementById("cliente"),
+      clienteInput: document.getElementById("cliente-search"),
+      clienteBox: document.querySelector(".cliente-search"),
+      clienteClear: document.getElementById("cliente-clear"),
+      clienteResults: document.getElementById("cliente-results"),
+      clienteFeedback: document.getElementById("cliente-feedback"),
+      clienteAddBtn: document.getElementById("cliente-add-btn"),
+      modalCliente: document.getElementById("modal-cliente"),
+      modalClienteInput: document.getElementById("modal-cliente-input"),
+      modalClienteSave: document.getElementById("modal-cliente-save"),
+      modalClienteFeedback: document.getElementById("modal-cliente-feedback"),
+      modalClienteCancel: document.getElementById("modal-cliente-cancel"),
       placa: document.getElementById("placa"),
       destino: document.getElementById("destino"),
       destinoStatus: document.getElementById("direccion-estado"),
@@ -64,6 +74,11 @@
       lastQuery: "",
       locationIqKey: window.APP_CONFIG?.LOCATIONIQ_KEY || "",
       snackbar: refs.snackbar,
+      clienteResults: [],
+      clienteSearchTimer: null,
+      clienteSelectedId: "",
+      clienteSelectedNombre: "",
+      clienteQuery: "",
     };
   }
 
@@ -143,6 +158,7 @@
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
     });
+    bindClienteSearch(refs, state);
   }
 
   function handleDestinoKeydown(evt, state, refs) {
@@ -347,11 +363,14 @@
       );
       return;
     }
-    const clienteNombre = refs.cliente.value.trim();
+    const clienteNombre = (state.clienteSelectedNombre || "").trim();
     const placaRaw = refs.placa.value.trim().toUpperCase();
     const destinoTexto = refs.destino.value.trim();
     const tipo = refs.tipo.value || "Simple";
-    if (!clienteNombre) return showMsg(state, "Ingresa el cliente.");
+    if (!state.clienteSelectedId || !clienteNombre) {
+      showMsg(state, "Selecciona un cliente de la lista o agrégalo.");
+      return;
+    }
     if (!PLACA_REGEX.test(placaRaw))
       return showMsg(
         state,
@@ -360,11 +379,10 @@
     if (!destinoTexto) return showMsg(state, "Ingresa la dirección destino.");
     setButtonLoading(refs.btnGuardar, true);
     try {
-      const clienteId = await ensureCliente(clienteNombre);
       await ensurePlacaDisponible(empresa, placaRaw);
       const servicio = await createServicio({
         empresa,
-        cliente_id: clienteId,
+        cliente_id: state.clienteSelectedId,
         tipo,
         placa: placaRaw,
         destino_texto: destinoTexto,
@@ -397,24 +415,6 @@
     } finally {
       setButtonLoading(refs.btnGuardar, false);
     }
-  }
-
-  async function ensureCliente(nombre) {
-    const normalizado = normalizeCliente(nombre);
-    const { data, error } = await window.sb
-      .from("cliente")
-      .select("id")
-      .eq("nombre_upper", normalizado)
-      .maybeSingle();
-    if (error && error.code !== "PGRST116") throw error;
-    if (data?.id) return data.id;
-    const insercion = await window.sb
-      .from("cliente")
-      .insert({ nombre }, { returning: "representation" })
-      .select("id")
-      .single();
-    if (insercion.error) throw insercion.error;
-    return insercion.data.id;
   }
 
   async function ensurePlacaDisponible(empresa, placaUpper) {
@@ -492,6 +492,7 @@
         "Empieza a escribir para ver sugerencias o usa Buscar en el mapa.";
       refs.destinoStatus.style.color = "#607d8b";
     }
+    clearClienteSelection(refs, state);
   }
 
   function showMsg(state, message) {
@@ -519,6 +520,220 @@
   function normalizeCliente(nombre) {
     return nombre.toUpperCase().trim().replace(/\s+/g, " ");
   }
+
+  // === BEGIN HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH ===
+  function bindClienteSearch(refs, state) {
+    if (!refs.clienteInput) return;
+    refs.clienteInput.addEventListener("input", () =>
+      handleClienteSearchInput(refs, state)
+    );
+    refs.clienteInput.addEventListener("focus", () => {
+      if (state.clienteResults.length) {
+        refs.clienteResults.hidden = false;
+        refs.clienteBox?.setAttribute("aria-expanded", "true");
+      }
+    });
+    refs.clienteInput.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") {
+        evt.preventDefault();
+        const first = state.clienteResults?.[0];
+        if (first) selectClienteResult(first, refs, state);
+      } else if (evt.key === "Escape") {
+        hideClienteResults(refs);
+      }
+    });
+    document.addEventListener("click", (evt) => {
+      if (!evt.target.closest(".cliente-field")) hideClienteResults(refs);
+    });
+    refs.clienteResults?.addEventListener("click", (evt) => {
+      const btn = evt.target.closest("button[data-cliente-id]");
+      if (!btn) return;
+      selectClienteResult(
+        {
+          id: btn.dataset.clienteId,
+          nombre: btn.dataset.clienteNombre,
+        },
+        refs,
+        state
+      );
+    });
+    refs.clienteClear?.addEventListener("click", () =>
+      clearClienteSelection(refs, state)
+    );
+    refs.clienteAddBtn?.addEventListener("click", () =>
+      openClienteModal(refs, state)
+    );
+    refs.modalClienteCancel?.addEventListener("click", () =>
+      closeClienteModal(refs)
+    );
+    refs.modalCliente?.addEventListener("click", (evt) => {
+      if (evt.target === refs.modalCliente) closeClienteModal(refs);
+    });
+    refs.modalClienteSave?.addEventListener("click", () =>
+      handleClienteSave(refs, state)
+    );
+    updateClienteFeedback(refs, "Escribe para buscar clientes.");
+  }
+
+  function handleClienteSearchInput(refs, state) {
+    const value = refs.clienteInput.value || "";
+    state.clienteQuery = value;
+    state.clienteSelectedId = "";
+    state.clienteSelectedNombre = "";
+    hideClienteResults(refs);
+    toggleClienteAdd(refs, value);
+    if (state.clienteSearchTimer) clearTimeout(state.clienteSearchTimer);
+    if (!value.trim()) {
+      state.clienteResults = [];
+      updateClienteFeedback(refs, "Escribe para buscar clientes.");
+      return;
+    }
+    updateClienteFeedback(refs, "Buscando clientes...");
+    state.clienteSearchTimer = setTimeout(
+      () => searchClientes(value, refs, state),
+      320
+    );
+  }
+
+  async function searchClientes(query, refs, state) {
+    try {
+      const pattern = `${normalizeCliente(query)}%`;
+      const { data, error } = await window.sb
+        .from("cliente")
+        .select("id,nombre")
+        .ilike("nombre_upper", pattern)
+        .order("nombre", { ascending: true })
+        .limit(20);
+      if (error) throw error;
+      state.clienteResults = data || [];
+      renderClienteResults(refs, state);
+      if (state.clienteResults.length) {
+        updateClienteFeedback(
+          refs,
+          `${state.clienteResults.length} cliente(s) encontrado(s).`
+        );
+        refs.clienteAddBtn.hidden = true;
+      } else {
+        updateClienteFeedback(refs, "Sin coincidencias. Puedes agregarlo.");
+        refs.clienteAddBtn.hidden = false;
+      }
+    } catch (err) {
+      console.warn("[cliente-search] error", err);
+      updateClienteFeedback(refs, "No se pudo buscar clientes.");
+    }
+  }
+
+  function renderClienteResults(refs, state) {
+    const list = refs.clienteResults;
+    if (!list) return;
+    list.innerHTML = "";
+    if (!state.clienteResults.length) {
+      hideClienteResults(refs);
+      return;
+    }
+    state.clienteResults.forEach((cliente) => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.clienteId = cliente.id;
+      button.dataset.clienteNombre = cliente.nombre;
+      button.innerText = cliente.nombre;
+      li.appendChild(button);
+      list.appendChild(li);
+    });
+    list.hidden = false;
+    refs.clienteBox?.setAttribute("aria-expanded", "true");
+  }
+
+  function hideClienteResults(refs) {
+    if (refs.clienteResults) {
+      refs.clienteResults.hidden = true;
+      refs.clienteResults.innerHTML = "";
+    }
+    refs.clienteBox?.setAttribute("aria-expanded", "false");
+  }
+
+  function selectClienteResult(cliente, refs, state) {
+    if (!cliente?.id) return;
+    state.clienteSelectedId = cliente.id;
+    state.clienteSelectedNombre = cliente.nombre || "";
+    refs.clienteInput.value = cliente.nombre || "";
+    refs.clienteInput.classList.add("has-value");
+    hideClienteResults(refs);
+    refs.clienteAddBtn.hidden = true;
+    updateClienteFeedback(refs, `Cliente seleccionado: ${cliente.nombre}`);
+  }
+
+  function clearClienteSelection(refs, state) {
+    state.clienteSelectedId = "";
+    state.clienteSelectedNombre = "";
+    state.clienteQuery = "";
+    state.clienteResults = [];
+    if (refs.clienteInput) {
+      refs.clienteInput.value = "";
+      refs.clienteInput.classList.remove("has-value");
+    }
+    hideClienteResults(refs);
+    refs.clienteAddBtn.hidden = true;
+    updateClienteFeedback(refs, "Escribe para buscar clientes.");
+  }
+
+  function updateClienteFeedback(refs, message) {
+    if (refs.clienteFeedback) refs.clienteFeedback.textContent = message || "";
+  }
+
+  function toggleClienteAdd(refs, value) {
+    if (!refs.clienteAddBtn) return;
+    const show = Boolean(value && value.trim().length >= 3);
+    refs.clienteAddBtn.hidden = !show;
+  }
+
+  function openClienteModal(refs, state) {
+    if (!refs.modalCliente) return;
+    refs.modalClienteInput.value = (state.clienteQuery || "").trim();
+    if (refs.modalClienteFeedback) refs.modalClienteFeedback.textContent = "";
+    refs.modalCliente.classList.add("open");
+    refs.modalCliente.setAttribute("aria-hidden", "false");
+    setTimeout(() => refs.modalClienteInput?.focus(), 60);
+  }
+
+  function closeClienteModal(refs) {
+    if (!refs.modalCliente) return;
+    refs.modalCliente.classList.remove("open");
+    refs.modalCliente.setAttribute("aria-hidden", "true");
+  }
+
+  async function handleClienteSave(refs, state) {
+    const nombre = refs.modalClienteInput?.value.trim();
+    if (!nombre || nombre.length < 3) {
+      if (refs.modalClienteFeedback) {
+        refs.modalClienteFeedback.textContent =
+          "Ingresa al menos 3 caracteres para el nombre.";
+      }
+      return;
+    }
+    if (refs.modalClienteFeedback) {
+      refs.modalClienteFeedback.textContent = "Guardando...";
+    }
+    try {
+      const { data, error } = await window.sb
+        .from("cliente")
+        .insert({ nombre })
+        .select("id,nombre")
+        .single();
+      if (error) throw error;
+      closeClienteModal(refs);
+      selectClienteResult(data, refs, state);
+      updateClienteFeedback(refs, "Cliente agregado correctamente.");
+    } catch (err) {
+      console.error("[cliente-modal] error", err);
+      if (refs.modalClienteFeedback) {
+        refs.modalClienteFeedback.textContent =
+          "Error al guardar. Intenta nuevamente.";
+      }
+    }
+  }
+  // === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH ===
 
   async function fetchAutocomplete(query, key) {
     if (!key) return [];

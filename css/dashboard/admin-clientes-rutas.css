@@ -1,0 +1,378 @@
+/* === BEGIN HU:HU-ADMIN-RUTAS-CRUD styles (NO TOCAR FUERA) === */
+:root {
+  --page-bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --ink-900: #0f172a;
+  --ink-700: #1f2a44;
+  --ink-500: #46536b;
+  --ink-300: #8c97ad;
+  --stroke: #e1e8f0;
+  --primary: #3f51b5;
+  --primary-soft: rgba(63, 81, 181, 0.12);
+  --danger: #d32f2f;
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 10px;
+  --shadow-soft: 0 28px 55px rgba(15, 23, 42, 0.12);
+}
+
+body {
+  background: var(--page-bg);
+  font-family: "Inter", "Roboto", system-ui, sans-serif;
+  color: var(--ink-700);
+}
+
+.page {
+  padding: 20px clamp(16px, 4vw, 32px) 40px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.panel {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.panel__head--rutas {
+  align-items: flex-start;
+}
+
+.panel__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.panel__head h2 {
+  margin: 4px 0 0;
+  color: var(--ink-900);
+}
+
+.panel__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field--inline {
+  max-width: 200px;
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-500);
+}
+
+.field__input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  background: #fff;
+  gap: 6px;
+}
+
+.field__input i {
+  color: var(--ink-300);
+}
+
+.field input,
+.field textarea,
+.field select {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink-700);
+  background: #fff;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.15);
+}
+
+.btn-primary,
+.btn-ghost,
+.btn-danger {
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(63, 81, 181, 0.35);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 38px rgba(63, 81, 181, 0.4);
+}
+
+.btn-ghost {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid rgba(63, 81, 181, 0.2);
+}
+
+.btn-ghost:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(63, 81, 181, 0.18);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(211, 47, 47, 0.35);
+}
+
+.panel--clientes {
+  min-height: 70vh;
+}
+
+.lista-clientes {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: calc(100vh - 280px);
+  min-height: 220px;
+  background: #fff;
+}
+
+.cliente-item {
+  border-bottom: 1px solid var(--stroke);
+  padding: 12px 14px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  transition: background 0.2s ease;
+}
+
+.cliente-item:last-child {
+  border-bottom: none;
+}
+
+.cliente-item:hover {
+  background: var(--primary-soft);
+}
+
+.cliente-item.is-active {
+  background: rgba(63, 81, 181, 0.08);
+  border-left: 3px solid var(--primary);
+  padding-left: 11px;
+}
+
+.cliente-item strong {
+  color: var(--ink-700);
+}
+
+.cliente-item span {
+  font-size: 0.85rem;
+  color: var(--ink-300);
+}
+
+.panel__empty {
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 0.9rem;
+}
+
+.grid-form {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.map-wrapper {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+}
+
+#map-rutas {
+  width: 100%;
+  height: 360px;
+}
+
+.map-hint {
+  text-align: center;
+  margin: 8px 0 12px;
+  font-size: 0.85rem;
+  color: var(--ink-300);
+}
+
+.rutas-listado table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rutas-listado th {
+  text-align: left;
+  padding: 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--ink-300);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.rutas-listado td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  vertical-align: middle;
+}
+
+.tabla-empty {
+  text-align: center;
+  color: var(--ink-300);
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.badge--active {
+  background: rgba(76, 175, 80, 0.12);
+  color: #1b5e20;
+}
+
+.badge--inactive {
+  background: rgba(158, 158, 158, 0.2);
+  color: #424242;
+}
+
+.tabla-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.tabla-actions button {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s ease;
+}
+
+.tabla-actions button:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.modal {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: var(--shadow-soft);
+  width: min(420px, 90vw);
+}
+
+.modal::backdrop {
+  background: rgba(6, 11, 25, 0.65);
+  backdrop-filter: blur(3px);
+}
+
+.modal__card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.modal__card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal__card header h3 {
+  margin: 0;
+}
+
+.modal__card footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.modal--confirm {
+  width: min(380px, 90vw);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .panel__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-primary,
+  .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+}
+/* === END HU:HU-ADMIN-RUTAS-CRUD === */

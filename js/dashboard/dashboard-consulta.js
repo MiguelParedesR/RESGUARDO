@@ -388,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .trim()
       )
       .filter(Boolean);
-    return nombres.length ? nombres.join(" · ") : "Sin custodias";
+    return nombres.length ? nombres.join(" \u00b7 ") : "Sin custodias";
   }
 
   function configureFotosButton(btn, items) {
@@ -674,55 +674,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return data || [];
   }
 
-  function configureFotosButton(btn, items) {
-    if (!btn) return;
-    if (!items.length) {
-      btn.disabled = true;
-      btn.classList.add("is-muted");
-      const label = btn.querySelector("span");
-      if (label) label.textContent = "Sin fotos";
-      return;
-    }
-    btn.disabled = false;
-    btn.classList.remove("is-muted");
-    const label = btn.querySelector("span");
-    if (label) label.textContent = `Ver fotos (${items.length})`;
-    btn.__fotos = items;
-    if (!btn.dataset.bound) {
-      btn.addEventListener("click", () => {
-        if (Array.isArray(btn.__fotos) && btn.__fotos.length) {
-          showFotosCustodia(btn.__fotos);
-        }
-      });
-      btn.dataset.bound = "1";
-    }
-  }
-
-  function buildSelfieItems(entries) {
-    const list = [];
-    (entries || []).forEach((cust) => {
-      const nombre =
-        (cust.custodia?.nombre || cust.nombre_custodio || "Custodia").trim();
-      const files = [
-        ...(Array.isArray(cust.custodia?.selfies)
-          ? cust.custodia.selfies
-          : []),
-        ...(Array.isArray(cust.sc_selfies) ? cust.sc_selfies : []),
-      ];
-      files.forEach((file) => {
-        if (!file?.bytes) return;
-        const mime = file.mime_type || "image/jpeg";
-        list.push({
-          src: `data:${mime};base64,${toBase64(file.bytes)}`,
-          label: `Custodia: ${nombre}`,
-          custodiaId: cust.custodia?.id || cust.custodia_id || null,
-          servicioCustodioId: cust.id,
-        });
-      });
-    });
-    return list;
-  }
-
   function getSelfieSrc(entry) {
     const primary =
       Array.isArray(entry?.custodia?.selfies) && entry.custodia.selfies.length
@@ -747,6 +698,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
+
+
 
 
 

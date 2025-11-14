@@ -617,6 +617,129 @@ body.alarma-siren-active {
   overflow: hidden;
 }
 
+/* === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === */
+.alarma-route {
+  position: fixed;
+  inset: 0;
+  z-index: 5200;
+  display: none;
+}
+
+.alarma-route[aria-hidden="false"] {
+  display: block;
+}
+
+body.alarma-route-open {
+  overflow: hidden;
+}
+
+.alarma-route__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 15, 40, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.alarma-route__card {
+  position: relative;
+  margin: 0 auto;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 420px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 35px 65px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alarma-route__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alarma-route__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: #8c8faa;
+}
+
+.alarma-route__close {
+  border: none;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #51556d;
+}
+
+.alarma-route__title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #121424;
+}
+
+.alarma-route__copy {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #444a63;
+  line-height: 1.5;
+}
+
+.alarma-route__meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.alarma-route__actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.alarma-route__actions .mdl-button {
+  text-transform: none;
+  font-weight: 600;
+}
+
+.alarma-route__actions .mdl-button--raised {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.35);
+}
+
+.alarma-route__actions .mdl-button--raised:hover {
+  background: #1d4ed8;
+}
+
+@media (max-width: 640px) {
+  .alarma-route__card {
+    margin: 0 16px;
+    padding: 24px 20px 20px;
+    border-radius: 24px;
+  }
+
+  .alarma-route__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+/* === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === */
+
 @media (max-width: 720px) {
 /* @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-CHECKIN-15M, HU-AUDIO-GESTO */
 /* @author Codex */

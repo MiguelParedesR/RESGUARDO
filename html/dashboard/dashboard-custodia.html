@@ -57,10 +57,30 @@
                                 <label class="mdl-textfield__label" for="tipo">Tipo de custodia</label>
                             </div>
 
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                <input class="mdl-textfield__input" id="cliente" type="text" required>
-                                <label class="mdl-textfield__label" for="cliente">Cliente (carga)</label>
+                            <!-- === BEGIN HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
+                            <div class="cliente-field">
+                                <label for="cliente-search" class="cliente-field__label">Cliente (carga)</label>
+                                <div class="cliente-search" role="combobox" aria-haspopup="listbox"
+                                    aria-expanded="false" aria-owns="cliente-results">
+                                    <i class="material-icons" aria-hidden="true">search</i>
+                                    <input id="cliente-search" class="cliente-search__input mdl-textfield__input"
+                                        type="search" autocomplete="off" placeholder="Escribe para buscar"
+                                        aria-controls="cliente-results" aria-autocomplete="list" required />
+                                    <button type="button" id="cliente-clear" class="cliente-search__clear"
+                                        aria-label="Limpiar búsqueda">
+                                        <i class="material-icons" aria-hidden="true">close</i>
+                                    </button>
+                                </div>
+                                <p id="cliente-feedback" class="cliente-field__feedback" role="status"
+                                    aria-live="polite"></p>
+                                <ul id="cliente-results" class="cliente-results" role="listbox"
+                                    aria-label="Resultados de clientes" hidden></ul>
+                                <button type="button" id="cliente-add-btn" class="cliente-add btn-link" hidden>
+                                    <i class="material-icons" aria-hidden="true">person_add</i>
+                                    Agregar cliente
+                                </button>
                             </div>
+                            <!-- === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
 
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                                 <input class="mdl-textfield__input" id="placa" type="text" placeholder="Ej: AUP767"
@@ -94,6 +114,31 @@
                     </div>
                 </form>
             </section>
+
+            <!-- === BEGIN HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
+            <section id="modal-cliente" class="modal-backdrop" aria-hidden="true">
+                <div class="modal-card mdl-card mdl-shadow--4dp modal-card--cliente" role="dialog" aria-modal="true"
+                    aria-labelledby="modal-cliente-title">
+                    <div class="mdl-card__title">
+                        <h2 id="modal-cliente-title" class="mdl-card__title-text">Agregar nuevo cliente</h2>
+                    </div>
+                    <div class="mdl-card__supporting-text">
+                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
+                            <input type="text" id="modal-cliente-input" class="mdl-textfield__input" maxlength="120"
+                                placeholder="Nombre del cliente">
+                            <label class="mdl-textfield__label" for="modal-cliente-input">Nombre del cliente</label>
+                        </div>
+                        <p id="modal-cliente-feedback" class="modal-cliente__feedback" role="status"
+                            aria-live="assertive"></p>
+                    </div>
+                    <div class="mdl-card__actions">
+                        <button type="button" id="modal-cliente-cancel" class="mdl-button mdl-js-button">Cancelar</button>
+                        <button type="button" id="modal-cliente-save"
+                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
+                    </div>
+                </div>
+            </section>
+            <!-- === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
 
             <!-- Modal MAPA -->
             <section id="modal-mapa" class="modal-backdrop">

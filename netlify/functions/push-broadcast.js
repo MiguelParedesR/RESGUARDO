@@ -6,7 +6,13 @@
 // === BEGIN HU:HU-NO400-ALARM_EVENT broadcast (no tocar fuera) ===
 import { handler as sendHandler } from "./push-send.js";
 
-const ALLOWED_TYPES = new Set(["start", "panic", "checkin", "heartbeat"]);
+const ALLOWED_TYPES = new Set([
+  "start",
+  "panic",
+  "checkin",
+  "heartbeat",
+  "ruta_desviada",
+]);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST,OPTIONS",
@@ -42,6 +48,32 @@ function normaliseAudience(audience, fallbackEmpresa) {
 }
 
 const buildDefaultPayload = (type, event) => {
+  if (type === "ruta_desviada") {
+    const clienteLabel = event?.cliente || "este cliente";
+    const title = `DESVÍO DE RUTA – ${clienteLabel}`;
+    const base = {
+      title,
+      body: `La custodia se ha desviado de la ruta establecida para ${clienteLabel}.`,
+      icon: "/assets/icon-192.svg",
+      badge: "/assets/icon-192.svg",
+      tag: `ruta-desviada-${event?.servicio_id || "servicio"}`,
+      vibrate: [300, 150, 300, 150, 500],
+      requireInteraction: true,
+      renotify: true,
+      data: {
+        servicio_id: event?.servicio_id || null,
+        url_admin: "/html/dashboard/dashboard-admin.html",
+        url_custodia: "/html/dashboard/mapa-resguardo.html",
+      },
+    };
+    if (event?.metadata) {
+      base.data.metadata = event.metadata;
+    }
+    if (event?.empresa) base.data.empresa = event.empresa;
+    if (event?.cliente) base.data.cliente = event.cliente;
+    return base;
+  }
+
   const prefix =
     type === "panic"
       ? "ALERTA DE PANICO"
@@ -151,46 +183,127 @@ export async function handler(event) {
     },
   };
 
-  const sendRequest = {
-    audience: audiencePayload,
+  const baseRequest = {
     type: normalizedType,
     event: eventPayload,
     payload: composedPayload,
     options: options && typeof options === "object" ? options : undefined,
   };
 
-  let response;
-  try {
-    response = await sendHandler({
-      httpMethod: "POST",
-      body: JSON.stringify(sendRequest),
-    });
-  } catch (err) {
-    console.error("[push] sendHandler failure", err);
-    return json(502, {
-      ok: false,
-      error: "push-send internal failure",
-      details: err?.message || String(err),
-    });
-  }
-
-  let resultBody = {};
-  try {
-    resultBody = JSON.parse(response.body || "{}");
-  } catch (_) {
-    resultBody = { raw: response.body };
-  }
-
-  const statusCode = response.statusCode || 500;
-  return json(
-    statusCode,
-    {
-      ok: statusCode < 400,
-      ...resultBody,
-      event: eventPayload,
-      audience: audiencePayload,
-    },
-    response.headers || {}
+  const targetAudiences = buildAudiencesForType(
+    normalizedType,
+    audiencePayload,
+    eventPayload
   );
+
+  const deliveries = [];
+  let totalSent = 0;
+  let totalFailed = 0;
+  let totalDeactivated = 0;
+  const errors = [];
+  let worstStatus = 200;
+
+  for (const aud of targetAudiences) {
+    const requestPayload = { ...baseRequest, audience: aud };
+    let response;
+    try {
+      response = await sendHandler({
+        httpMethod: "POST",
+        body: JSON.stringify(requestPayload),
+      });
+    } catch (err) {
+      console.error("[push] sendHandler failure", err);
+      errors.push({ audience: aud, error: err?.message || String(err) });
+      deliveries.push({
+        audience: aud,
+        statusCode: 502,
+        body: { error: "push-send internal failure" },
+      });
+      worstStatus = Math.max(worstStatus, 502);
+      continue;
+    }
+
+    let body = {};
+    try {
+      body = JSON.parse(response.body || "{}");
+    } catch (_) {
+      body = { raw: response.body };
+    }
+
+    const statusCode = response.statusCode || 500;
+    worstStatus = Math.max(worstStatus, statusCode);
+    deliveries.push({ audience: aud, statusCode, body });
+    totalSent += Number(body.sent) || 0;
+    totalFailed += Number(body.failed) || 0;
+    totalDeactivated += Number(body.deactivated) || 0;
+    if (statusCode >= 400) {
+      errors.push({
+        audience: aud,
+        error: body.error || "push-send error",
+      });
+    }
+  }
+
+  const finalStatus =
+    errors.length && worstStatus >= 400 ? worstStatus : 200;
+
+  const responseBody = {
+    ok: errors.length === 0,
+    sent: totalSent,
+    failed: totalFailed,
+    deactivated: totalDeactivated,
+    deliveries,
+    errors,
+    event: eventPayload,
+  };
+  return json(finalStatus, responseBody);
+}
+
+function buildAudiencesForType(type, baseAudience, eventPayload) {
+  if (type !== "ruta_desviada") return [baseAudience];
+  const extras = [
+    baseAudience,
+    {
+      roles: ["ADMIN"],
+      empresa: eventPayload?.empresa || null,
+    },
+    eventPayload?.servicio_id
+      ? {
+          roles: ["CUSTODIA"],
+          servicio_id: eventPayload.servicio_id,
+        }
+      : null,
+  ];
+  return dedupeAudiences(extras);
+}
+
+function dedupeAudiences(list) {
+  const seen = new Set();
+  const result = [];
+  for (const aud of list) {
+    if (!aud) continue;
+    const normalized = normalizeAudienceShape(aud);
+    const key = JSON.stringify(normalized);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function normalizeAudienceShape(audience) {
+  const roles = Array.isArray(audience.roles)
+    ? audience.roles.map((r) => String(r).toUpperCase())
+    : audience.role
+    ? [String(audience.role).toUpperCase()]
+    : ["ADMIN"];
+  const normalized = { roles: Array.from(new Set(roles)) };
+  if (Object.prototype.hasOwnProperty.call(audience, "empresa")) {
+    normalized.empresa = audience.empresa ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(audience, "servicio_id")) {
+    normalized.servicio_id = audience.servicio_id ?? null;
+  }
+  return normalized;
 }
 // === END HU:HU-NO400-ALARM_EVENT ===

@@ -81,6 +81,111 @@ textarea:focus::placeholder {
     opacity: .75;
 }
 
+.cliente-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cliente-field__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.cliente-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #dce3ef;
+    border-radius: 12px;
+    padding: 8px 12px;
+    background: #fff;
+}
+
+.cliente-search__input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 15px;
+}
+
+.cliente-search__clear {
+    border: none;
+    background: transparent;
+    color: #9ba4b5;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cliente-field__feedback {
+    font-size: 12px;
+    color: #607d8b;
+    min-height: 18px;
+    margin: 0;
+}
+
+.cliente-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.cliente-results[hidden] {
+    display: none;
+}
+
+.cliente-results li + li {
+    border-top: 1px solid #f1f5f9;
+}
+
+.cliente-results button {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.cliente-results button:hover {
+    background: #f5f9ff;
+}
+
+.cliente-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    border: none;
+    background: none;
+    color: #2563eb;
+    cursor: pointer;
+    padding: 0;
+}
+
+.modal-card--cliente {
+    max-width: 420px;
+}
+
+.modal-cliente__feedback {
+    font-size: 13px;
+    color: #c62828;
+    min-height: 18px;
+}
+
 /* === BEGIN HU:HU-CAMERA-COMPACT-UI (NO TOCAR FUERA) === */
 
 /* === END HU:HU-CAMERA-COMPACT-UI === */

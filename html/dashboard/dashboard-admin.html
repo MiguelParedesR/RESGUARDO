@@ -45,7 +45,7 @@
 <body class="mdl-base has-subheader">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <!-- Header compartido inyectado -->
-        <div id="app-header" data-page-title="Administrador"></div>
+        <div id="app-header" data-page-title="Administrador" data-nav="admin"></div>
 
         <main class="mdl-layout__content">
             <section class="page">
@@ -90,6 +90,27 @@
                                     Filtros</button>
                             </div>
                         </div>
+                        <!-- === BEGIN HU:HU-RUTA-DESVIO-FRONT-ADMIN === -->
+                        <div id="route-alert-admin" class="route-alert" aria-live="polite" aria-hidden="true" hidden>
+                            <div class="route-alert__content">
+                                <p class="route-alert__eyebrow">DESVÍO DE RUTA</p>
+                                <h3 id="route-alert-title" class="route-alert__title">Se detectó un desvío</h3>
+                                <p id="route-alert-body" class="route-alert__body">
+                                    La custodia se ha desviado de la ruta asignada. Revisa el mapa para confirmar.
+                                </p>
+                                <p id="route-alert-meta" class="route-alert__meta"></p>
+                            </div>
+                            <div class="route-alert__actions">
+                                <button id="route-alert-view" type="button" class="btn btn-accent">
+                                    <i class="material-icons" aria-hidden="true">map</i>
+                                    Ver en mapa
+                                </button>
+                                <button id="route-alert-dismiss" type="button" class="btn btn-ghost">
+                                    Cerrar alerta
+                                </button>
+                            </div>
+                        </div>
+                        <!-- === END HU:HU-RUTA-DESVIO-FRONT-ADMIN === -->
 
                         <!-- Filtros -->
                         <div id="filters-drawer" class="filters-drawer" aria-label="Filtros de búsqueda" role="dialog"
