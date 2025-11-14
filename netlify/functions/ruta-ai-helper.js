@@ -178,11 +178,16 @@ function normalizePair(pair) {
 
 async function ensureModel() {
   if (resolvedModel) return resolvedModel;
+  if (GEMINI_MODEL) {
+    resolvedModel = GEMINI_MODEL;
+    return resolvedModel;
+  }
   try {
     const res = await fetch(`${MODELS_ENDPOINT}?key=${GEMINI_API_KEY}`);
     if (!res.ok) {
       console.warn("[ai-helper] no se pudo listar modelos", res.status);
-      return DEFAULT_MODELS[0];
+      resolvedModel = DEFAULT_MODELS[0];
+      return resolvedModel;
     }
     const payload = await res.json();
     const candidates = Array.isArray(payload.models) ? payload.models : [];
@@ -194,11 +199,10 @@ async function ensureModel() {
       )
       .map((model) => model.name?.split("/").pop())
       .filter(Boolean);
-    const match =
-      DEFAULT_MODELS.find((name) => supported.includes(name)) ||
-      supported[0] ||
-      DEFAULT_MODELS[0];
-    resolvedModel = match;
+    const preferred = DEFAULT_MODELS.find((name) =>
+      supported.includes(name)
+    );
+    resolvedModel = preferred || DEFAULT_MODELS[0];
     return resolvedModel;
   } catch (err) {
     console.warn("[ai-helper] ensureModel error", err);
