@@ -1,6 +1,6 @@
 :root {
   --login-bg: linear-gradient(135deg, #f5f6fb 0%, #dfe7f7 100%);
-  --login-bg-overlay: rgba(245, 246, 251, 0.85);
+  --login-bg-overlay: rgba(245, 246, 251, 0.65);
   --login-bg-image: url("https://i.postimg.cc/fyyNsd2n/Gemini-Generated-Image-6q4w4v6q4w4v6q4w.png");
   --glass-bg: rgba(255, 255, 255, 0.9);
   --glass-border: rgba(15, 23, 42, 0.08);
@@ -25,11 +25,11 @@
   content: "";
   position: fixed;
   inset: 0;
-  background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0.65)),
+  background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.45)),
     var(--login-bg-image);
   background-size: cover;
   background-position: center;
-  opacity: 0.55;
+  opacity: 0.4;
   z-index: -2;
 }
 
@@ -122,6 +122,8 @@
 .forms-shell {
   position: relative;
   min-height: 360px;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .login-form {
@@ -129,17 +131,25 @@
   gap: 18px;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(10px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: translateY(18px) scale(0.98);
+  transition: opacity 0.35s ease, transform 0.35s ease;
   position: absolute;
   inset: 0;
+  will-change: opacity, transform;
 }
 
 .login-form.is-active {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-form {
+    transition: none;
+    transform: translateY(0);
+  }
 }
 
 .login-field {

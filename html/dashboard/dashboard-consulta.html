@@ -93,18 +93,24 @@
                     </div>
                 </div>
 
-                <div id="fotos-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+                <div id="fotos-modal" class="modal modal--gallery" aria-hidden="true" role="dialog" aria-modal="true">
                     <div class="modal-backdrop" data-close="modal"></div>
-                    <div class="modal-dialog" role="document">
-                        <header class="modal-header">
-                            <h3 class="modal-title">Fotos de custodia</h3>
-                            <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Cerrar"
+                    <div class="modal-gallery" role="document">
+                        <header class="modal-gallery__head">
+                            <div class="modal-gallery__title">
+                                <span class="material-icons" aria-hidden="true">visibility</span>
+                                <div>
+                                    <p>Custodias registradas</p>
+                                    <h3>Fotos de custodia</h3>
+                                </div>
+                            </div>
+                            <button class="mdl-button mdl-js-button mdl-button--icon" aria-label="Cerrar galería"
                                 data-close="modal">
                                 <i class="material-icons">close</i>
                             </button>
                         </header>
-                        <div class="modal-body">
-                            <div id="fotos-grid" class="fotos-grid"></div>
+                        <div class="modal-gallery__body">
+                            <div id="fotos-grid" class="gallery-grid" role="list"></div>
                         </div>
                     </div>
                 </div>

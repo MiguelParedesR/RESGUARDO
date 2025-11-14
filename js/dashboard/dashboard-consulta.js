@@ -315,14 +315,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const card = document.createElement("div");
     card.className = "servicio-card";
     card.innerHTML = `
+      <header class="servicio-head">
+        <div>
+          <p class="servicio-chip">${h(svc.placa || svc.placa_upper || "Sin placa")}</p>
+          <p class="servicio-subtitle">${h(svc.cliente || "Cliente sin asignar")}</p>
+        </div>
+      </header>
       <ul class="servicio-meta">
-        ${buildMetaItem({
-          icon: "style",
-          label: "Tipo",
-          value: svc.tipo || "Sin tipo",
-          meta: "tipo",
-          spanAttr: 'data-field="tipo"',
-        })}
         ${buildMetaItem({
           icon: "place",
           label: "Destino",
@@ -330,63 +329,34 @@ document.addEventListener("DOMContentLoaded", () => {
           meta: "destino",
         })}
         ${buildMetaItem({
-          icon: "person",
+          icon: "shield_person",
           label: "Custodia(s)",
-          value: "Sin titular",
+          value: "Sin custodias",
           meta: "contacto",
           spanAttr: 'data-field="contacto"',
-          includeAvatar: true,
         })}
       </ul>
       <div class="servicio-actions">
-        <button type="button" class="btn-secondary is-muted" data-action="ver-fotos" disabled>
-          <i class="material-icons" aria-hidden="true">photo_library</i>
-          <span>Sin fotos</span>
+        <button type="button" class="btn-ghost is-muted" data-action="ver-fotos" disabled aria-label="Sin fotos disponibles">
+          <i class="material-icons" aria-hidden="true">visibility</i>
+          <span class="btn-ghost__label" data-label>Ver foto(s)</span>
+          <span class="btn-ghost__count" aria-hidden="true">0</span>
         </button>
       </div>
     `;
 
     const fotosBtn = card.querySelector("[data-action='ver-fotos']");
     const contactoEl = card.querySelector("[data-field='contacto']");
-    const contactoAvatar = card.querySelector(".contact-avatar");
-    if (contactoAvatar) contactoAvatar.textContent = "C";
-    const tipoEl = card.querySelector("[data-field='tipo']");
 
     try {
       const custodios = await fetchCustodiosDetalle(svc.id);
-      const resumen = buildTipoResumen(custodios || []);
-      if (tipoEl) tipoEl.textContent = resumen;
-      const titular =
-        custodios?.find((cust) => cust.custodia?.nombre) || custodios?.[0];
-      const contactoNombre =
-        titular?.custodia?.nombre ||
-        titular?.nombre_custodio ||
-        "Sin titular";
-      if (contactoEl) contactoEl.textContent = contactoNombre;
+      if (contactoEl) {
+        contactoEl.textContent = buildCustodiosListado(custodios || []);
+      }
       const fotos = buildSelfieItems(custodios || []);
       configureFotosButton(fotosBtn, fotos);
-      if (contactoAvatar) {
-        const avatarPhoto = fotos.find((item) => {
-          const custId = titular?.custodia?.id || titular?.custodia_id;
-          return custId && item.custodiaId === custId;
-        });
-        if (avatarPhoto?.src) {
-          contactoAvatar.innerHTML = `<img src="${avatarPhoto.src}" alt="Selfie de ${h(
-            titular?.custodia?.nombre || titular?.nombre_custodio || "Custodia"
-          )}">`;
-        } else {
-          const initial =
-            (contactoNombre || "C").trim().charAt(0).toUpperCase() || "C";
-          contactoAvatar.textContent = initial;
-        }
-      }
     } catch (err) {
       console.warn("[consulta] custodios detalle error", err);
-      if (fotosBtn) {
-        fotosBtn.disabled = true;
-        fotosBtn.classList.add("is-muted");
-        fotosBtn.querySelector("span").textContent = "Sin fotos";
-      }
     }
 
     return card;
@@ -396,17 +366,12 @@ document.addEventListener("DOMContentLoaded", () => {
     icon,
     label,
     value,
-    meta = "",
+    meta,
     spanAttr = "",
-    includeAvatar = false,
   }) {
     return `
       <li ${meta ? `data-meta="${meta}"` : ""}>
-        ${
-          includeAvatar
-            ? '<div class="contact-avatar" aria-hidden="true"></div>'
-            : `<span class="material-icons icon" aria-hidden="true">${icon}</span>`
-        }
+        <span class="material-icons icon" aria-hidden="true">${icon}</span>
         <div class="meta-copy">
           <span class="label">${h(label)}</span>
           <span class="value" ${spanAttr}>${h(value || "-")}</span>
@@ -415,18 +380,80 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  function buildTipoResumen(custodios) {
-    if (!custodios || !custodios.length) return "Sin custodios";
-    const counts = new Map();
-    custodios.forEach((c) => {
-      const tipo = (c.tipo_custodia || "Sin tipo").trim() || "Sin tipo";
-      counts.set(tipo, (counts.get(tipo) || 0) + 1);
-    });
-    return Array.from(counts.entries())
-      .map(([tipo, total]) => `${tipo} x${total}`)
-      .join(" · ");
+  function buildCustodiosListado(custodios) {
+    if (!custodios || !custodios.length) return "Sin custodias";
+    const nombres = custodios
+      .map((cust) =>
+        (cust.custodia?.nombre || cust.nombre_custodio || "")
+          .trim()
+      )
+      .filter(Boolean);
+    return nombres.length ? nombres.join(" · ") : "Sin custodias";
   }
-  // === END HU:HU-MARCADORES-CUSTODIA ===
+
+  function configureFotosButton(btn, items) {
+    if (!btn) return;
+    const label = btn.querySelector("[data-label]");
+    const countEl = btn.querySelector(".btn-ghost__count");
+    if (!items.length) {
+      btn.disabled = true;
+      btn.classList.add("is-muted");
+      if (label) label.textContent = "Ver foto(s)";
+      if (countEl) countEl.textContent = "0";
+      btn.setAttribute("aria-label", "Sin fotos disponibles");
+      btn.__fotos = [];
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.remove("is-muted");
+    if (label) label.textContent = "Ver foto(s)";
+    if (countEl) countEl.textContent = `${items.length}`;
+    btn.setAttribute(
+      "aria-label",
+      `Ver fotos de ${items.length} custodia${items.length > 1 ? "s" : ""}`
+    );
+    btn.__fotos = items;
+    if (!btn.dataset.bound) {
+      btn.addEventListener("click", () => {
+        if (Array.isArray(btn.__fotos) && btn.__fotos.length) {
+          showFotosCustodia(btn.__fotos);
+        }
+      });
+      btn.dataset.bound = "1";
+    }
+  }
+
+  function buildSelfieItems(entries) {
+    const bucket = new Map();
+    (entries || []).forEach((cust, idx) => {
+      const nombre = (
+        cust.custodia?.nombre ||
+        cust.nombre_custodio ||
+        `Custodia ${idx + 1}`
+      ).trim();
+      const archivos = [
+        ...(Array.isArray(cust.custodia?.selfies) ? cust.custodia.selfies : []),
+        ...(Array.isArray(cust.sc_selfies) ? cust.sc_selfies : []),
+      ].sort((a, b) => {
+        const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+      const archivo = archivos.find((file) => file?.bytes);
+      if (!archivo) return;
+      const mime = archivo.mime_type || "image/jpeg";
+      const key = cust.custodia?.id || cust.id || `${nombre}-${bucket.size}`;
+      if (bucket.has(key)) return;
+      bucket.set(key, {
+        src: `data:${mime};base64,${toBase64(archivo.bytes)}`,
+        label: nombre,
+        custodiaId: cust.custodia?.id || null,
+        servicioCustodioId: cust.id,
+      });
+    });
+    return Array.from(bucket.values());
+  }
+// === END HU:HU-MARCADORES-CUSTODIA ===
 
   // Sidebar toggle
   function openSidebar() {
@@ -492,18 +519,30 @@ document.addEventListener("DOMContentLoaded", () => {
   function showFotosCustodia(items) {
     if (!fotosModal || !fotosGrid) return;
     fotosGrid.innerHTML = "";
-    for (const it of items) {
+    if (!items || !items.length) {
+      fotosModal.setAttribute("aria-hidden", "true");
+      fotosModal.classList.remove("is-open");
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    items.forEach((it, index) => {
       const fig = document.createElement("figure");
+      fig.className = "gallery-card";
+      fig.setAttribute("role", "listitem");
       const img = document.createElement("img");
       img.src = it.src;
-      img.alt = it.label || "Foto de custodia";
+      img.alt = it.label
+        ? `Foto de ${it.label}`
+        : `Foto de custodia ${index + 1}`;
       const cap = document.createElement("figcaption");
-      cap.textContent = it.label || "";
+      cap.textContent = it.label || `Custodia ${index + 1}`;
       fig.appendChild(img);
       fig.appendChild(cap);
-      fotosGrid.appendChild(fig);
-    }
-    fotosModal.setAttribute("aria-hidden", "false");
+      fragment.appendChild(fig);
+    });
+    fotosGrid.appendChild(fragment);
+    fotosModal.setAttribute("aria-hidden", items?.length ? "false" : "true");
+    fotosModal.classList.toggle("is-open", Boolean(items?.length));
   }
   fotosModal &&
     fotosModal.addEventListener("click", (e) => {
@@ -513,6 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
         t.closest('[data-close="modal"]');
       if (shouldClose) {
         fotosModal.setAttribute("aria-hidden", "true");
+        fotosModal.classList.remove("is-open");
         fotosGrid && (fotosGrid.innerHTML = "");
       }
     });
@@ -522,6 +562,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") {
       if (fotosModal && fotosModal.getAttribute("aria-hidden") === "false") {
         fotosModal.setAttribute("aria-hidden", "true");
+        fotosModal.classList.remove("is-open");
         fotosGrid && (fotosGrid.innerHTML = "");
       }
       if (sidebar && sidebar.classList.contains("open")) closeSidebar();
@@ -706,5 +747,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
+
+
 
 
