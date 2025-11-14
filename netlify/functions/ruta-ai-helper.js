@@ -5,7 +5,7 @@ const DEFAULT_MODELS = [
   "gemini-1.5-pro",
   "gemini-pro",
 ];
-const API_BASE = "https://generativelanguage.googleapis.com/v1";
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const MODELS_ENDPOINT = `${API_BASE}/models`;
 
 const { GEMINI_API_KEY, GEMINI_MODEL } = process.env;
