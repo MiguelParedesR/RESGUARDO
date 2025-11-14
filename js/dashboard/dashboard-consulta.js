@@ -653,14 +653,14 @@ document.addEventListener("DOMContentLoaded", () => {
           nombre,
           empresa,
           empresa_otro,
-          selfies:selfie_custodia_id_fkey (
+          selfies:selfie!selfie_custodia_id_fkey (
             id,
             mime_type,
             bytes,
             created_at
           )
         ),
-        sc_selfies:selfie_servicio_custodio_id_fkey (
+        sc_selfies:selfie!selfie_servicio_custodio_id_fkey (
           id,
           mime_type,
           bytes,

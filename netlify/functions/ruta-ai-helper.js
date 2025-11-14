@@ -1,5 +1,5 @@
-const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+const GEMINI_MODEL = "gemini-1.5-pro";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const { GEMINI_API_KEY } = process.env;
 
 const corsHeaders = {
