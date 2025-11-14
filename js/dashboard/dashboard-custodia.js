@@ -492,7 +492,7 @@
         "Empieza a escribir para ver sugerencias o usa Buscar en el mapa.";
       refs.destinoStatus.style.color = "#607d8b";
     }
-    clearClienteSelection(refs, state);
+    clearClienteSelection(refs, state, true);
   }
 
   function showMsg(state, message) {
@@ -664,19 +664,19 @@
     updateClienteFeedback(refs, `Cliente seleccionado: ${cliente.nombre}`);
   }
 
-  function clearClienteSelection(refs, state) {
-    state.clienteSelectedId = "";
-    state.clienteSelectedNombre = "";
-    state.clienteQuery = "";
-    state.clienteResults = [];
+function clearClienteSelection(refs, state, silent = false) {
+  state.clienteSelectedId = "";
+  state.clienteSelectedNombre = "";
+  state.clienteQuery = "";
+  state.clienteResults = [];
     if (refs.clienteInput) {
       refs.clienteInput.value = "";
       refs.clienteInput.classList.remove("has-value");
     }
     hideClienteResults(refs);
-    refs.clienteAddBtn.hidden = true;
-    updateClienteFeedback(refs, "Escribe para buscar clientes.");
-  }
+  refs.clienteAddBtn.hidden = true;
+  if (!silent) updateClienteFeedback(refs, "Escribe para buscar clientes.");
+}
 
   function updateClienteFeedback(refs, message) {
     if (refs.clienteFeedback) refs.clienteFeedback.textContent = message || "";
@@ -701,6 +701,7 @@
     if (!refs.modalCliente) return;
     refs.modalCliente.classList.remove("open");
     refs.modalCliente.setAttribute("aria-hidden", "true");
+    if (refs.modalClienteFeedback) refs.modalClienteFeedback.textContent = "";
   }
 
   async function handleClienteSave(refs, state) {

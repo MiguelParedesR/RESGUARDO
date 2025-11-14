@@ -77,6 +77,12 @@ body {
   gap: 6px;
 }
 
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .field--inline {
   max-width: 200px;
 }
@@ -169,43 +175,62 @@ body {
 }
 
 .lista-clientes {
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   max-height: calc(100vh - 280px);
-  min-height: 220px;
-  background: #fff;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .cliente-item {
-  border-bottom: 1px solid var(--stroke);
-  padding: 12px 14px;
+  border: none;
+  background: #f8fbff;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   cursor: pointer;
-  display: grid;
-  gap: 4px;
-  transition: background 0.2s ease;
-}
-
-.cliente-item:last-child {
-  border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
 }
 
 .cliente-item:hover {
-  background: var(--primary-soft);
+  box-shadow: 0 8px 18px rgba(63, 81, 181, 0.12);
+  transform: translateY(-1px);
+  background: #eef2ff;
 }
 
 .cliente-item.is-active {
-  background: rgba(63, 81, 181, 0.08);
-  border-left: 3px solid var(--primary);
-  padding-left: 11px;
+  background: linear-gradient(135deg, #eef2ff, #f7f9ff);
+  box-shadow: 0 12px 24px rgba(63, 81, 181, 0.18);
+  border: 1px solid rgba(63, 81, 181, 0.2);
 }
 
-.cliente-item strong {
+.cliente-item__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #fff;
+  font-weight: 700;
+  color: #3f51b5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 1px rgba(63, 81, 181, 0.25);
+}
+
+.cliente-item__name {
+  font-weight: 700;
   color: var(--ink-700);
+  letter-spacing: 0.05em;
 }
 
-.cliente-item span {
-  font-size: 0.85rem;
+.cliente-item__meta {
+  margin-left: auto;
+  font-size: 0.78rem;
   color: var(--ink-300);
 }
 
@@ -354,6 +379,38 @@ body {
   width: min(380px, 90vw);
 }
 
+.modal--ia {
+  width: min(540px, 92vw);
+}
+
+.ia-body {
+  display: grid;
+  gap: 10px;
+}
+
+.ia-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-500);
+}
+
+.ia-status {
+  min-height: 18px;
+  font-size: 0.85rem;
+  color: var(--ink-300);
+  margin: 0;
+}
+
+.ia-result {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: #f8fbff;
+  font-size: 0.95rem;
+  color: var(--ink-700);
+  white-space: pre-wrap;
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
@@ -376,3 +433,15 @@ body {
   }
 }
 /* === END HU:HU-ADMIN-RUTAS-CRUD === */
+.btn-link {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}

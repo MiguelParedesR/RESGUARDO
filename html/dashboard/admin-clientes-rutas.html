@@ -97,15 +97,15 @@
                   <label for="ruta-tolerancia">Tolerancia (m)</label>
                   <input id="ruta-tolerancia" type="number" min="10" step="10" value="120" />
                 </div>
-                <div class="field">
-                  <label>Herramientas</label>
-                  <div class="tool-row">
-                    <button id="btn-generar-ruta" class="btn-ghost" type="button">
-                      <i class="material-icons" aria-hidden="true">auto_fix_high</i>
-                      <span>Generar por IA (próximamente)</span>
-                    </button>
+                  <div class="field">
+                    <label>Herramientas</label>
+                    <div class="tool-row">
+                      <button id="btn-generar-ruta" class="btn-ghost" type="button">
+                        <i class="material-icons" aria-hidden="true">auto_fix_high</i>
+                        <span>Generar con IA</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
               </div>
               <div class="map-wrapper">
                 <div id="map-rutas" aria-label="Editor de ruta"></div>
@@ -175,6 +175,33 @@
         <footer>
           <button type="button" class="btn-ghost" data-close>Cancelar</button>
           <button type="submit" class="btn-danger" id="btn-confirm-aceptar">Eliminar</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="modal-ia" class="modal modal--ia">
+      <form method="dialog" class="modal__card">
+        <header>
+          <h3>Asistente IA para rutas</h3>
+          <button type="button" class="icon-btn" data-close>
+            <i class="material-icons" aria-hidden="true">close</i>
+          </button>
+        </header>
+        <div class="modal__body ia-body">
+          <p class="ia-hint">
+            Describe los puntos clave o instrucciones para que la IA sugiera un nombre y descripción útiles.
+          </p>
+          <label for="ia-prompt">Mensaje para la IA</label>
+          <textarea id="ia-prompt" rows="4" placeholder="Ej. Crear una ruta segura para la Sede Callao pasando por avenidas principales."></textarea>
+          <p id="ia-status" class="ia-status" aria-live="polite"></p>
+          <div id="ia-result" class="ia-result" hidden></div>
+        </div>
+        <footer>
+          <button type="button" class="btn-ghost" data-close>Cerrar</button>
+          <button type="button" class="btn-primary" id="btn-ia-run">
+            <i class="material-icons" aria-hidden="true">auto_fix_high</i>
+            <span>Generar</span>
+          </button>
         </footer>
       </form>
     </dialog>

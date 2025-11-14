@@ -52,6 +52,11 @@
     ui.modalConfirmMessage = document.getElementById("modal-confirm-message");
     ui.btnConfirmAceptar = document.getElementById("btn-confirm-aceptar");
     ui.snackbar = document.getElementById("app-snackbar");
+    ui.modalIA = document.getElementById("modal-ia");
+    ui.iaPrompt = document.getElementById("ia-prompt");
+    ui.iaStatus = document.getElementById("ia-status");
+    ui.iaResult = document.getElementById("ia-result");
+    ui.btnIaRun = document.getElementById("btn-ia-run");
   }
 
   function bindEvents() {
@@ -70,6 +75,12 @@
         btn.addEventListener("click", () => ui.modalConfirm.close())
       );
     ui.modalConfirm?.addEventListener("submit", handleConfirmAction);
+    ui.modalIA
+      ?.querySelectorAll("[data-close]")
+      .forEach((btn) =>
+        btn.addEventListener("click", () => ui.modalIA.close())
+      );
+    ui.modalIA?.addEventListener("close", () => setIaLoading(false));
 
     ui.buscarClientes?.addEventListener(
       "input",
@@ -78,9 +89,8 @@
 
     ui.btnLimpiarRuta?.addEventListener("click", clearRuta);
     ui.btnGuardarRuta?.addEventListener("click", handleGuardarRuta);
-    ui.btnGenerarRuta?.addEventListener("click", () => {
-      showMsg("La generacion asistida estara disponible proximamente.");
-    });
+    ui.btnGenerarRuta?.addEventListener("click", openIaModal);
+    ui.btnIaRun?.addEventListener("click", handleIaGenerate);
   }
 
   function setupMap() {
@@ -145,9 +155,11 @@
       if (state.clienteSeleccionado?.id === cliente.id) {
         item.classList.add("is-active");
       }
+      const display = (cliente.nombre || "").toUpperCase();
+      const avatar = display.charAt(0) || "?";
       item.innerHTML = `
-        <strong>${cliente.nombre}</strong>
-        <span>Creado: ${formatDate(cliente.created_at)}</span>
+        <span class="cliente-item__avatar">${avatar}</span>
+        <span class="cliente-item__name">${display}</span>
       `;
       item.addEventListener("click", () => selectCliente(cliente));
       ui.clientesLista.appendChild(item);
@@ -391,6 +403,90 @@
       ui.modalConfirm.removeAttribute("data-route-id");
       ui.modalConfirm.close();
     }
+  }
+
+  function openIaModal() {
+    if (!state.clienteSeleccionado) {
+      showMsg("Selecciona un cliente antes de usar la IA.");
+      return;
+    }
+    if (ui.iaPrompt) {
+      ui.iaPrompt.value =
+        ui.iaPrompt.value.trim() ||
+        `Necesito ideas para nombrar y describir una ruta segura para ${state.clienteSeleccionado.nombre}.`;
+    }
+    if (ui.iaResult) {
+      ui.iaResult.hidden = true;
+      ui.iaResult.textContent = "";
+    }
+    if (ui.iaStatus) ui.iaStatus.textContent = "";
+    ui.modalIA?.showModal();
+    ui.iaPrompt?.focus();
+  }
+
+  async function handleIaGenerate() {
+    if (!state.clienteSeleccionado) {
+      showMsg("Selecciona un cliente antes de usar la IA.");
+      return;
+    }
+    if (!ui.iaPrompt) return;
+    const prompt = ui.iaPrompt.value.trim();
+    if (!prompt) {
+      ui.iaStatus.textContent = "Describe qué necesitas generar.";
+      return;
+    }
+    setIaLoading(true, "Generando sugerencia...");
+    try {
+      const context = buildIaContext();
+      const response = await fetch("/.netlify/functions/ruta-ai-helper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, context }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "No se pudo generar la ruta.");
+      }
+      const suggestion = (payload.suggestion || "").trim();
+      if (suggestion) {
+        if (ui.iaResult) {
+          ui.iaResult.hidden = false;
+          ui.iaResult.textContent = suggestion;
+        }
+        if (!ui.rutaDescripcion.value.trim()) {
+          ui.rutaDescripcion.value = suggestion;
+        }
+        if (ui.iaStatus) {
+          ui.iaStatus.textContent =
+            "Listo. Ajusta el texto antes de guardar la ruta.";
+        }
+      } else if (ui.iaStatus) {
+        ui.iaStatus.textContent =
+          "La IA no devolvió respuesta. Intenta con más detalles.";
+      }
+    } catch (err) {
+      console.error("[rutas][ia]", err);
+      if (ui.iaStatus)
+        ui.iaStatus.textContent =
+          err.message || "Error al contactar al asistente.";
+    } finally {
+      setIaLoading(false);
+    }
+  }
+
+  function setIaLoading(loading, message = "") {
+    if (ui.btnIaRun) ui.btnIaRun.disabled = loading;
+    if (message && ui.iaStatus) ui.iaStatus.textContent = message;
+  }
+
+  function buildIaContext() {
+    return {
+      cliente: state.clienteSeleccionado?.nombre || "",
+      tolerancia: ui.rutaTolerancia.value || "120",
+      rutaNombre: ui.rutaNombre.value || "",
+      descripcionActual: ui.rutaDescripcion.value || "",
+      puntos: state.puntos,
+    };
   }
 
   function formatDate(value) {
