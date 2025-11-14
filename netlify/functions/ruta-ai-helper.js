@@ -1,6 +1,14 @@
-const GEMINI_MODEL = "gemini-1.5-pro";
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const { GEMINI_API_KEY } = process.env;
+const DEFAULT_MODELS = [
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro-latest",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-pro",
+];
+const MODELS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
+
+const { GEMINI_API_KEY, GEMINI_MODEL } = process.env;
+let resolvedModel = GEMINI_MODEL || null;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,19 +49,29 @@ export async function handler(event) {
   if (!prompt) {
     return json(400, { error: "El prompt es obligatorio." });
   }
+  const modelId = await ensureModel();
+  if (!modelId) {
+    return json(500, {
+      error:
+        "No se pudo determinar un modelo válido de Gemini. Revisa la API key o define GEMINI_MODEL.",
+    });
+  }
   const composedPrompt = buildPrompt(prompt, context);
   try {
-    const response = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: composedPrompt }],
-          },
-        ],
-      }),
-    });
+    const response = await fetch(
+      `${MODELS_ENDPOINT}/${modelId}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: composedPrompt }],
+            },
+          ],
+        }),
+      }
+    );
     const data = await response.json();
     if (!response.ok) {
       console.error("[ai-helper] gemini error", data);
@@ -156,4 +174,35 @@ function normalizePair(pair) {
   const lat = Number(pair[1]);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   return [lng, lat];
+}
+
+async function ensureModel() {
+  if (resolvedModel) return resolvedModel;
+  try {
+    const res = await fetch(`${MODELS_ENDPOINT}?key=${GEMINI_API_KEY}`);
+    if (!res.ok) {
+      console.warn("[ai-helper] no se pudo listar modelos", res.status);
+      return DEFAULT_MODELS[0];
+    }
+    const payload = await res.json();
+    const candidates = Array.isArray(payload.models) ? payload.models : [];
+    const supported = candidates
+      .filter((model) =>
+        Array.isArray(model?.supportedGenerationMethods)
+          ? model.supportedGenerationMethods.includes("generateContent")
+          : false
+      )
+      .map((model) => model.name?.split("/").pop())
+      .filter(Boolean);
+    const match =
+      DEFAULT_MODELS.find((name) => supported.includes(name)) ||
+      supported[0] ||
+      DEFAULT_MODELS[0];
+    resolvedModel = match;
+    return resolvedModel;
+  } catch (err) {
+    console.warn("[ai-helper] ensureModel error", err);
+    resolvedModel = DEFAULT_MODELS[0];
+    return resolvedModel;
+  }
 }
