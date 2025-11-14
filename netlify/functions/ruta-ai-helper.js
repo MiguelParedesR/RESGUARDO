@@ -7,7 +7,7 @@ const DEFAULT_MODELS = [
 ];
 
 // 🔥 Cambiado de v1 → v1beta
-const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const API_BASE = "https://generativelanguage.googleapis.com/v1";
 const MODELS_ENDPOINT = `${API_BASE}/models`;
 
 
