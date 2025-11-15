@@ -477,18 +477,16 @@ body {
 }
 
 .modal-map-header {
-  position: absolute;
+  position: fixed;
   top: 16px;
   right: 16px;
   left: auto;
-  display: flex;
-  align-items: center;
-  z-index: 4000;
-  padding: 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 16px 35px rgba(6, 11, 25, 0.35);
+  z-index: 4200;
+  padding: 0;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+  display: block;
 }
 
 .modal-map-header .icon-btn {
@@ -634,18 +632,8 @@ body {
 
 @media (max-width: 768px) {
   .modal-map-header {
-    position: fixed;
     top: 12px;
     right: 12px;
-    left: auto;
-    padding: 0;
-    margin: 0;
-    background: none;
-    box-shadow: none;
-    z-index: 4200;
-    display: block;
-    width: auto;
-    height: auto;
   }
   .modal-map-header .icon-btn {
     width: 48px;
