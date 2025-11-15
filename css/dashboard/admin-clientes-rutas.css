@@ -430,6 +430,15 @@ body {
   }
 }
 
+@media (min-width: 1200px) {
+  .map-wrapper {
+    min-height: 520px;
+  }
+  #map-rutas {
+    height: 520px;
+  }
+}
+
 @media (max-width: 600px) {
   .panel__actions {
     flex-direction: column;
