@@ -478,30 +478,35 @@ body {
 
 .modal-map-header {
   position: absolute;
-  top: 24px;
-  left: 24px;
-  right: 24px;
+  top: 16px;
+  right: 16px;
+  left: auto;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   z-index: 4000;
-  padding: 12px 18px;
-  border-radius: var(--radius-lg);
-  background: rgba(15, 23, 42, 0.85);
-  color: #fff;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(6px);
   box-shadow: 0 16px 35px rgba(6, 11, 25, 0.35);
 }
 
-.modal-map-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
 .modal-map-header .icon-btn {
   color: #fff;
-  padding: 6px;
+  padding: 0;
   border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: background 0.2s ease;
+}
+
+.modal-map-header .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .modal__body--map {
@@ -628,6 +633,26 @@ body {
 }
 
 @media (max-width: 768px) {
+  .modal-map-header {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    left: auto;
+    padding: 0;
+    margin: 0;
+    background: none;
+    box-shadow: none;
+    z-index: 4200;
+    display: block;
+    width: auto;
+    height: auto;
+  }
+  .modal-map-header .icon-btn {
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(15, 23, 42, 0.65);
+  }
   .map-hint--modal {
     width: calc(100% - 32px);
     left: 16px;
