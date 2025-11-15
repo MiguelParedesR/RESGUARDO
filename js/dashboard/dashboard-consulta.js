@@ -328,12 +328,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const card = document.createElement("div");
     card.className = "servicio-card";
     card.innerHTML = `
-      <header class="servicio-head">
-        <div>
-          <p class="servicio-chip">${h(svc.placa || svc.placa_upper || "Sin placa")}</p>
-          <p class="servicio-subtitle">${h(svc.cliente || "Cliente sin asignar")}</p>
-        </div>
-      </header>
       <ul class="servicio-meta">
         ${buildMetaItem({
           icon: "place",
@@ -342,7 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
           meta: "destino",
         })}
         ${buildMetaItem({
-          icon: "shield_person",
+          icon: "shield",
           label: "Custodia(s)",
           value: "Sin custodias",
           meta: "contacto",
@@ -395,12 +389,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function buildCustodiosListado(custodios) {
     if (!custodios || !custodios.length) return "Sin custodias";
-    const nombres = custodios
-      .map((cust) =>
-        (cust.custodia?.nombre || cust.nombre_custodio || "")
-          .trim()
-      )
-      .filter(Boolean);
+    const vistos = new Set();
+    const nombres = [];
+    custodios.forEach((cust) => {
+      const nombre = (cust.custodia?.nombre || cust.nombre_custodio || "")
+        .trim();
+      if (!nombre) return;
+      if (vistos.has(nombre)) return;
+      vistos.add(nombre);
+      nombres.push(nombre);
+    });
     return nombres.length ? nombres.join(" \u00b7 ") : "Sin custodias";
   }
 
