@@ -309,15 +309,33 @@
     updateClienteFeedback("Buscando clientes...");
     try {
       const normalized = (query || "").trim().toUpperCase();
-      const pattern = normalized ? `${normalized}%` : "%";
       const { data, error } = await window.sb
-        .from("cliente")
-        .select("id, nombre, created_at")
-        .ilike("nombre_upper", pattern)
-        .order("nombre", { ascending: true })
-        .limit(20);
+        .from("servicio")
+        .select("cliente_id, empresa, estado, cliente:cliente_id(id,nombre)")
+        .eq("empresa", state.empresa)
+        .neq("estado", "FINALIZADO");
       if (error) throw error;
-      state.clienteResults = data || [];
+      const uniques = new Map();
+      (data || []).forEach((row) => {
+        const cli = row?.cliente;
+        if (!cli?.id) return;
+        const nombre = (cli.nombre || "").trim();
+        if (
+          normalized &&
+          !nombre.toUpperCase().includes(normalized)
+        ) {
+          return;
+        }
+        if (!uniques.has(cli.id)) {
+          uniques.set(cli.id, { id: cli.id, nombre });
+        }
+      });
+      state.clienteResults = Array.from(uniques.values()).sort((a, b) =>
+        (a.nombre || "").localeCompare(b.nombre || "")
+      );
+      if (state.clienteResults.length > 20) {
+        state.clienteResults = state.clienteResults.slice(0, 20);
+      }
       renderClienteResults();
       if (!state.clienteResults.length) {
         toggleAddClienteButton(true, normalized);

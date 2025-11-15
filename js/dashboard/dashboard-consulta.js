@@ -190,12 +190,25 @@ document.addEventListener("DOMContentLoaded", () => {
       setSidebarLoading(true);
       showSidebarEmpty(false);
       const { data, error } = await window.sb
-        .from("cliente")
-        .select("id, nombre")
-        .order("nombre", { ascending: true });
+        .from("servicio")
+        .select("cliente_id, estado, cliente:cliente_id(id,nombre)")
+        .neq("estado", "FINALIZADO");
       if (error) throw error;
-      clientesCache = data || [];
-      renderSidebar(clientesCache, "Sin clientes registrados.");
+      const uniques = new Map();
+      (data || []).forEach((row) => {
+        const cli = row?.cliente;
+        if (!cli?.id) return;
+        if (!uniques.has(cli.id)) {
+          uniques.set(cli.id, { id: cli.id, nombre: cli.nombre || "" });
+        }
+      });
+      clientesCache = Array.from(uniques.values()).sort((a, b) =>
+        (a.nombre || "").localeCompare(b.nombre || "")
+      );
+      renderSidebar(
+        clientesCache,
+        clientesCache.length ? null : "Sin clientes activos."
+      );
       // build mobile select options
       if (selectClientesMobile) {
         selectClientesMobile.innerHTML =
