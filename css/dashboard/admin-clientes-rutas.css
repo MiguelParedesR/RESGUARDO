@@ -1,4 +1,4 @@
-/* === BEGIN HU:HU-ADMIN-RUTAS-CRUD styles (NO TOCAR FUERA) === */
+﻿/* === BEGIN HU:HU-ADMIN-RUTAS-CRUD styles (NO TOCAR FUERA) === */
 :root {
   --page-bg: #f5f7fa;
   --card-bg: #ffffff;
@@ -300,13 +300,11 @@ body {
   height: 360px;
 }
 
-.map-modal-host {
+ .map-modal-host {
   flex: 1;
-  min-height: 420px;
+  min-height: 100%;
   background: #fff;
-  border-top: 1px solid var(--stroke);
-  border-bottom: 1px solid var(--stroke);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -332,7 +330,7 @@ body {
   padding: 10px 14px;
   border-radius: var(--radius-md);
   box-shadow: 0 12px 28px rgba(6, 11, 25, 0.45);
-  z-index: 12;
+  z-index: 3800;
 }
 
 .rutas-listado table {
@@ -486,7 +484,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 20;
+  z-index: 4000;
   padding: 12px 18px;
   border-radius: var(--radius-lg);
   background: rgba(15, 23, 42, 0.85);
@@ -538,7 +536,7 @@ body {
   position: absolute;
   top: 96px;
   right: 32px;
-  z-index: 5;
+  z-index: 3900;
   backdrop-filter: blur(8px);
   background: rgba(248, 250, 252, 0.92);
   border-radius: var(--radius-lg);
@@ -547,7 +545,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 18;
 }
 
 .modal-map-footer {
@@ -631,6 +628,48 @@ body {
 }
 
 @media (max-width: 768px) {
+  .map-hint--modal {
+    width: calc(100% - 32px);
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    text-align: left;
+  }
+  .map-modal-actions {
+    position: fixed;
+    top: auto;
+    bottom: 120px;
+    right: 16px;
+    left: auto;
+    transform: none;
+    flex-direction: column;
+    gap: 12px;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    z-index: 4100;
+  }
+  .map-modal-actions button {
+    min-width: 54px;
+    min-height: 54px;
+    width: 54px;
+    height: 54px;
+    padding: 0;
+    border-radius: 999px;
+    justify-content: center;
+    box-shadow: 0 16px 32px rgba(6, 11, 25, 0.35);
+  }
+  .map-modal-actions button span {
+    display: none;
+  }
+  .map-modal-actions .btn-ghost {
+    background: rgba(23, 32, 54, 0.75);
+    color: #fff;
+  }
+  .map-modal-actions .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
   .modal-map-header {
     left: 16px;
     right: 16px;
@@ -638,28 +677,6 @@ body {
     flex-direction: column;
     gap: 10px;
     align-items: flex-start;
-  }
-  .map-modal-actions {
-    top: auto;
-    bottom: 88px;
-    right: 16px;
-    left: 16px;
-  }
-  .map-hint--modal {
-    right: 16px;
-    left: 16px;
-    text-align: left;
-  }
-  .map-modal-actions {
-    top: auto;
-    bottom: 88px;
-    right: 16px;
-    left: 16px;
-  }
-  .map-hint--modal {
-    right: 16px;
-    left: 16px;
-    text-align: left;
   }
 }
 /* === END HU:HU-ADMIN-RUTAS-CRUD === */
@@ -739,3 +756,4 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
