@@ -546,9 +546,8 @@
       row.svc.destino || row.svc.destino_texto || "Sin definir";
     const clienteFormatted = formatCliente(row.svc.clienteNombre);
     const tipoServicioInfo = resolveTipoCustodia(row.svc.tipo);
-    const tipoFormatted = tipoServicioInfo
-      ? `${tipoServicioInfo.label} (${tipoServicioInfo.code})`
-      : "Sin tipo";
+    const tipoFormatted =
+      buildTipoEtiquetaFromCustodias(row.custodios || []) || "Sin tipo";
     const custodiasTexto = formatCustodias(row.custodios);
 
     card.innerHTML = `
@@ -627,26 +626,38 @@
     return (nombre || "Sin cliente").toUpperCase();
   }
 
-  function formatTipo(value, options = {}) {
-    const info = resolveTipoCustodia(value);
-    if (!info) return options.fallback || "Sin tipo";
-    if (options.short) return info.code;
-    if (options.labelOnly) return info.label;
-    return `${info.label} (${info.code})`;
+  function buildTipoEtiquetaFromCustodias(custodios) {
+    if (!Array.isArray(custodios) || !custodios.length) return "Sin tipo";
+    let simple = 0;
+    let tipoA = 0;
+    let tipoB = 0;
+    custodios.forEach((cust) => {
+      const raw = (cust.tipo_custodia || "").toUpperCase();
+      if (raw === "SIMPLE" || raw === "S") simple += 1;
+      else if (raw === "A" || raw === "TIPO A") tipoA += 1;
+      else if (raw === "B" || raw === "TIPO B") tipoB += 1;
+    });
+    const pairsB = Math.min(simple, tipoA) + tipoB;
+    const remainingSimple = simple - Math.min(simple, tipoA);
+    const remainingA = tipoA - Math.min(simple, tipoA);
+    const parts = [];
+    if (pairsB > 0) parts.push(pairsB === 1 ? "B" : `${pairsB}B`);
+    if (remainingA > 0) parts.push(remainingA === 1 ? "A" : `${remainingA}A`);
+    if (remainingSimple > 0)
+      parts.push(remainingSimple === 1 ? "S" : `${remainingSimple}S`);
+    return parts.length ? parts.join(" + ") : "Sin tipo";
   }
 
   function formatCustodias(lista) {
     if (!lista || !lista.length) return "Sin custodias asignadas";
-    return lista
-      .map((custodio) => {
-        const nombre = custodio.nombre_custodio || "Sin nombre";
-        const tipo = formatTipo(custodio.tipo_custodia, {
-          short: true,
-          fallback: "?",
-        });
-        return `${nombre} (${tipo})`;
-      })
-      .join(", ");
+    const chunks = [];
+    lista.forEach((custodio) => {
+      const nombre = custodio.nombre_custodio || "Sin nombre";
+      const tipo = resolveTipoCustodia(custodio.tipo_custodia);
+      const code = tipo?.code || "?";
+      chunks.push(`${nombre} (${code})`);
+    });
+    return chunks.join(", ");
   }
 
   function resolveTipoCustodia(raw) {
