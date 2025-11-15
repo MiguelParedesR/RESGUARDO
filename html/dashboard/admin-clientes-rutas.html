@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
@@ -71,7 +71,7 @@
                 <p class="panel__eyebrow">Gestión</p>
                 <h2 id="cliente-actual-titulo">Selecciona un cliente</h2>
               </div>
-              <div class="panel__actions">
+              <div class="panel__actions" data-route-actions hidden>
                 <button id="btn-limpiar-ruta" class="btn-ghost" type="button">
                   <i class="material-icons" aria-hidden="true">delete_sweep</i>
                   <span>Limpiar ruta</span>
@@ -108,13 +108,20 @@
                 </div>
               </div>
               <div class="map-wrapper">
-                <div id="map-rutas" aria-label="Editor de ruta"></div>
+                <div class="map-toolbar">
+                  <button id="btn-expand-map" class="btn-ghost btn-ghost--compact" type="button">
+                    <i class="material-icons" aria-hidden="true">open_in_full</i>
+                    <span>Ampliar mapa</span>
+                  </button>
+                </div>
+                <div id="map-rutas-inline-host" class="map-canvas">
+                  <div id="map-rutas" aria-label="Editor de ruta"></div>
+                </div>
                 <p class="map-hint">
                   Haz clic sobre el mapa para agregar puntos. El botón "Limpiar ruta" quita todos los puntos.
                 </p>
               </div>
             </div>
-
             <div class="rutas-listado">
               <header>
                 <h3>Rutas registradas</h3>
@@ -170,7 +177,7 @@
           <h3 id="modal-confirm-title">Confirmar acción</h3>
         </header>
         <div class="modal__body">
-          <p id="modal-confirm-message">¿Deseas continuar?</p>
+          <p id="modal-confirm-message">Â¿Deseas continuar?</p>
         </div>
         <footer>
           <button type="button" class="btn-ghost" data-close>Cancelar</button>
@@ -179,6 +186,34 @@
       </form>
     </dialog>
 
+    <dialog id="modal-map-expand" class="modal modal--map">
+      <div class="modal__card modal__card--map">
+        <header class="modal-map-header">
+          <h3>Traza la ruta en pantalla completa</h3>
+          <button type="button" class="icon-btn" data-close>
+            <i class="material-icons" aria-hidden="true">close</i>
+          </button>
+        </header>
+        <div class="modal__body modal__body--map">
+          <div class="map-modal-stage">
+            <div id="map-rutas-modal-host" class="map-modal-host" aria-live="polite"></div>
+            <div class="map-modal-actions panel__actions panel__actions--modal" data-route-actions hidden>
+              <button id="btn-limpiar-ruta-modal" class="btn-ghost" type="button">
+                <i class="material-icons" aria-hidden="true">delete_sweep</i>
+                <span>Limpiar ruta</span>
+              </button>
+              <button id="btn-guardar-ruta-modal" class="btn-primary" type="button">
+                <i class="material-icons" aria-hidden="true">save</i>
+                <span>Guardar ruta</span>
+              </button>
+            </div>
+            <p class="map-hint map-hint--modal">
+              Los cambios que hagas aquí actualizan el mapa principal y respetan la selección del cliente.
+            </p>
+          </div>
+        </div>
+      </div>
+    </dialog>
     <dialog id="modal-ia" class="modal modal--ia">
       <div class="modal__card">
         <header>
@@ -215,3 +250,4 @@
 </body>
 
 </html>
+

@@ -679,7 +679,7 @@
 
   async function handleFollow(row, owner) {
     if (!owner?.id) {
-      showMsg("No se encontrÃ³ el registro de custodia.");
+      showMsg("No se encontró el registro de custodia.");
       return;
     }
     try {
@@ -716,7 +716,7 @@
   function openAddModal(row) {
     state.pendingAdd = {
       servicioId: row.svc.id,
-      descripcion: `${row.svc.placa} Â· ${row.svc.clienteNombre}`,
+      descripcion: `${row.svc.placa} – ${row.svc.clienteNombre}`,
     };
     if (ui.modalDescription) {
       ui.modalDescription.textContent = `Servicio ${state.pendingAdd.descripcion}. Selecciona el tipo de custodia que realizaras.`;
@@ -817,7 +817,7 @@
     const id = state.profile?.id;
     if (!id) {
       const err = new Error("profile-missing");
-      err.friendly = "Tu sesiÃ³n expirÃ³. Inicia sesiÃ³n nuevamente.";
+      err.friendly = "Tu sesión expiró. Inicia sesión nuevamente.";
       throw err;
     }
     const { data, error } = await window.sb
@@ -833,7 +833,7 @@
       console.warn(`${LOG_PROFILE} no row`, { id });
       const err = new Error("custodia-missing");
       err.friendly =
-        "No encontramos tu registro de custodia. Completa el onboarding y vuelve a iniciar sesiÃ³n.";
+        "No encontramos tu registro de custodia. Completa el onboarding y vuelve a iniciar sesión.";
       err.code = "CUSTODIA_MISSING";
       throw err;
     }
@@ -847,7 +847,7 @@
       const err = new Error("custodia_fk_missing");
       err.code = code;
       err.friendly =
-        "Tu registro de custodia no estÃ¡ disponible. Vuelve a iniciar sesiÃ³n o repite el registro.";
+        "Tu registro de custodia no está disponible. Vuelve a iniciar sesión o repite el registro.";
       return err;
     }
     if (error?.friendly) return error;
@@ -932,7 +932,7 @@
   function persistCustodiaSession(payload, source = "seguir") {
     console.assert(
       payload?.servicio_id && payload?.servicio_custodio_id,
-      "[task][HU-SEGUIR-REDIRECT] payload invÃ¡lido",
+      "[task][HU-SEGUIR-REDIRECT] payload inválido",
       { source, payload }
     );
     if (
@@ -941,7 +941,7 @@
       !payload.servicio_custodio_id ||
       !window.localStorage
     ) {
-      console.warn("[session] payload invÃ¡lido", { source, payload });
+      console.warn("[session] payload inválido", { source, payload });
       return null;
     }
     try {
@@ -983,6 +983,10 @@
   // === END HU:HU-SEGUIR-REDIRECT ===
 })();
 // === END HU:HU-CUSTODIA-REGISTROS-FLUJO ===
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-/* dashboard-admin.css – Sidebar fijo + mapa a la derecha + topbar pro */
+﻿/* dashboard-admin.css – Sidebar fijo + mapa a la derecha + topbar pro */
 
 
 
@@ -823,7 +823,7 @@ body.filters-open .map-panel::after {
 
 }
 
-/* Ajuste: cuando la p�gina tiene subheader, elevamos la altura del header fijo */
+/* Ajuste: cuando la página tiene subheader, elevamos la altura del header fijo */
 .has-subheader{ --header-h: calc(64px + var(--topbar-h)); }
 /* ===== Overrides para alternar paneles de forma profesional ===== */
 /* Mobile/Tablet: una sola columna, alternar por clases en <body> */
@@ -977,3 +977,4 @@ body.view-filtros .sidebar { display: none !important; }
     transform: scale(1.2);
   }
 }
+

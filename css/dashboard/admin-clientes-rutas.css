@@ -81,6 +81,14 @@ body {
   flex-wrap: wrap;
 }
 
+.panel__actions--modal {
+  justify-content: flex-end;
+}
+
+[data-route-actions][hidden] {
+  display: none !important;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -173,6 +181,12 @@ body {
   box-shadow: 0 8px 18px rgba(63, 81, 181, 0.18);
 }
 
+.btn-ghost--compact {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
 .btn-danger {
   background: var(--danger);
   color: #fff;
@@ -260,6 +274,25 @@ body {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.map-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--stroke);
+  background: #f8fafc;
+}
+
+.map-canvas {
+  padding: 0 0 16px;
+  background: #fff;
 }
 
 #map-rutas {
@@ -267,11 +300,38 @@ body {
   height: 360px;
 }
 
+.map-modal-host {
+  flex: 1;
+  min-height: 420px;
+  background: #fff;
+  border-top: 1px solid var(--stroke);
+  border-bottom: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.map-modal-host #map-rutas {
+  height: 100%;
+}
+
 .map-hint {
   text-align: center;
   margin: 8px 0 12px;
   font-size: 0.85rem;
   color: var(--ink-300);
+}
+
+.map-hint--modal {
+  text-align: right;
+  margin: 0;
+  color: #fff;
+  position: absolute;
+  right: 32px;
+  bottom: 32px;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(6, 11, 25, 0.45);
 }
 
 .rutas-listado table {
@@ -392,6 +452,100 @@ body {
   width: min(540px, 92vw);
 }
 
+.modal--map {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+}
+
+.modal--map::backdrop {
+  background: rgba(6, 11, 25, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.modal__card--map {
+  padding: 0;
+  gap: 0;
+  min-height: 100vh;
+  border-radius: 0;
+  position: relative;
+  background: transparent;
+}
+
+.modal-map-header {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 4;
+  padding: 12px 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(15, 23, 42, 0.8);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.modal-map-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modal-map-header .icon-btn {
+  color: #fff;
+}
+
+.modal__body--map {
+  flex: 1;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  height: 100vh;
+}
+
+.map-modal-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  width: 100%;
+}
+
+.map-modal-host {
+  flex: 1;
+  min-height: 100%;
+  background: #fff;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.map-modal-host #map-rutas {
+  height: 100%;
+}
+
+.map-modal-actions {
+  position: absolute;
+  top: 96px;
+  right: 32px;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  background: rgba(248, 250, 252, 0.92);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-map-footer {
+  display: none;
+}
+
 .ia-body {
   display: grid;
   gap: 10px;
@@ -465,6 +619,28 @@ body {
   .panel__actions .btn-primary span,
   .panel__actions .btn-ghost span {
     display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-map-header {
+    left: 16px;
+    right: 16px;
+    top: 16px;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .map-modal-actions {
+    top: auto;
+    bottom: 88px;
+    right: 16px;
+    left: 16px;
+  }
+  .map-hint--modal {
+    right: 16px;
+    left: 16px;
+    text-align: left;
   }
 }
 /* === END HU:HU-ADMIN-RUTAS-CRUD === */

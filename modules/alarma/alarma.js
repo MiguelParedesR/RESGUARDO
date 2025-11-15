@@ -825,7 +825,7 @@
     let title;
     let body;
     if (pushType === "panic") {
-      title = `ALERTA DE PANICO - ${cliente}`;
+      title = `ALERTA DE PÁNICO - ${cliente}`;
       body = `${placa} (${servicioTipo}). Atender de inmediato.`;
     } else if (pushType === "start") {
       title = `Inicio de servicio - ${cliente}`;
@@ -1271,7 +1271,7 @@
       } catch (_) {}
     }
     if (!state.permissions.sound) {
-      showToast("Habilita el sonido para escuchar la alerta de pÃ¡nico.");
+      showToast("Habilita el sonido para escuchar la alerta de pánico.");
     }
     stopSismateAlarm("restart");
     state.siren.sismateActive = true;
@@ -1513,8 +1513,8 @@
     backdrop.innerHTML = `
       <div class="alarma-modal__dialog" role="document">
         <div class="alarma-modal__header">
-          <div class="alarma-modal__title">ALERTA DE PANICO</div>
-          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close" aria-label="Cerrar alerta">Ã—</button>
+          <div class="alarma-modal__title">ALERTA DE PÁNICO</div>
+          <button type="button" class="alarma-btn alarma-btn--ghost js-alarma-close" aria-label="Cerrar alerta">&times;</button>
         </div>
         <div class="alarma-modal__body" id="alarma-modal-body"></div>
         <div class="alarma-modal__actions">
@@ -1579,7 +1579,7 @@
         )
         .join("");
       body.innerHTML = `
-        <p class="alarma-modal__eyebrow">ALERTA â€“ ${clip(
+        <p class="alarma-modal__eyebrow">ALERTA – ${clip(
           cliente,
           MAX_STRING
         )}</p>
@@ -2584,3 +2584,5 @@
     }
   }
 })(window);
+
+

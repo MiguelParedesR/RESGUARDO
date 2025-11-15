@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Anti-exfiltraciÃ³n bÃ¡sica (disuasiva)
+  // Anti-exfiltración básica (disuasiva)
   const antiOverlay = document.getElementById("anti-capture-overlay");
   document.addEventListener("contextmenu", (e) => {
     if (e.target.closest(".sensitive")) {
@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!window.sb) {
     console.error("[consulta] Supabase no inicializado (config.js)");
-    showMsg("Error de inicializaciÃ³n");
+    showMsg("Error de inicialización");
     return;
   }
 
@@ -698,6 +698,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start
   cargarClientes();
 });
+
 
 
 

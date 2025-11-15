@@ -1,8 +1,8 @@
-// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
+﻿// Dashboard Admin - limpio y estable (Lista + Filtros/Mapa)
 // @hu HU-PANICO-MODAL-UNICO, HU-PANICO-TTS, HU-AUDIO-GESTO, HU-MARCADORES-CUSTODIA, HU-CHECKIN-15M
 // @author Codex
 // @date 2025-02-15
-// @rationale Mantener dashboard admin alineado con sonido, pÃ¡nico y check-in sin regresiones.
+// @rationale Mantener dashboard admin alineado con sonido, pánico y check-in sin regresiones.
 
 document.addEventListener("DOMContentLoaded", () => {
   const h = (v) =>
@@ -1881,3 +1881,4 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[QA] modal único de pánico OK");
   console.log("[QA] sirena + TTS en bucle OK");
 });
+

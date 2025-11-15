@@ -27,6 +27,7 @@
     mapUI();
     if (ui.btnIaApply) ui.btnIaApply.disabled = true;
     bindEvents();
+    updateRouteActions();
     setupMap();
     loadClientes().catch((err) => {
       console.error("[rutas] load clientes error", err);
@@ -48,6 +49,8 @@
     ui.rutaTolerancia = document.getElementById("ruta-tolerancia");
     ui.btnLimpiarRuta = document.getElementById("btn-limpiar-ruta");
     ui.btnGuardarRuta = document.getElementById("btn-guardar-ruta");
+    ui.btnLimpiarRutaModal = document.getElementById("btn-limpiar-ruta-modal");
+    ui.btnGuardarRutaModal = document.getElementById("btn-guardar-ruta-modal");
     ui.btnGenerarRuta = document.getElementById("btn-generar-ruta");
     ui.tablaRutas = document.getElementById("tabla-rutas");
     ui.modalConfirm = document.getElementById("modal-confirm");
@@ -61,6 +64,13 @@
     ui.iaChatlog = document.getElementById("ia-chatlog");
     ui.btnIaApply = document.getElementById("btn-ia-apply");
     ui.btnIaRun = document.getElementById("btn-ia-run");
+    ui.btnExpandMap = document.getElementById("btn-expand-map");
+    ui.mapInlineHost = document.getElementById("map-rutas-inline-host");
+    ui.mapModalHost = document.getElementById("map-rutas-modal-host");
+    ui.modalMap = document.getElementById("modal-map-expand");
+    ui.routeActionBlocks = Array.from(
+      document.querySelectorAll("[data-route-actions]") || []
+    );
   }
 
   function bindEvents() {
@@ -69,9 +79,11 @@
       ui.modalCliente?.showModal();
       ui.clienteNombre?.focus();
     });
-    ui.modalCliente?.querySelectorAll("[data-close]").forEach((btn) =>
-      btn.addEventListener("click", () => ui.modalCliente.close())
-    );
+    ui.modalCliente
+      ?.querySelectorAll("[data-close]")
+      .forEach((btn) =>
+        btn.addEventListener("click", () => ui.modalCliente.close())
+      );
     ui.modalCliente?.addEventListener("submit", handleNuevoCliente);
     ui.modalConfirm
       ?.querySelectorAll("[data-close]")
@@ -95,10 +107,18 @@
     );
 
     ui.btnLimpiarRuta?.addEventListener("click", clearRuta);
+    ui.btnLimpiarRutaModal?.addEventListener("click", clearRuta);
     ui.btnGuardarRuta?.addEventListener("click", handleGuardarRuta);
+    ui.btnGuardarRutaModal?.addEventListener("click", handleGuardarRuta);
     ui.btnGenerarRuta?.addEventListener("click", openIaModal);
     ui.btnIaRun?.addEventListener("click", handleIaGenerate);
     ui.btnIaApply?.addEventListener("click", applyIaRoute);
+    ui.btnExpandMap?.addEventListener("click", openMapModal);
+    ui.modalMap
+      ?.querySelectorAll("[data-close]")
+      .forEach((btn) => btn.addEventListener("click", closeMapModal));
+    ui.modalMap?.addEventListener("close", handleMapModalClose);
+    ui.rutaNombre?.addEventListener("input", () => updateRouteActions());
   }
 
   function setupMap() {
@@ -121,8 +141,46 @@
       state.iaLastRoute = null;
       if (ui.btnIaApply) ui.btnIaApply.disabled = true;
       refreshPolyline();
-      enableSave();
+      updateRouteActions();
     });
+  }
+
+  function moveMapToHost(host) {
+    if (!host) return;
+    const mapEl = document.getElementById("map-rutas");
+    if (!mapEl || mapEl.parentElement === host) return;
+    host.appendChild(mapEl);
+    requestAnimationFrame(() => {
+      try {
+        state.map?.invalidateSize?.();
+      } catch (err) {
+        console.warn("[rutas] map resize", err);
+      }
+    });
+  }
+
+  function openMapModal() {
+    if (!ui.modalMap) return;
+    moveMapToHost(ui.mapModalHost);
+    try {
+      ui.modalMap.showModal();
+    } catch (err) {
+      console.warn("[rutas] modal open", err);
+      moveMapToHost(ui.mapInlineHost);
+      return;
+    }
+    updateRouteActions();
+  }
+
+  function closeMapModal() {
+    if (ui.modalMap?.open) {
+      ui.modalMap.close();
+    }
+  }
+
+  function handleMapModalClose() {
+    moveMapToHost(ui.mapInlineHost);
+    updateRouteActions();
   }
 
   async function loadClientes(term = "") {
@@ -181,7 +239,6 @@
     state.editingRutaId = null;
     ui.clienteTitulo.textContent = `Cliente: ${cliente.nombre}`;
     clearRuta();
-    ui.btnGuardarRuta.disabled = false;
     loadRutasCliente(cliente.id);
     renderClientes();
   }
@@ -190,7 +247,9 @@
     try {
       const { data, error } = await window.sb
         .from("ruta_cliente")
-        .select("id,nombre,descripcion,tolerancia_metros,is_active,created_at,geojson")
+        .select(
+          "id,nombre,descripcion,tolerancia_metros,is_active,created_at,geojson"
+        )
         .eq("cliente_id", clienteId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -216,9 +275,9 @@
       row.innerHTML = `
         <td>${ruta.nombre}</td>
         <td>${ruta.tolerancia_metros} m</td>
-        <td><span class="badge ${ruta.is_active ? "badge--active" : "badge--inactive"}">${
-        ruta.is_active ? "Activa" : "Inactiva"
-      }</span></td>
+        <td><span class="badge ${
+          ruta.is_active ? "badge--active" : "badge--inactive"
+        }">${ruta.is_active ? "Activa" : "Inactiva"}</span></td>
         <td>${formatDate(ruta.created_at)}</td>
         <td>
           <div class="tabla-actions">
@@ -231,9 +290,12 @@
       const buttons = row.querySelectorAll("button");
       buttons.forEach((btn) => {
         const action = btn.getAttribute("data-action");
-        if (action === "ver") btn.addEventListener("click", () => mostrarRutaEnMapa(ruta));
-        if (action === "editar") btn.addEventListener("click", () => cargarRutaEnFormulario(ruta));
-        if (action === "eliminar") btn.addEventListener("click", () => confirmarEliminarRuta(ruta));
+        if (action === "ver")
+          btn.addEventListener("click", () => mostrarRutaEnMapa(ruta));
+        if (action === "editar")
+          btn.addEventListener("click", () => cargarRutaEnFormulario(ruta));
+        if (action === "eliminar")
+          btn.addEventListener("click", () => confirmarEliminarRuta(ruta));
       });
       ui.tablaRutas.appendChild(row);
     });
@@ -242,7 +304,10 @@
   function mostrarRutaEnMapa(ruta) {
     if (!state.map || !ruta?.geojson) return;
     try {
-      const parsed = typeof ruta.geojson === "string" ? JSON.parse(ruta.geojson) : ruta.geojson;
+      const parsed =
+        typeof ruta.geojson === "string"
+          ? JSON.parse(ruta.geojson)
+          : ruta.geojson;
       const coords = parsed?.coordinates || [];
       if (!coords.length) return;
       state.puntos = coords.map(([lng, lat]) => ({ lat, lng }));
@@ -258,7 +323,7 @@
     ui.rutaDescripcion.value = ruta.descripcion || "";
     ui.rutaTolerancia.value = ruta.tolerancia_metros || 120;
     mostrarRutaEnMapa(ruta);
-    enableSave();
+    updateRouteActions();
   }
 
   function clearRuta() {
@@ -270,7 +335,7 @@
     state.iaLastRoute = null;
     if (ui.btnIaApply) ui.btnIaApply.disabled = true;
     refreshPolyline();
-    enableSave(false);
+    updateRouteActions();
   }
 
   function refreshPolyline(fitBounds = false) {
@@ -282,13 +347,34 @@
     }
   }
 
-  function enableSave(enable = true) {
-    if (!ui.btnGuardarRuta) return;
-    if (state.clienteSeleccionado && (enable || state.puntos.length >= 2)) {
-      ui.btnGuardarRuta.disabled = false;
-    } else {
-      ui.btnGuardarRuta.disabled = true;
-    }
+  function updateRouteActions(options = {}) {
+    const { forceDisableSave = false, forceDisableClear = false } = options;
+    const hasCliente = Boolean(state.clienteSeleccionado);
+    toggleRouteActionBlocks(hasCliente);
+    const guardarDisabled = !hasCliente || forceDisableSave;
+    const limpiarDisabled = !hasCliente || forceDisableClear;
+    setGuardarButtonsDisabled(guardarDisabled);
+    setLimpiarButtonsDisabled(limpiarDisabled);
+  }
+
+  function setGuardarButtonsDisabled(disabled) {
+    [ui.btnGuardarRuta, ui.btnGuardarRutaModal].forEach((btn) => {
+      if (btn) btn.disabled = disabled;
+    });
+  }
+
+  function setLimpiarButtonsDisabled(disabled) {
+    [ui.btnLimpiarRuta, ui.btnLimpiarRutaModal].forEach((btn) => {
+      if (btn) btn.disabled = disabled;
+    });
+  }
+
+  function toggleRouteActionBlocks(visible) {
+    if (!Array.isArray(ui.routeActionBlocks)) return;
+    ui.routeActionBlocks.forEach((block) => {
+      if (!block) return;
+      block.hidden = !visible;
+    });
   }
 
   async function handleNuevoCliente(evt) {
@@ -328,7 +414,7 @@
     const payload = buildRutaPayload();
     if (!payload) return;
     try {
-      ui.btnGuardarRuta.disabled = true;
+      updateRouteActions({ forceDisableSave: true, forceDisableClear: true });
       let response;
       if (state.editingRutaId) {
         response = await window.sb
@@ -362,7 +448,7 @@
       console.error("[rutas] guardar ruta", err);
       showMsg(err?.message || "No se pudo guardar la ruta.");
     } finally {
-      ui.btnGuardarRuta.disabled = false;
+      updateRouteActions();
     }
   }
 
@@ -388,7 +474,7 @@
 
   function confirmarEliminarRuta(ruta) {
     ui.modalConfirmTitle.textContent = "Eliminar ruta";
-    ui.modalConfirmMessage.textContent = `Â¿Eliminar la ruta "${ruta.nombre}"?`;
+    ui.modalConfirmMessage.textContent = `¿Eliminar la ruta "${ruta.nombre}"?`;
     ui.modalConfirm.dataset.routeId = ruta.id;
     ui.modalConfirm.showModal();
   }
@@ -483,7 +569,7 @@
     }
     state.puntos = coords;
     refreshPolyline(true);
-    enableSave(true);
+    updateRouteActions();
     ui.modalIA?.close();
   }
 
@@ -610,6 +696,3 @@
   }
 })();
 // === END HU:HU-ADMIN-RUTAS-CRUD ===
-
-
-

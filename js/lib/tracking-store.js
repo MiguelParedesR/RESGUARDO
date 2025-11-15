@@ -53,7 +53,7 @@
         .subscribe();
     } catch {}
 
-    // Fallback a polling, Ãºtil offline o sin Realtime
+    // Fallback a polling, útil offline o sin Realtime
     const timer = setInterval(() => {
       if (!stopped) fetchLast();
     }, pollMs);
@@ -85,3 +85,4 @@
 
   window.trackingStore = { createServicioStore };
 })();
+

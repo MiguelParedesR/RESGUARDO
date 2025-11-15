@@ -88,7 +88,8 @@
         <article class="alarma-route__card" role="dialog" aria-modal="true" aria-labelledby="ruta-alert-title">
           <header class="alarma-route__head">
             <p class="alarma-route__eyebrow">Desvío detectado</p>
-            <button type="button" class="alarma-route__close" data-ruta-alert-close="close" aria-label="Cerrar alerta de ruta">
+            <button type="button" class="alarma-route__close" data-ruta-alert-close="close"
+              aria-label="Cerrar alerta de ruta">
               <i class="material-icons" aria-hidden="true">close</i>
             </button>
           </header>
@@ -395,7 +396,7 @@
             amVideo.srcObject = mediaStream;
             amVideo.style.display = 'block';
             amPreview.classList.remove('show');
-          amPreview.setAttribute('hidden', 'hidden');
+            amPreview.setAttribute('hidden', 'hidden');
             amShot.disabled = false;
             amReset.disabled = true;
             amStatus.textContent = 'Camara lista';
@@ -557,7 +558,7 @@
             emVideo.srcObject = mediaStream;
             emVideo.style.display = 'block';
             emPreview.classList.remove('show');
-          emPreview.setAttribute('hidden', 'hidden');
+            emPreview.setAttribute('hidden', 'hidden');
             emShot.disabled = false;
             emReset.disabled = true;
             emStatus.textContent = 'Camara lista';
@@ -627,4 +628,3 @@
 </body>
 
 </html>
-
