@@ -27,7 +27,6 @@
     selfieBlob: null,
     loader: null,
     snackbar: null,
-    selfieContext: null,
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -298,7 +297,6 @@
       try {
         const custodia = await insertCustodia(payload);
         await insertCustodiaLogin(custodia);
-        await uploadCustodiaSelfie(custodia);
         console.log(`${LOG_PREFIX} registro completado`, custodia);
         showSuccess(custodia);
       } catch (err) {
@@ -356,7 +354,12 @@
   }
 
   async function insertCustodia(payload) {
+    if (!state.selfieBlob) {
+      throw new Error("Selfie requerida");
+    }
     console.log(`${API_PREFIX} insert custodia`);
+    const mime = state.selfieBlob.type || "image/jpeg";
+    const bytes = await blobToHex(state.selfieBlob);
     const { data, error } = await window.sb
       .from("custodia")
       .insert(
@@ -365,10 +368,12 @@
           dni: payload.dni,
           empresa: payload.empresa,
           empresa_otro: payload.empresa_otro,
+          selfie_bytes: bytes,
+          selfie_mime_type: mime,
         },
         { returning: "representation" }
       )
-      .select("id,dni_last4,nombre,empresa,empresa_otro")
+      .select("id,dni_last4,nombre,empresa,empresa_otro,selfie_mime_type")
       .single();
     if (error) throw error;
     return data;
@@ -397,39 +402,6 @@
       }
       throw error;
     }
-  }
-
-  async function uploadCustodiaSelfie(custodia) {
-    if (!state.selfieBlob) {
-      throw new Error("Selfie requerida");
-    }
-    const servicioCustodioId = state.selfieContext?.servicioCustodioId;
-    if (!servicioCustodioId) {
-      console.info(
-        `${API_PREFIX} selfie omitida`,
-        "Sin servicio_custodio_id disponible",
-        { custodia: custodia?.id }
-      );
-      showMsg(
-        "Tu selfie se solicitará nuevamente cuando te asignen a un servicio."
-      );
-      return null;
-    }
-    const mime = state.selfieBlob.type || "image/jpeg";
-    const bytes = await blobToHex(state.selfieBlob);
-    console.log(`${API_PREFIX} insert selfie`, {
-      mime,
-      size: state.selfieBlob.size,
-    });
-    const payload = {
-      custodia_id: custodia.id,
-      servicio_custodio_id: servicioCustodioId,
-      mime_type: mime,
-      bytes,
-    };
-    const { error } = await window.sb.from("selfie").insert(payload);
-    if (error) throw error;
-    return payload;
   }
 
   async function blobToHex(blob) {

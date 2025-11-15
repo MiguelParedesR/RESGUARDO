@@ -209,17 +209,24 @@
           if (!scId || !blob) throw new Error('Parametros invalidos para selfie');
           const mime = blob.type || 'image/jpeg';
           const bytes = await blobToHex(blob);
-          const { data, error, status } = await window.sb
-            .from('selfie')
-            .insert({ servicio_custodio_id: scId, mime_type: mime, bytes }, { returning: 'representation' })
-            .select('id, servicio_custodio_id, created_at')
-            .single();
+          const { data: scRow, error: scError } = await window.sb
+            .from('servicio_custodio')
+            .select('id,custodia_id')
+            .eq('id', scId)
+            .maybeSingle();
+          if (scError) throw scError;
+          const custodiaId = scRow?.custodia_id;
+          if (!custodiaId) throw new Error('Custodia no asociada');
+          const { error, status } = await window.sb
+            .from('custodia')
+            .update({ selfie_bytes: bytes, selfie_mime_type: mime })
+            .eq('id', custodiaId);
           if (error) {
             console.warn('[selfie] FAIL', { sc_id: scId, status, error });
             throw error;
           }
-          console.log('[selfie] OK', { sc_id: scId, selfie_id: data?.id });
-          return { ok: true, data };
+          console.log('[selfie] OK', { sc_id: scId, custodia_id: custodiaId });
+          return { ok: true, data: { custodia_id: custodiaId } };
         } catch (err) {
           console.warn('[selfie] FAIL', { sc_id: scId, message: err?.message || 'unknown' });
           return { ok: false, error: err };

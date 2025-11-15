@@ -431,21 +431,13 @@ document.addEventListener("DOMContentLoaded", () => {
         cust.nombre_custodio ||
         `Custodia ${idx + 1}`
       ).trim();
-      const archivos = [
-        ...(Array.isArray(cust.custodia?.selfies) ? cust.custodia.selfies : []),
-        ...(Array.isArray(cust.sc_selfies) ? cust.sc_selfies : []),
-      ].sort((a, b) => {
-        const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      });
-      const archivo = archivos.find((file) => file?.bytes);
-      if (!archivo) return;
-      const mime = archivo.mime_type || "image/jpeg";
+      const bytes = cust.custodia?.selfie_bytes;
+      if (!bytes) return;
+      const mime = cust.custodia?.selfie_mime_type || "image/jpeg";
       const key = cust.custodia?.id || cust.id || `${nombre}-${bucket.size}`;
       if (bucket.has(key)) return;
       bucket.set(key, {
-        src: `data:${mime};base64,${toBase64(archivo.bytes)}`,
+        src: `data:${mime};base64,${toBase64(bytes)}`,
         label: nombre,
         custodiaId: cust.custodia?.id || null,
         servicioCustodioId: cust.id,
@@ -653,18 +645,8 @@ document.addEventListener("DOMContentLoaded", () => {
           nombre,
           empresa,
           empresa_otro,
-          selfies:selfie!selfie_custodia_id_fkey (
-            id,
-            mime_type,
-            bytes,
-            created_at
-          )
-        ),
-        sc_selfies:selfie!selfie_servicio_custodio_id_fkey (
-          id,
-          mime_type,
-          bytes,
-          created_at
+          selfie_bytes,
+          selfie_mime_type
         )
       `
       )
@@ -675,23 +657,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getSelfieSrc(entry) {
-    const primary =
-      Array.isArray(entry?.custodia?.selfies) && entry.custodia.selfies.length
-        ? entry.custodia.selfies
-        : [];
-    const secondary =
-      Array.isArray(entry?.sc_selfies) && entry.sc_selfies.length
-        ? entry.sc_selfies
-        : [];
-    const ordered = [...primary, ...secondary].sort((a, b) => {
-      const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
-      const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
-      return bTime - aTime;
-    });
-    const file = ordered.find((row) => row && row.bytes);
-    if (!file || !file.bytes) return null;
-    const mime = file.mime_type || "image/jpeg";
-    return `data:${mime};base64,${toBase64(file.bytes)}`;
+    const bytes = entry?.custodia?.selfie_bytes;
+    if (!bytes) return null;
+    const mime = entry?.custodia?.selfie_mime_type || "image/jpeg";
+    return `data:${mime};base64,${toBase64(bytes)}`;
   }
   // === END HU:HU-MARCADORES-CUSTODIA ===
 
