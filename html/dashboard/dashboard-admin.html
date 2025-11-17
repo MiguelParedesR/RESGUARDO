@@ -16,6 +16,19 @@
     <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        primaryDark: '#1d4ed8'
+                    }
+                }
+            }
+        };
+    </script>
     <link rel="manifest" href="/manifest.json" />
 
 
@@ -42,19 +55,19 @@
     <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base has-subheader">
+<body class="mdl-base has-subheader bg-gray-50 text-slate-900">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <!-- Header compartido inyectado -->
         <div id="app-header" data-page-title="Administrador" data-nav="admin"></div>
 
-        <main class="mdl-layout__content">
-            <section class="page">
+        <main class="mdl-layout__content bg-gray-50 px-4 py-8">
+            <section class="page w-full max-w-7xl mx-auto space-y-8">
                 <!-- La barra Lista/Filtros se movió al header para quedar fija -->
 
                 <!-- SPLIT: sidebar + mapa -->
-                <div class="split">
+                <div class="split flex flex-col gap-8 lg:flex-row">
                     <!-- Sidebar -->
-                    <aside class="sidebar">
+                    <aside class="sidebar bg-white border border-gray-100 rounded-2xl shadow-sm">
                         <div class="sidebar-head">
                             <div class="lbl" style="font-size:14px;font-weight:800;color:#37474f;">Servicios</div>
                             <div class="head-actions">
@@ -73,13 +86,13 @@
                     </aside>
 
                     <!-- Panel de mapa -->
-                    <section class="map-panel">
+                    <section class="map-panel bg-white border border-gray-100 rounded-3xl shadow-lg overflow-hidden relative">
                         <div class="map-head">
                             <div class="map-title" id="map-title">Selecciona un servicio</div>
                             <div class="map-metrics">
                                 <span><strong>Ping:</strong> <span id="metric-ping">--</span></span>
                                 <span><strong>Estado:</strong> <span id="metric-estado">--</span></span>
-                                <button id="btn-alarma-push-admin" class="btn btn-ghost"
+                                <button id="btn-alarma-push-admin" class="btn btn-ghost secondary-btn"
                                     title="Activar notificaciones de alarma">
                                     <i class="material-icons">notifications_active</i>Alertas
                                 </button> <!-- === BEGIN HU:HU-AUDIO-GESTO btn sonido (no tocar fuera) === -->
@@ -148,7 +161,7 @@
                         <div class="map-overlay" hidden></div>
                         <div id="map-admin"></div>
 
-                        <div class="details" id="details">
+                        <div class="details bg-slate-50 border border-gray-100 rounded-2xl p-4" id="details">
                             <div><strong>Empresa:</strong> --</div>
                             <div><strong>Cliente:</strong> --</div>
                             <div><strong>Placa:</strong> --</div>
@@ -156,7 +169,7 @@
                             <div><strong>Destino:</strong> --</div>
                             <div>
                                 <button id="btn-finalizar"
-                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
+                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent primary-btn" disabled>
                                     Finalizar servicio
                                 </button>
                             </div>

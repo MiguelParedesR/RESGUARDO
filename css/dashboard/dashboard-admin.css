@@ -3,42 +3,25 @@
 
 
 :root {
-
-    --bg: #f5f7fa;
-
+    --bg: #f8fafc;
     --card: #ffffff;
-
-    --txt: #263238;
-
-    --muted: #546e7a;
-
-    --accent: #e91e63;
-
-    --accent-dark: #c2185b;
-
-    --stroke: #e0e6ec;
-
-    --ok: #2e7d32;
-
-    --warn: #c62828;
-
-    --chip-ok-bg: #e3f2fd;
-
-    --chip-ok-txt: #1976d2;
-
-    --chip-end-bg: #e8f5e9;
-
-    --chip-end-txt: #2e7d32;
-
-    --chip-warn-bg: #ffebee;
-
-    --chip-warn-txt: #c62828;
-
+    --txt: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --stroke: #e2e8f0;
+    --ok: #22c55e;
+    --warn: #dc2626;
+    --chip-ok-bg: #dbeafe;
+    --chip-ok-txt: #1d4ed8;
+    --chip-end-bg: #ecfccb;
+    --chip-end-txt: #15803d;
+    --chip-warn-bg: #fee2e2;
+    --chip-warn-txt: #b91c1c;
     /* layout */
     --header-h: 64px; /* MDL header (una fila) */
     --topbar-h: 48px; /* subheader Lista/Filtros */
     --sidebar-w: 360px; /* ancho inicial del panel de servicios en desktop */
-
 }
 
 html,
@@ -129,6 +112,26 @@ html, body { overflow-x: hidden; }
 
     color: #37474f;
 
+}
+
+.primary-btn {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+    text-transform: none !important;
+    border-radius: 999px !important;
+}
+
+.primary-btn:hover {
+    background: var(--accent-dark) !important;
+}
+
+.secondary-btn {
+    background: #e2e8f0 !important;
+    color: var(--txt) !important;
+    border-color: transparent !important;
+    border-radius: 999px !important;
+    text-transform: none !important;
 }
 
 
@@ -567,7 +570,7 @@ body.view-lista .sidebar {
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(38, 50, 56, 0.18);
+    background: rgba(15, 23, 42, 0.15);
     opacity: 0;
     pointer-events: none;
     transition: opacity .18s ease;
@@ -650,7 +653,7 @@ body.filters-open .map-panel::after {
     margin: 0;
     font-size: 12px;
     letter-spacing: 0.3em;
-    color: #f44336;
+    color: var(--accent);
 }
 
 .route-alert__title {
@@ -671,7 +674,7 @@ body.filters-open .map-panel::after {
     margin: 8px 0 0;
     font-size: 13px;
     font-weight: 600;
-    color: #d1432f;
+    color: var(--accent-dark);
 }
 
 .route-alert__actions {
@@ -688,12 +691,12 @@ body.filters-open .map-panel::after {
 }
 
 .route-alert__actions .btn-accent {
-    background: #f44336;
+    background: var(--accent);
     color: #fff;
 }
 
 .route-alert__actions .btn-accent:hover {
-    background: #d32f2f;
+    background: var(--accent-dark);
 }
 
 .route-alert__actions .btn-ghost {
@@ -882,7 +885,7 @@ body.view-filtros .sidebar { display: none !important; }
 .map-panel .drawer-close:hover { background: rgba(0,0,0,.04); }
 
 .map-panel .map-overlay {
-  position: absolute; inset: 0; background: rgba(38,50,56,.18);
+  position: absolute; inset: 0; background: rgba(15,23,42,.15);
   z-index: 5001; pointer-events: none;
 }
 
@@ -977,4 +980,5 @@ body.view-filtros .sidebar { display: none !important; }
     transform: scale(1.2);
   }
 }
+
 

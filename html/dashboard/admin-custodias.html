@@ -14,6 +14,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2563eb',
+            primaryDark: '#1d4ed8'
+          }
+        }
+      }
+    };
+  </script>
 
   <link rel="stylesheet" href="../../css/dashboard/admin-custodias.css" />
   <link rel="stylesheet" href="../../css/partials/app-header.css" />
@@ -27,13 +40,13 @@
   <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base">
+<body class="mdl-base bg-gray-50 text-slate-900">
   <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
     <div id="app-header" data-page-title="Panel de Custodias" data-nav="admin"></div>
 
     <!-- === BEGIN HU:HU-ADMIN-CUSTODIAS-PANEL (NO TOCAR FUERA) === -->
-    <main class="mdl-layout__content">
-      <section class="page page--custodias">
+    <main class="mdl-layout__content bg-gray-50 px-4 py-8">
+      <section class="page page--custodias w-full max-w-6xl mx-auto space-y-8">
         <header class="topbar">
           <div>
             <p class="eyebrow">Custodias</p>
@@ -67,7 +80,7 @@
           </div>
         </header>
 
-        <div class="table-wrapper">
+        <div class="table-wrapper bg-white border border-gray-100 rounded-2xl shadow-sm">
           <table>
             <thead>
               <tr>
