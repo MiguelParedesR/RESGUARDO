@@ -1,26 +1,22 @@
 <header class="app-header-modern">
   <div class="app-header-modern-row">
 
-    <!-- Marca / Título dinámico -->
+    <!-- BRAND -->
     <div class="app-header-brand">
       <span class="app-header-title" id="app-header-title">Resguardo</span>
     </div>
 
-    <!-- NAV SOLO PARA ADMIN (oculto para CUSTODIA por JS) -->
+    <!-- NAV (SOLO ADMIN, OCULTO POR JS PARA OTROS ROLES) -->
     <nav class="app-header-nav" aria-label="Navegación principal" hidden>
       <a data-nav-key="servicios" href="/html/dashboard/dashboard-admin.html">Servicios</a>
       <a data-nav-key="rutas" href="/html/dashboard/admin-clientes-rutas.html">Clientes & Rutas</a>
       <a data-nav-key="custodias" href="/html/dashboard/admin-custodias.html">Custodias</a>
     </nav>
 
-    <!-- Acciones -->
+    <!-- ACCIONES (HOME / SALIR) -->
     <div class="app-header-actions">
-      <a class="app-header-link" id="app-header-home" href="/html/index.html">
-        Inicio
-      </a>
-      <a class="app-header-link app-header-link--danger" id="app-header-logout" href="#">
-        Salir
-      </a>
+      <a id="app-header-home" class="app-header-link" href="/html/index.html">Inicio</a>
+      <a id="app-header-logout" class="app-header-link app-header-link--danger" href="#">Salir</a>
     </div>
 
   </div>
