@@ -28,11 +28,14 @@
   <script defer src="../../js/dashboard/custodia-registros.js"></script>
   <script defer src="../../js/pwa.js"></script>
 </head>
+<script>
+sessionStorage.setItem("auth_role", "CUSTODIA");
+</script>
 
 <body class="light-body">
 
   <!-- HEADER -->
-  <div id="app-header" data-page-title="Mis servicios"></div>
+  <div id="app-header" data-page-title="Mis servicios" data-nav="CUSTODIA"></div>
 
   <main class="custodia-main-wrapper">
 
@@ -72,11 +75,6 @@
             <p id="cliente-feedback" class="cliente-search__feedback" aria-live="polite"></p>
 
             <ul id="cliente-results" class="cliente-search__results" role="listbox"></ul>
-
-            <button id="cliente-add-btn" type="button" class="cliente-search__add" hidden>
-              <i class="material-icons">person_add</i>
-              <span>Agregar nuevo cliente</span>
-            </button>
 
           </div>
 

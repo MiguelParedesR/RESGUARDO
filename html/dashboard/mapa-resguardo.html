@@ -251,7 +251,7 @@
         const listEl = document.getElementById('custodios-list');
         const { data: custodios, error } = await window.sb
           .from('servicio_custodio')
-          .select('id, nombre_custodio, created_at, selfie(id)')
+          .select('id, nombre_custodio, created_at')
           .eq('servicio_id', servicioId)
           .order('id');
         if (error) throw error;
