@@ -1,17 +1,27 @@
-<header class="mdl-layout__header app-header">
-  <div class="mdl-layout__header-row app-header-row">
+<header class="app-header-modern">
+  <div class="app-header-modern-row">
+
+    <!-- Marca / Título dinámico -->
     <div class="app-header-brand">
-      <span class="mdl-layout-title" id="app-header-title">Resguardo</span>
+      <span class="app-header-title" id="app-header-title">Resguardo</span>
     </div>
+
+    <!-- NAV SOLO PARA ADMIN (oculto para CUSTODIA por JS) -->
     <nav class="app-header-nav" aria-label="Navegación principal" hidden>
       <a data-nav-key="servicios" href="/html/dashboard/dashboard-admin.html">Servicios</a>
-      <a data-nav-key="rutas" href="/html/dashboard/admin-clientes-rutas.html">Clientes &amp; Rutas</a>
+      <a data-nav-key="rutas" href="/html/dashboard/admin-clientes-rutas.html">Clientes & Rutas</a>
       <a data-nav-key="custodias" href="/html/dashboard/admin-custodias.html">Custodias</a>
     </nav>
-    <div class="mdl-layout-spacer" aria-hidden="true"></div>
+
+    <!-- Acciones -->
     <div class="app-header-actions">
-      <a class="app-header-link" id="app-header-home" href="/html/index.html">Inicio</a>
-      <a class="app-header-link app-header-link--danger" id="app-header-logout" href="#">Salir</a>
+      <a class="app-header-link" id="app-header-home" href="/html/index.html">
+        Inicio
+      </a>
+      <a class="app-header-link app-header-link--danger" id="app-header-logout" href="#">
+        Salir
+      </a>
     </div>
+
   </div>
 </header>

@@ -4,19 +4,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>Mis servicios - Custodia</title>
   <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
-
-  <!-- MDL -->
-  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
-  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="manifest" href="/manifest.json" />
 
+  <!-- ICONOS -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
+  <!-- CSS MODERNO -->
   <link rel="stylesheet" href="../../css/dashboard/custodia-registros.css" />
   <link rel="stylesheet" href="../../css/partials/app-header.css" />
   <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
+  <!-- JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="../../config.js"></script>
   <script defer src="../../js/lib/permissions.js"></script>
@@ -28,173 +29,208 @@
   <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base">
-  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-    <div id="app-header" data-page-title="Mis servicios"></div>
+<body class="light-body">
 
-    <main class="mdl-layout__content">
-      <section class="page page--custodia">
-        <div class="layout-custodia layout-custodia--sidebar" role="region" aria-label="Servicios por cliente">
-          <aside class="custodia-panel custodia-panel--filters" aria-label="Filtro de clientes">
-            <div class="panel-head">
-              <p class="panel-eyebrow">Directorio</p>
-              <h2 class="panel-title">Clientes</h2>
-              <p class="panel-hint">
-                Selecciona un cliente para revisar los servicios activos y continúa solo si eres el titular asignado.
-              </p>
-            </div>
-            <!-- === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
-            <div class="cliente-search">
-              <label for="cliente-search" class="cliente-search__label">Cliente (carga)</label>
-              <div id="cliente-search-field" class="cliente-search__field" role="combobox" aria-haspopup="listbox"
-                aria-expanded="false" aria-owns="cliente-results">
-                <i class="material-icons" aria-hidden="true">search</i>
-                <input id="cliente-search" type="search" autocomplete="off" enterkeyhint="search"
-                  placeholder="Escribe el nombre del cliente" aria-controls="cliente-results" aria-autocomplete="list"
-                  aria-label="Buscar cliente" />
-                <button id="cliente-clear" class="icon-btn icon-btn--ghost" type="button" aria-label="Limpiar búsqueda">
-                  <i class="material-icons" aria-hidden="true">clear</i>
-                </button>
-              </div>
-              <p id="cliente-feedback" class="cliente-search__feedback" role="status" aria-live="polite"></p>
-              <ul id="cliente-results" class="cliente-search__results" role="listbox"
-                aria-label="Resultados de clientes"></ul>
-              <button type="button" id="cliente-add-btn" class="btn-link cliente-search__add"
-                aria-label="Agregar nuevo cliente" hidden>
-                <i class="material-icons" aria-hidden="true">person_add</i>
-                <span>Agregar nuevo cliente</span>
-              </button>
-            </div>
-            <!-- === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
-          </aside>
+  <!-- HEADER -->
+  <div id="app-header" data-page-title="Mis servicios"></div>
 
-          <div class="custodia-main">
-            <div class="topbar">
-              <div class="titles">
-                <h1>Mis servicios</h1>
-                <p class="subtitle">
-                  Selecciona un cliente para ver sus placas y continúa sólo si eres el custodio titular.
-                </p>
-              </div>
-              <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent topbar__cta"
-                onclick="location.href='/html/dashboard/dashboard-custodia.html'" aria-label="Registrar nuevo servicio">
-                + Nuevo servicio
-              </button>
-            </div>
-            <section class="custodia-panel custodia-panel--services" aria-live="polite">
-              <div id="cards-placeholder" class="cards-placeholder" role="status">
-                Selecciona un cliente para visualizar los servicios disponibles.
-              </div>
-              <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
-            </section>
+  <main class="custodia-main-wrapper">
+
+    <section class="page page--custodia">
+
+      <div class="layout-custodia layout-custodia--sidebar">
+
+        <!-- ============================================
+             SIDEBAR CLIENTES
+        ============================================ -->
+        <aside class="custodia-panel modern-light-panel">
+
+          <div class="panel-head">
+            <p class="panel-eyebrow">Directorio</p>
+            <h2 class="panel-title">Clientes</h2>
+            <p class="panel-hint">Selecciona un cliente para ver sus servicios activos.</p>
           </div>
+
+          <!-- Buscador -->
+          <div class="cliente-search enhanced-search">
+
+            <label for="cliente-search" class="cliente-search__label">Cliente (carga)</label>
+
+            <div id="cliente-search-field" class="cliente-search__field search-field-light" role="combobox"
+              aria-haspopup="listbox" aria-expanded="false" aria-owns="cliente-results">
+
+              <i class="material-icons search-icon">search</i>
+
+              <input id="cliente-search" type="search" autocomplete="off" enterkeyhint="search"
+                placeholder="Escribe para buscar cliente" aria-controls="cliente-results" aria-autocomplete="list" />
+
+              <button id="cliente-clear" class="icon-btn icon-btn--ghost" type="button" aria-label="Limpiar">
+                <i class="material-icons">clear</i>
+              </button>
+            </div>
+
+            <p id="cliente-feedback" class="cliente-search__feedback" aria-live="polite"></p>
+
+            <ul id="cliente-results" class="cliente-search__results" role="listbox"></ul>
+
+            <button id="cliente-add-btn" type="button" class="cliente-search__add" hidden>
+              <i class="material-icons">person_add</i>
+              <span>Agregar nuevo cliente</span>
+            </button>
+
+          </div>
+
+        </aside>
+
+        <!-- ============================================
+             MAIN CONTENT — SERVICIOS
+        ============================================ -->
+        <div class="custodia-main modern-light-main">
+
+          <!-- TOPBAR -->
+          <div class="topbar clean-topbar">
+            <div class="titles">
+              <h1 class="top-title">Mis servicios</h1>
+              <p class="subtitle">Selecciona un cliente para ver sus servicios activos.</p>
+            </div>
+
+            <button class="topbar__cta" onclick="location.href='/html/dashboard/dashboard-custodia.html'">
+              + Nuevo servicio
+            </button>
+          </div>
+
+          <!-- GRID -->
+          <section class="custodia-panel custodia-panel--services modern-services">
+
+            <div id="cards-placeholder" class="cards-placeholder">
+              Selecciona un cliente para visualizar los servicios disponibles.
+            </div>
+
+            <div id="cards-custodia" class="cards-grid"></div>
+          </section>
+
         </div>
-        <!-- === BEGIN HU:HU-CUSTODIA-REGISTROS-FLUJO modal (NO TOCAR FUERA) === -->
-        <section id="modal-add-custodia" class="add-modal" aria-hidden="true">
-          <div class="add-modal__backdrop" data-add-close></div>
-          <div class="add-modal__card" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
-            <header class="add-modal__head">
-              <h3 id="add-modal-title">Agregar custodia</h3>
-              <button type="button" class="icon-btn add-modal__close" data-add-close aria-label="Cerrar">
-                <i class="material-icons">close</i>
-              </button>
-            </header>
-            <div class="add-modal__body">
-              <p id="add-modal-description">
-                Selecciona el tipo de custodia que realizaras para este servicio.
-              </p>
-              <div class="add-modal__options" role="radiogroup" aria-label="Tipo de custodia">
-                <label class="option">
-                  <input type="radio" name="add-tipo" value="Simple" checked />
-                  <span class="option__body">
-                    <span class="option__title">Custodia simple</span>
-                    <span class="option__hint">Custodia en cabina</span>
-                  </span>
-                </label>
-                <label class="option">
-                  <input type="radio" name="add-tipo" value="Tipo A" />
-                  <span class="option__body">
-                    <span class="option__title">Custodia tipo A</span>
-                    <span class="option__hint">Custodia en Vehiculo</span>
-                  </span>
-                </label>
-                <label class="option">
-                  <input type="radio" name="add-tipo" value="Tipo B" />
-                  <span class="option__body">
-                    <span class="option__title">Custodia tipo B</span>
-                    <span class="option__hint">1 Cabina + 1 Vehiculo</span>
-                  </span>
-                </label>
-              </div>
-            </div>
-            <footer class="add-modal__actions">
-              <button type="button" class="mdl-button mdl-js-button add-modal__cancel" data-add-close>
-                Cancelar
-              </button>
-              <button type="button" id="add-modal-confirm" class="mdl-button mdl-js-button add-modal__confirm">
-                Confirmar
-              </button>
-            </footer>
-          </div>
-        </section>
-        <!-- === END HU:HU-CUSTODIA-REGISTROS-FLUJO === -->
-        <!-- === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
-        <section id="modal-ruta-cliente" class="route-modal" aria-hidden="true">
-          <div class="route-modal__backdrop" data-route-close></div>
-          <div class="route-modal__card" role="dialog" aria-modal="true" aria-labelledby="route-modal-title">
-            <header class="route-modal__head">
-              <h3 id="route-modal-title">Ruta asignada para este cliente</h3>
-              <button type="button" class="icon-btn route-modal__close" data-route-close aria-label="Cerrar modal">
-                <i class="material-icons" aria-hidden="true">close</i>
-              </button>
-            </header>
-            <div class="route-modal__body">
-              <p class="route-modal__lead">Tu ruta asignada es:</p>
-              <p id="route-modal-name" class="route-modal__route"></p>
-              <p id="route-modal-desc" class="route-modal__desc" hidden></p>
-            </div>
-            <footer class="route-modal__actions">
-              <button type="button" class="mdl-button mdl-js-button route-modal__cta" data-route-close>
-                Entendido
-              </button>
-            </footer>
-          </div>
-        </section>
 
-        <section id="modal-cliente-nuevo" class="route-modal" aria-hidden="true">
-          <div class="route-modal__backdrop" data-cliente-close></div>
-          <div class="route-modal__card" role="dialog" aria-modal="true" aria-labelledby="cliente-modal-title">
-            <header class="route-modal__head">
-              <h3 id="cliente-modal-title">Agregar nuevo cliente</h3>
-              <button type="button" class="icon-btn route-modal__close" data-cliente-close aria-label="Cerrar modal">
-                <i class="material-icons" aria-hidden="true">close</i>
-              </button>
-            </header>
-            <div class="route-modal__body">
-              <label for="cliente-nombre" class="route-modal__label">Nombre del cliente</label>
-              <input id="cliente-nombre" type="text" class="route-modal__input" maxlength="120" placeholder="Ej. Ripley"
-                aria-label="Nombre del nuevo cliente" />
-              <p id="cliente-modal-feedback" class="route-modal__feedback" role="status" aria-live="assertive"></p>
+      </div>
+
+      <!-- ==========================================================
+           MODAL — AGREGAR CUSTODIA
+      ========================================================== -->
+      <section id="modal-add-custodia" class="light-modal" aria-hidden="true">
+
+        <div class="add-modal__backdrop" data-add-close></div>
+
+        <div class="light-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+
+          <header class="light-modal-head">
+            <h3 id="add-modal-title">Agregar custodia</h3>
+            <button class="light-modal-close" data-add-close><i class="material-icons">close</i></button>
+          </header>
+
+          <div class="light-modal-body">
+
+            <p id="add-modal-description" class="modal-description-light">
+              Selecciona el tipo de custodia que realizarás.
+            </p>
+
+            <div class="add-modal__options" role="radiogroup">
+
+              <label class="option-light">
+                <input type="radio" name="add-tipo" value="Simple" checked />
+                <span class="option__body">
+                  <span class="option__title">Custodia simple</span>
+                  <span class="option__hint">Custodia en cabina</span>
+                </span>
+              </label>
+
+              <label class="option-light">
+                <input type="radio" name="add-tipo" value="Tipo A" />
+                <span class="option__body">
+                  <span class="option__title">Custodia Tipo A</span>
+                  <span class="option__hint">Custodia en vehículo</span>
+                </span>
+              </label>
+
+              <label class="option-light">
+                <input type="radio" name="add-tipo" value="Tipo B" />
+                <span class="option__body">
+                  <span class="option__title">Custodia Tipo B</span>
+                  <span class="option__hint">1 cabina + 1 vehículo</span>
+                </span>
+              </label>
+
             </div>
-            <footer class="route-modal__actions">
-              <button type="button" class="mdl-button mdl-js-button" data-cliente-close>
-                Cancelar
-              </button>
-              <button type="button" id="cliente-modal-save" class="mdl-button mdl-js-button mdl-button--raised">
-                Guardar cliente
-              </button>
-            </footer>
           </div>
-        </section>
-        <!-- === END HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
+
+          <footer class="light-modal-actions">
+            <button class="light-btn-secondary" data-add-close>Cancelar</button>
+            <button id="add-modal-confirm" class="light-btn-primary">Confirmar</button>
+          </footer>
+
+        </div>
       </section>
 
-      <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
-        <div class="mdl-snackbar__text"></div>
-        <button class="mdl-snackbar__action" type="button"></button>
-      </div>
-    </main>
-  </div>
+      <!-- ==========================================================
+           MODAL — RUTA CLIENTE
+      ========================================================== -->
+      <section id="modal-ruta-cliente" class="light-modal" aria-hidden="true">
+        <div class="route-modal__backdrop" data-route-close></div>
+
+        <div class="light-modal-card" role="dialog" aria-modal="true">
+          <header class="light-modal-head">
+            <h3>Ruta asignada</h3>
+            <button class="light-modal-close" data-route-close><i class="material-icons">close</i></button>
+          </header>
+
+          <div class="light-modal-body">
+            <p class="route-modal__lead">Tu ruta asignada es:</p>
+            <p id="route-modal-name" class="modal-route-light"></p>
+            <p id="route-modal-desc" class="modal-desc-light" hidden></p>
+          </div>
+
+          <footer class="light-modal-actions">
+            <button class="light-btn-primary" data-route-close>Entendido</button>
+          </footer>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           MODAL — NUEVO CLIENTE
+      ========================================================== -->
+      <section id="modal-cliente-nuevo" class="light-modal" aria-hidden="true">
+        <div class="route-modal__backdrop" data-cliente-close></div>
+
+        <div class="light-modal-card" role="dialog" aria-modal="true">
+          <header class="light-modal-head">
+            <h3>Nuevo cliente</h3>
+            <button class="light-modal-close" data-cliente-close><i class="material-icons">close</i></button>
+          </header>
+
+          <div class="light-modal-body">
+            <label for="cliente-nombre" class="modal-label-light">Nombre del cliente</label>
+
+            <input id="cliente-nombre" type="text" class="modal-input-light" placeholder="Ej. Ripley" maxlength="120" />
+
+            <p id="cliente-modal-feedback" class="modal-feedback-light"></p>
+          </div>
+
+          <footer class="light-modal-actions">
+            <button class="light-btn-secondary" data-cliente-close>Cancelar</button>
+            <button id="cliente-modal-save" class="light-btn-primary">Guardar cliente</button>
+          </footer>
+
+        </div>
+      </section>
+
+    </section>
+
+    <!-- SNACKBAR PROPIO -->
+    <div id="app-snackbar" class="snackbar-light">
+      <span class="snackbar-text"></span>
+    </div>
+
+  </main>
+
 </body>
 
 </html>

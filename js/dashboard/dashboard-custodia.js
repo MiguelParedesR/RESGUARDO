@@ -7,6 +7,7 @@
   const LOG_SERVICIO = "[servicio]";
   const LOG_API = "[api]";
   const PLACA_REGEX = /^[A-Z0-9]{6}$/;
+  const PLACA_ALERT_WINDOW_MS = 12 * 60 * 60 * 1000;
   const MAP_DEFAULT = { lat: -12.0464, lng: -77.0428, zoom: 12 };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -59,7 +60,16 @@
       mapCerrar: document.getElementById("map-cerrar"),
       btnGuardar: document.getElementById("btn-guardar"),
       btnLimpiar: document.getElementById("btn-limpiar"),
+      btnUbicaciones: document.getElementById("btn-ubicaciones"),
       snackbar: document.getElementById("app-snackbar"),
+      modalUbicaciones: document.getElementById("modal-ubicaciones"),
+      modalUbicacionesClose: document.getElementById("modal-ubicaciones-close"),
+      ubicacionesLista: document.getElementById("ubicaciones-lista"),
+      modalPlaca: document.getElementById("modal-placa"),
+      modalPlacaClose: document.getElementById("modal-placa-close"),
+      modalPlacaCliente: document.getElementById("modal-placa-cliente"),
+      modalPlacaDestino: document.getElementById("modal-placa-destino"),
+      modalPlacaFecha: document.getElementById("modal-placa-fecha"),
     };
   }
 
@@ -79,6 +89,10 @@
       clienteSelectedId: "",
       clienteSelectedNombre: "",
       clienteQuery: "",
+      manualClienteInput: "",
+      placaCheckTimer: null,
+      lastPlacaAlertId: "",
+      savedUbicaciones: [],
     };
   }
 
@@ -118,6 +132,12 @@
       handleSubmit(evt, refs, state)
     );
     refs.btnLimpiar?.addEventListener("click", () => resetForm(refs, state));
+    refs.tipo?.addEventListener("change", () =>
+      updateGuardarEstado(refs, state)
+    );
+    refs.destino.addEventListener("input", () => {
+      updateGuardarEstado(refs, state);
+    });
     refs.destino.addEventListener(
       "input",
       debounce(() => handleDestinoInput(state, refs), 260)
@@ -157,8 +177,31 @@
       refs.placa.value = refs.placa.value
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
+      updateGuardarEstado(refs, state);
+      schedulePlacaCheck(refs, state);
+    });
+    refs.btnUbicaciones?.addEventListener("click", () =>
+      handleUbicacionesGuardadas(refs, state)
+    );
+    refs.modalUbicacionesClose?.addEventListener("click", () =>
+      closeUbicacionesModal(refs)
+    );
+    refs.modalUbicaciones?.addEventListener("click", (evt) => {
+      if (evt.target === refs.modalUbicaciones) closeUbicacionesModal(refs);
+    });
+    refs.modalPlacaClose?.addEventListener("click", () =>
+      closePlacaModal(refs)
+    );
+    refs.modalPlaca?.addEventListener("click", (evt) => {
+      if (evt.target === refs.modalPlaca) closePlacaModal(refs);
+    });
+    refs.ubicacionesLista?.addEventListener("click", (evt) => {
+      const btn = evt.target.closest("button[data-destino]");
+      if (!btn) return;
+      applyUbicacionGuardada(btn, refs, state);
     });
     bindClienteSearch(refs, state);
+    updateGuardarEstado(refs, state);
   }
 
   function handleDestinoKeydown(evt, state, refs) {
@@ -186,6 +229,8 @@
 
   async function handleDestinoInput(state, refs) {
     const query = refs.destino.value.trim();
+    state.destinoCoords = null;
+    updateGuardarEstado(refs, state);
     if (!query || query === state.lastQuery) {
       if (!query) clearSuggestions(refs);
       return;
@@ -230,6 +275,7 @@
       refs.destinoStatus.style.color = "#2e7d32";
     }
     clearSuggestions(refs);
+    updateGuardarEstado(refs, state);
   }
 
   function clearSuggestions(refs) {
@@ -238,15 +284,23 @@
   }
 
   function openMapModal(refs, state) {
-    refs.modalMapa?.classList.add("open");
+    if (!refs.modalMapa) return;
+    refs.modalMapa.classList.add("open");
+    refs.modalMapa.setAttribute("aria-hidden", "false");
     setTimeout(() => {
       initMapIfNeeded(refs, state);
+      state.map?.setView(
+        [MAP_DEFAULT.lat, MAP_DEFAULT.lng],
+        MAP_DEFAULT.zoom
+      );
       refs.mapSearchInput?.focus();
     }, 150);
   }
 
   function closeMapModal(refs) {
-    refs.modalMapa?.classList.remove("open");
+    if (!refs.modalMapa) return;
+    refs.modalMapa.classList.remove("open");
+    refs.modalMapa.setAttribute("aria-hidden", "true");
   }
 
   function initMapIfNeeded(refs, state) {
@@ -317,6 +371,7 @@
             "Dirección establecida desde el mapa.";
           refs.destinoStatus.style.color = "#2e7d32";
         }
+        updateGuardarEstado(refs, state);
       }
     } catch (err) {
       console.warn(`${LOG_API} reverse`, err);
@@ -343,6 +398,7 @@
         refs.destinoStatus.textContent = "Dirección establecida desde el mapa.";
         refs.destinoStatus.style.color = "#2e7d32";
       }
+      updateGuardarEstado(refs, state);
     } catch (err) {
       console.warn(`${LOG_API} search`, err);
       showMsg(state, "No se pudo buscar en el mapa.");
@@ -414,23 +470,17 @@
       showMsg(state, err?.friendly || "No se pudo registrar el servicio.");
     } finally {
       setButtonLoading(refs.btnGuardar, false);
+      updateGuardarEstado(refs, state);
     }
   }
 
   async function ensurePlacaDisponible(empresa, placaUpper) {
-    const { data, error } = await window.sb
-      .from("servicio")
-      .select("id, destino_texto, cliente:cliente_id(nombre)")
-      .eq("empresa", empresa)
-      .eq("placa_upper", placaUpper)
-      .eq("estado", "ACTIVO")
-      .maybeSingle();
-    if (error && error.code !== "PGRST116") throw error;
-    if (data?.id) {
-      const clienteNombre = data.cliente?.nombre || "-";
-      const msg = `La placa ya está en un servicio activo (${clienteNombre}). Ve a Custodia > Registros para unirte.`;
-      const err = new Error("servicio-activo");
-      err.friendly = msg;
+    const registro = await fetchUltimoServicioPorPlaca(empresa, placaUpper);
+    if (registro && estaDentroVentana12h(registro)) {
+      const clienteNombre = registro.cliente?.nombre || "-";
+      const destino = registro.destino_texto || "Sin destino";
+      const err = new Error("servicio-reciente");
+      err.friendly = `La placa ya fue registrada recientemente (Cliente: ${clienteNombre}, Destino: ${destino}).`;
       throw err;
     }
   }
@@ -493,6 +543,9 @@
       refs.destinoStatus.style.color = "#607d8b";
     }
     clearClienteSelection(refs, state, true);
+    state.lastPlacaAlertId = "";
+    updateGuardarEstado(refs, state);
+    closePlacaModal(refs);
   }
 
   function showMsg(state, message) {
@@ -511,6 +564,217 @@
     if (!btn) return;
     btn.classList.toggle("loading", loading);
     btn.disabled = loading;
+  }
+
+  function updateGuardarEstado(refs, state) {
+    const tipoOk = Boolean(refs.tipo?.value && refs.tipo.value !== "");
+    const clienteOk = Boolean(state.clienteSelectedId);
+    const placaOk = PLACA_REGEX.test((refs.placa?.value || "").trim());
+    const destinoOk = Boolean((refs.destino?.value || "").trim());
+    const coordsOk =
+      typeof state.destinoCoords?.lat === "number" &&
+      typeof state.destinoCoords?.lng === "number";
+    const ready = tipoOk && clienteOk && placaOk && destinoOk && coordsOk;
+    if (refs.btnGuardar) {
+      refs.btnGuardar.disabled = !ready;
+    }
+    return ready;
+  }
+
+  function schedulePlacaCheck(refs, state) {
+    clearTimeout(state.placaCheckTimer);
+    const placaUpper = (refs.placa.value || "").trim().toUpperCase();
+    if (!PLACA_REGEX.test(placaUpper)) {
+      state.lastPlacaAlertId = "";
+      closePlacaModal(refs);
+      return;
+    }
+    state.placaCheckTimer = setTimeout(() => {
+      checkPlacaReciente(refs, state, placaUpper);
+    }, 350);
+  }
+
+  async function checkPlacaReciente(refs, state, placaUpper) {
+    if (!state.profile?.empresa) return;
+    try {
+      const registro = await fetchUltimoServicioPorPlaca(
+        state.profile.empresa,
+        placaUpper
+      );
+      if (registro && estaDentroVentana12h(registro)) {
+        if (state.lastPlacaAlertId === registro.id) return;
+        state.lastPlacaAlertId = registro.id;
+        openPlacaModal(refs, registro);
+      } else {
+        state.lastPlacaAlertId = "";
+        closePlacaModal(refs);
+      }
+    } catch (err) {
+      console.warn("[placa-check] error", err);
+    }
+  }
+
+  function openPlacaModal(refs, registro) {
+    if (!refs.modalPlaca) return;
+    if (refs.modalPlacaCliente)
+      refs.modalPlacaCliente.textContent = registro.cliente?.nombre || "-";
+    if (refs.modalPlacaDestino)
+      refs.modalPlacaDestino.textContent = registro.destino_texto || "Sin destino";
+    if (refs.modalPlacaFecha)
+      refs.modalPlacaFecha.textContent = formatFechaCorta(registro.created_at);
+    refs.modalPlaca.classList.add("open");
+    refs.modalPlaca.setAttribute("aria-hidden", "false");
+  }
+
+  function closePlacaModal(refs) {
+    if (!refs.modalPlaca) return;
+    refs.modalPlaca.classList.remove("open");
+    refs.modalPlaca.setAttribute("aria-hidden", "true");
+  }
+
+  async function handleUbicacionesGuardadas(refs, state) {
+    if (!state.clienteSelectedId) {
+      updateClienteFeedback(refs, "Selecciona un cliente para revisar ubicaciones.");
+      return;
+    }
+    if (!state.profile?.empresa) return;
+    openUbicacionesModal(refs);
+    renderUbicacionesGuardadas(refs, {
+      loading: true,
+    });
+    try {
+      const ubicaciones = await fetchUbicacionesGuardadas(
+        state.profile.empresa,
+        state.clienteSelectedId
+      );
+      renderUbicacionesGuardadas(refs, { data: ubicaciones });
+    } catch (err) {
+      console.warn("[ubicaciones] error", err);
+      renderUbicacionesGuardadas(refs, {
+        error: "No se pudieron cargar las ubicaciones guardadas.",
+      });
+    }
+  }
+
+  function openUbicacionesModal(refs) {
+    if (!refs.modalUbicaciones) return;
+    refs.modalUbicaciones.classList.add("open");
+    refs.modalUbicaciones.setAttribute("aria-hidden", "false");
+  }
+
+  function closeUbicacionesModal(refs) {
+    if (!refs.modalUbicaciones) return;
+    refs.modalUbicaciones.classList.remove("open");
+    refs.modalUbicaciones.setAttribute("aria-hidden", "true");
+  }
+
+  function renderUbicacionesGuardadas(refs, { data, loading, error } = {}) {
+    if (!refs.ubicacionesLista) return;
+    refs.ubicacionesLista.innerHTML = "";
+    const li = document.createElement("li");
+    if (loading) {
+      li.textContent = "Cargando ubicaciones...";
+      refs.ubicacionesLista.appendChild(li);
+      return;
+    }
+    if (error) {
+      li.textContent = error;
+      refs.ubicacionesLista.appendChild(li);
+      return;
+    }
+    if (!data?.length) {
+      li.textContent = "Aún no hay ubicaciones guardadas para este cliente.";
+      refs.ubicacionesLista.appendChild(li);
+      return;
+    }
+    data.forEach((row) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.destino = row.destino_texto || "";
+      button.dataset.lat = row.destino_lat ?? "";
+      button.dataset.lng = row.destino_lng ?? "";
+      const cliente = document.createElement("p");
+      cliente.className = "saved-client";
+      cliente.textContent = row.cliente?.nombre || "-";
+      const destino = document.createElement("p");
+      destino.className = "saved-destino";
+      destino.textContent = row.destino_texto || "Sin destino";
+      const fecha = document.createElement("p");
+      fecha.className = "saved-fecha";
+      fecha.textContent = formatFechaCorta(row.created_at);
+      button.append(cliente, destino, fecha);
+      item.appendChild(button);
+      refs.ubicacionesLista.appendChild(item);
+    });
+  }
+
+  function applyUbicacionGuardada(btn, refs, state) {
+    const destino = btn.dataset.destino || "";
+    if (!destino) return;
+    refs.destino.value = destino;
+    refs.destino.classList.add("has-value");
+    const lat = parseFloat(btn.dataset.lat);
+    const lng = parseFloat(btn.dataset.lng);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+      state.destinoCoords = { lat, lng };
+      if (refs.destinoStatus) {
+        refs.destinoStatus.textContent = "Dirección seleccionada de favoritos.";
+        refs.destinoStatus.style.color = "#2e7d32";
+      }
+    } else {
+      state.destinoCoords = null;
+      if (refs.destinoStatus) {
+        refs.destinoStatus.textContent =
+          "Esta ubicación no tiene coordenadas. Usa el mapa.";
+        refs.destinoStatus.style.color = "#c62828";
+      }
+      showMsg(state, "Esta ubicación no cuenta con coordenadas almacenadas.");
+    }
+    closeUbicacionesModal(refs);
+    updateGuardarEstado(refs, state);
+  }
+
+  async function fetchUbicacionesGuardadas(empresa, clienteId) {
+    const { data, error } = await window.sb
+      .from("servicio")
+      .select(
+        "id,destino_texto,destino_lat,destino_lng,cliente:cliente_id(nombre),created_at"
+      )
+      .eq("empresa", empresa)
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function fetchUltimoServicioPorPlaca(empresa, placaUpper) {
+    if (!empresa || !placaUpper) return null;
+    const { data, error } = await window.sb
+      .from("servicio")
+      .select("id,destino_texto,cliente:cliente_id(nombre),created_at,estado")
+      .eq("empresa", empresa)
+      .eq("placa_upper", placaUpper)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return data?.[0] || null;
+  }
+
+  function estaDentroVentana12h(registro) {
+    if (!registro?.created_at) return false;
+    const delta = Date.now() - new Date(registro.created_at).getTime();
+    return delta < PLACA_ALERT_WINDOW_MS;
+  }
+
+  function formatFechaCorta(dateStr) {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    return date.toLocaleString("es-PE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   }
 
   function redirectToLogin() {
@@ -572,7 +836,7 @@
     refs.modalClienteSave?.addEventListener("click", () =>
       handleClienteSave(refs, state)
     );
-    updateClienteFeedback(refs, "Escribe para buscar clientes.");
+    updateClienteFeedback(refs, "");
   }
 
   function handleClienteSearchInput(refs, state) {
@@ -580,22 +844,24 @@
     state.clienteQuery = value;
     state.clienteSelectedId = "";
     state.clienteSelectedNombre = "";
+    state.manualClienteInput = value;
     hideClienteResults(refs);
-    toggleClienteAdd(refs, value);
+    if (refs.clienteAddBtn) refs.clienteAddBtn.hidden = true;
     if (state.clienteSearchTimer) clearTimeout(state.clienteSearchTimer);
     if (!value.trim()) {
       state.clienteResults = [];
-      updateClienteFeedback(refs, "Escribe para buscar clientes.");
+      updateClienteFeedback(refs, "");
+      clearClienteSelection(refs, state, true);
       return;
     }
     updateClienteFeedback(refs, "Buscando clientes...");
     state.clienteSearchTimer = setTimeout(
-      () => searchClientes(value, refs, state),
+      () => searchClientes(value, refs, state, true),
       320
     );
   }
 
-  async function searchClientes(query, refs, state) {
+  async function searchClientes(query, refs, state, autoSelect = false) {
     try {
       const pattern = `${normalizeCliente(query)}%`;
       const { data, error } = await window.sb
@@ -608,14 +874,33 @@
       state.clienteResults = data || [];
       renderClienteResults(refs, state);
       if (state.clienteResults.length) {
-        updateClienteFeedback(
-          refs,
-          `${state.clienteResults.length} cliente(s) encontrado(s).`
-        );
-        refs.clienteAddBtn.hidden = true;
+        if (refs.clienteAddBtn) {
+          refs.clienteAddBtn.hidden = true;
+          delete refs.clienteAddBtn.dataset.prefill;
+        }
+        updateClienteFeedback(refs, "");
+        if (autoSelect) {
+          autoSelectCliente(refs, state, state.clienteResults[0]);
+        }
       } else {
         updateClienteFeedback(refs, "Sin coincidencias. Puedes agregarlo.");
-        refs.clienteAddBtn.hidden = false;
+        if (refs.clienteAddBtn) {
+          const typed = query.trim();
+          if (typed.length >= 3) {
+            refs.clienteAddBtn.hidden = false;
+            refs.clienteAddBtn.dataset.prefill = typed;
+          } else {
+            refs.clienteAddBtn.hidden = true;
+            delete refs.clienteAddBtn.dataset.prefill;
+          }
+        }
+        state.clienteSelectedId = "";
+        state.clienteSelectedNombre = "";
+        state.clienteQuery = query;
+        state.manualClienteInput = query;
+        refs.clienteInput.value = query;
+        refs.clienteInput.classList.toggle("has-value", Boolean(query.trim()));
+        updateGuardarEstado(refs, state);
       }
     } catch (err) {
       console.warn("[cliente-search] error", err);
@@ -623,26 +908,20 @@
     }
   }
 
+  function autoSelectCliente(refs, state, cliente) {
+    if (!cliente?.id) return;
+    selectClienteResult(cliente, refs, state, {
+      manualValue: state.manualClienteInput || "",
+      auto: true,
+    });
+  }
+
   function renderClienteResults(refs, state) {
     const list = refs.clienteResults;
     if (!list) return;
     list.innerHTML = "";
-    if (!state.clienteResults.length) {
-      hideClienteResults(refs);
-      return;
-    }
-    state.clienteResults.forEach((cliente) => {
-      const li = document.createElement("li");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.dataset.clienteId = cliente.id;
-      button.dataset.clienteNombre = cliente.nombre;
-      button.innerText = cliente.nombre;
-      li.appendChild(button);
-      list.appendChild(li);
-    });
-    list.hidden = false;
-    refs.clienteBox?.setAttribute("aria-expanded", "true");
+    list.hidden = true;
+    refs.clienteBox?.setAttribute("aria-expanded", "false");
   }
 
   function hideClienteResults(refs) {
@@ -653,39 +932,54 @@
     refs.clienteBox?.setAttribute("aria-expanded", "false");
   }
 
-  function selectClienteResult(cliente, refs, state) {
+  function selectClienteResult(cliente, refs, state, options = {}) {
     if (!cliente?.id) return;
+    const manualValue = (options.manualValue || "").trim();
     state.clienteSelectedId = cliente.id;
     state.clienteSelectedNombre = cliente.nombre || "";
-    refs.clienteInput.value = cliente.nombre || "";
-    refs.clienteInput.classList.add("has-value");
+    state.clienteQuery = manualValue || cliente.nombre || "";
+    state.manualClienteInput = manualValue;
+    if (refs.clienteInput) {
+      refs.clienteInput.value = cliente.nombre || "";
+      refs.clienteInput.classList.add("has-value");
+      if (
+        manualValue &&
+        (cliente.nombre || "")
+          .toUpperCase()
+          .startsWith(manualValue.toUpperCase())
+      ) {
+        requestAnimationFrame(() => {
+          if (document.activeElement !== refs.clienteInput) return;
+          const end = (cliente.nombre || "").length;
+          refs.clienteInput?.setSelectionRange(manualValue.length, end);
+        });
+      }
+    }
     hideClienteResults(refs);
     refs.clienteAddBtn.hidden = true;
-    updateClienteFeedback(refs, `Cliente seleccionado: ${cliente.nombre}`);
+    updateClienteFeedback(refs, "");
+    updateGuardarEstado(refs, state);
   }
 
-function clearClienteSelection(refs, state, silent = false) {
-  state.clienteSelectedId = "";
-  state.clienteSelectedNombre = "";
-  state.clienteQuery = "";
-  state.clienteResults = [];
+  function clearClienteSelection(refs, state, silent = false) {
+    state.clienteSelectedId = "";
+    state.clienteSelectedNombre = "";
+    state.clienteQuery = "";
+    state.clienteResults = [];
+    state.manualClienteInput = "";
     if (refs.clienteInput) {
       refs.clienteInput.value = "";
       refs.clienteInput.classList.remove("has-value");
     }
     hideClienteResults(refs);
   refs.clienteAddBtn.hidden = true;
-  if (!silent) updateClienteFeedback(refs, "Escribe para buscar clientes.");
+  delete refs.clienteAddBtn.dataset.prefill;
+  if (!silent) updateClienteFeedback(refs, "");
+  updateGuardarEstado(refs, state);
 }
 
   function updateClienteFeedback(refs, message) {
     if (refs.clienteFeedback) refs.clienteFeedback.textContent = message || "";
-  }
-
-  function toggleClienteAdd(refs, value) {
-    if (!refs.clienteAddBtn) return;
-    const show = Boolean(value && value.trim().length >= 3);
-    refs.clienteAddBtn.hidden = !show;
   }
 
   function openClienteModal(refs, state) {
@@ -724,7 +1018,7 @@ function clearClienteSelection(refs, state, silent = false) {
         .single();
       if (error) throw error;
       closeClienteModal(refs);
-      selectClienteResult(data, refs, state);
+      selectClienteResult(data, refs, state, { manualValue: data.nombre || "" });
       updateClienteFeedback(refs, "Cliente agregado correctamente.");
     } catch (err) {
       console.error("[cliente-modal] error", err);

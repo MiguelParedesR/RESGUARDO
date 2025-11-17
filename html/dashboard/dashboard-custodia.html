@@ -1,177 +1,236 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Registro de Custodia</title>
-    <link rel="icon" href="/assets/icon-192.svg" type="image/svg\+xml">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro de Custodia</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
 
-    <!-- MDL -->
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-    <link rel="manifest" href="/manifest.json" /><!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
 
-    <!-- Estilos -->
-    <link rel="stylesheet" href="../../css/dashboard/dashboard-custodia.css" />
-    <link rel="stylesheet" href="../../css/partials/app-header.css" />
-    <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
+  <link rel="stylesheet" href="../../css/dashboard/dashboard-custodia.css" />
+  <link rel="stylesheet" href="../../css/partials/app-header.css" />
+  <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
-    <!-- Supabase (CDN) ANTES de config.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Config (crea window.sb y expone LOCATIONIQ_KEY) -->
-    <script defer src="../../config.js"></script>
-    <script defer src="../../js/lib/permissions.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Protecci├│n + m├│dulo -->
-    <script defer src="../../js/guard.js"></script>
-    <script defer src="../../modules/alarma/alarma.js"></script>
-    <script defer src="../../js/lib/app-header.js"></script>
-    <script defer src="../../js/lib/custodia-session.js"></script>
-    <script defer src="../../js/dashboard/dashboard-custodia.js"></script>
-    <script defer src="../../js/pwa.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../../config.js"></script>
+  <script defer src="../../js/lib/permissions.js"></script>
+
+  <script defer src="../../js/guard.js"></script>
+  <script defer src="../../modules/alarma/alarma.js"></script>
+  <script defer src="../../js/lib/app-header.js"></script>
+  <script defer src="../../js/lib/custodia-session.js"></script>
+  <script defer src="../../js/dashboard/dashboard-custodia.js"></script>
+  <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base">
-    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <div id="app-header" data-page-title="Registro de Custodia"></div>
+<body class="mdl-base uber-body">
+  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+    <div id="app-header" data-page-title="Registro de Custodia"></div>
 
-        <main class="mdl-layout__content">
-            <section class="wrap">
-                <form id="form-custodia" class="mdl-card mdl-shadow--3dp card">
-                    <div class="mdl-card__title">
-                        <h2 class="mdl-card__title-text">Nuevo servicio de custodia</h2>
-                    </div>
+    <main class="mdl-layout__content">
+      <div class="uber-shell">
+        <header class="uber-desktop-head">
+          <h1>Registro de Custodia</h1>
+          <nav aria-label="Modo de registro">
+            <button type="button" class="uber-tab active">
+              <span class="material-icons" aria-hidden="true">directions_car</span>
+              Viaje
+            </button>
+          </nav>
+        </header>
 
-                    <div class="mdl-card__supporting-text grid">
-                        <div class="col">
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
-                                <select class="mdl-textfield__input" id="tipo" required>
-                                    <option value="Simple">Simple</option>
-                                    <option value="Tipo A">Tipo A</option>
-                                    <option value="Tipo B">Tipo B</option>
-                                </select>
-                                <label class="mdl-textfield__label" for="tipo">Tipo de custodia</label>
-                            </div>
+        <div class="uber-content">
+          <section class="uber-panel" aria-label="Nuevo servicio de custodia">
+            <header class="uber-mobile-head">
+              <a href="./custodia-registros.html" class="uber-back" aria-label="Regresar">
+                <i class="material-icons" aria-hidden="true">arrow_back</i>
+              </a>
+              <h2>Nuevo servicio de custodia</h2>
+            </header>
 
-                            <!-- === BEGIN HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
-                            <div class="cliente-field">
-                                <label for="cliente-search" class="cliente-field__label">Cliente (carga)</label>
-                                <div class="cliente-search" role="combobox" aria-haspopup="listbox"
-                                    aria-expanded="false" aria-owns="cliente-results">
-                                    <i class="material-icons" aria-hidden="true">search</i>
-                                    <input id="cliente-search" class="cliente-search__input mdl-textfield__input"
-                                        type="search" autocomplete="off" placeholder="Escribe para buscar"
-                                        aria-controls="cliente-results" aria-autocomplete="list" required />
-                                    <button type="button" id="cliente-clear" class="cliente-search__clear"
-                                        aria-label="Limpiar b├║squeda">
-                                        <i class="material-icons" aria-hidden="true">close</i>
-                                    </button>
-                                </div>
-                                <p id="cliente-feedback" class="cliente-field__feedback" role="status"
-                                    aria-live="polite"></p>
-                                <ul id="cliente-results" class="cliente-results" role="listbox"
-                                    aria-label="Resultados de clientes" hidden></ul>
-                                <button type="button" id="cliente-add-btn" class="cliente-add btn-link" hidden>
-                                    <i class="material-icons" aria-hidden="true">person_add</i>
-                                    Agregar cliente
-                                </button>
-                            </div>
-                            <!-- === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
-
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                <input class="mdl-textfield__input" id="placa" type="text" placeholder="Ej: AUP767"
-                                    required>
-                                <label class="mdl-textfield__label" for="placa">Placa de unidad</label>
-                            </div>
-
-                            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label destino-wrapper">
-                                <input class="mdl-textfield__input" id="destino" type="text"
-                                    placeholder="Direcci├│n destino" required autocomplete="off">
-                                <label class="mdl-textfield__label" for="destino">Direcci├│n destino</label>
-                                <ul id="destino-suggestions" class="suggestions"></ul>
-                            </div>
-
-                            <div class="row-inline">
-                                <button type="button" id="btn-abrir-mapa"
-                                    class="mdl-button mdl-js-button mdl-button--raised">Buscar en el mapa</button>
-                                <span id="direccion-estado" class="hint">Empieza a escribir para ver sugerencias o usa
-                                    Buscar en el mapa.</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mdl-card__actions actions">
-                        <button type="submit" id="btn-guardar"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
-                            <span class="btn-label">Guardar servicio</span>
-                            <span class="btn-spinner" aria-hidden="true"></span>
-                        </button>
-                        <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">Limpiar</button>
-                    </div>
-                </form>
-            </section>
-
-            <!-- === BEGIN HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
-            <section id="modal-cliente" class="modal-backdrop" aria-hidden="true">
-                <div class="modal-card mdl-card mdl-shadow--4dp modal-card--cliente" role="dialog" aria-modal="true"
-                    aria-labelledby="modal-cliente-title">
-                    <div class="mdl-card__title">
-                        <h2 id="modal-cliente-title" class="mdl-card__title-text">Agregar nuevo cliente</h2>
-                    </div>
-                    <div class="mdl-card__supporting-text">
-                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
-                            <input type="text" id="modal-cliente-input" class="mdl-textfield__input" maxlength="120"
-                                placeholder="Nombre del cliente">
-                            <label class="mdl-textfield__label" for="modal-cliente-input">Nombre del cliente</label>
-                        </div>
-                        <p id="modal-cliente-feedback" class="modal-cliente__feedback" role="status"
-                            aria-live="assertive"></p>
-                    </div>
-                    <div class="mdl-card__actions">
-                        <button type="button" id="modal-cliente-cancel"
-                            class="mdl-button mdl-js-button">Cancelar</button>
-                        <button type="button" id="modal-cliente-save"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
-                    </div>
+            <form id="form-custodia" autocomplete="off">
+              <div class="chip-row">
+                <div class="chip-select">
+                  <span class="material-icons chip-icon" aria-hidden="true">person</span>
+                  <select id="tipo" class="mdl-textfield__input" required>
+                    <option value="" selected disabled>Tipo de custodia</option>
+                    <option value="Simple">Simple</option>
+                    <option value="Tipo A">Tipo A</option>
+                  </select>
+                  <span class="material-icons chip-arrow" aria-hidden="true">expand_more</span>
                 </div>
-            </section>
-            <!-- === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH === -->
 
-            <!-- Modal MAPA -->
-            <section id="modal-mapa" class="modal-backdrop">
-                <div class="modal-card mdl-card mdl-shadow--4dp">
-                    <div class="mdl-card__title">
-                        <h2 class="mdl-card__title-text">Buscar destino en el mapa</h2>
-                    </div>
-                    <div class="mdl-card__supporting-text">
-                        <div class="map-search">
-                            <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input"
-                                placeholder="Buscar direcci├│n...">
-                            <button type="button" id="map-search-btn"
-                                class="mdl-button mdl-js-button mdl-button--raised">Buscar</button>
-                        </div>
-                        <div id="map-container"></div>
-                        <p class="hint">Haz clic en el mapa para seleccionar el destino. Se intentar├í obtener la
-                            direcci├│n (reverse geocoding).</p>
-                    </div>
-                    <div class="mdl-card__actions">
-                        <button type="button" id="map-aceptar"
-                            class="mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
-                        <button type="button" id="map-cerrar" class="mdl-button mdl-js-button">Cerrar</button>
-                    </div>
+                <div class="chip-select cliente-field" role="combobox" aria-haspopup="listbox" aria-expanded="false"
+                  aria-owns="cliente-results">
+                  <span class="material-icons chip-icon" aria-hidden="true">group</span>
+                  <div class="cliente-search">
+                    <input id="cliente-search" class="cliente-search__input mdl-textfield__input" type="search"
+                      autocomplete="off" placeholder="Cliente" aria-controls="cliente-results" aria-autocomplete="list"
+                      required />
+                    <button type="button" id="cliente-clear" class="cliente-search__clear" aria-label="Limpiar búsqueda">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                  <span class="material-icons chip-arrow" aria-hidden="true">expand_more</span>
                 </div>
-            </section>
+              </div>
 
-            <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
-                <div class="mdl-snackbar__text"></div>
-                <button class="mdl-snackbar__action" type="button"></button>
+              <div id="cliente-feedback" class="cliente-field__feedback" role="status" aria-live="polite"></div>
+              <ul id="cliente-results" class="cliente-results" role="listbox" aria-label="Resultados de clientes"
+                hidden></ul>
+              <button type="button" id="cliente-add-btn" class="cliente-add" hidden>
+                <i class="material-icons" aria-hidden="true">person_add</i>
+                Agregar cliente
+              </button>
+
+              <label class="sr-only" for="placa">Placa</label>
+              <div class="uber-field field-placa">
+                <span class="material-icons field-icon" aria-hidden="true">radio_button_checked</span>
+                <input id="placa" class="mdl-textfield__input" type="text" maxlength="10" placeholder="Placa: Ej: AUP767"
+                  required />
+              </div>
+
+              <div class="destino-wrapper">
+                <label class="sr-only" for="destino">Destino</label>
+                <div class="uber-field field-destino">
+                  <span class="material-icons field-icon" aria-hidden="true">map</span>
+                  <input id="destino" class="mdl-textfield__input" type="text" placeholder="Destino" autocomplete="off"
+                    required />
+                </div>
+                <p id="direccion-estado" class="status-text">Empieza a escribir para ver sugerencias o usa Buscar en el
+                  mapa.</p>
+                <div id="destino-suggestions" class="sugerencias" role="listbox"
+                  aria-label="Sugerencias de direcciones"></div>
+              </div>
+
+              <div class="list-row">
+                <span class="material-icons list-icon" aria-hidden="true">photo_camera</span>
+                <button type="button" id="btn-abrir-mapa" class="list-button">Buscar ubicación en el mapa</button>
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="list-row">
+                <span class="material-icons list-icon" aria-hidden="true">star</span>
+                <button type="button" id="btn-ubicaciones" class="list-button">Ubicaciones guardadas</button>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" id="btn-limpiar" class="ghost-btn mdl-button mdl-js-button">Limpiar</button>
+                <button type="submit" id="btn-guardar"
+                  class="primary-btn mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
+                  <span class="btn-label">Guardar servicio</span>
+                  <span class="btn-spinner" aria-hidden="true"></span>
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="uber-map-area" aria-label="Mapa de selección de destino">
+            <section id="modal-mapa" class="modal-backdrop map-inline" aria-hidden="true">
+              <div class="modal-card">
+                <div class="map-head">
+                  <span class="material-icons" aria-hidden="true">directions_car</span>
+                  <h3>Viaje</h3>
+                </div>
+                <div class="map-body">
+                  <div class="map-search">
+                    <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input"
+                      placeholder="Buscar dirección..." />
+                    <button type="button" id="map-search-btn" class="ghost-btn mdl-button mdl-js-button">Buscar</button>
+                  </div>
+                  <div id="map-container"></div>
+                  <p class="map-hint">Selecciona un punto en el mapa.</p>
+                </div>
+                <div class="map-actions">
+                  <button type="button" id="map-aceptar"
+                    class="primary-btn mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
+                  <button type="button" id="map-cerrar" class="ghost-btn mdl-button mdl-js-button">Cerrar</button>
+                </div>
+              </div>
+            </section>
+          </section>
+        </div>
+      </div>
+
+      <section id="modal-cliente" class="modal-backdrop" aria-hidden="true">
+        <div class="modal-card modal-card--cliente mdl-card" role="dialog" aria-modal="true"
+          aria-labelledby="modal-cliente-title">
+          <div class="map-head">
+            <h3 id="modal-cliente-title">Agregar nuevo cliente</h3>
+          </div>
+          <div class="map-body">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
+              <input type="text" id="modal-cliente-input" class="mdl-textfield__input" maxlength="120"
+                placeholder="Nombre del cliente" />
+              <label class="mdl-textfield__label" for="modal-cliente-input">Nombre del cliente</label>
             </div>
-        </main>
-    </div>
+            <p id="modal-cliente-feedback" class="modal-cliente__feedback" role="status" aria-live="assertive"></p>
+          </div>
+          <div class="map-actions">
+            <button type="button" id="modal-cliente-cancel" class="ghost-btn mdl-button mdl-js-button">Cancelar</button>
+            <button type="button" id="modal-cliente-save"
+              class="primary-btn mdl-button mdl-js-button mdl-button--accent">Guardar</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="modal-placa" class="modal-backdrop" aria-hidden="true">
+        <div class="modal-card modal-card--info mdl-card" role="dialog" aria-modal="true"
+          aria-labelledby="modal-placa-title">
+          <div class="map-head">
+            <h3 id="modal-placa-title">Placa registrada recientemente</h3>
+          </div>
+          <div class="map-body">
+            <p class="modal-info"><strong>Cliente:</strong> <span id="modal-placa-cliente">-</span></p>
+            <p class="modal-info"><strong>Destino:</strong> <span id="modal-placa-destino">-</span></p>
+            <p class="modal-info"><strong>Fecha registro:</strong> <span id="modal-placa-fecha">-</span></p>
+          </div>
+          <div class="map-actions">
+            <button type="button" id="modal-placa-close" class="primary-btn mdl-button mdl-js-button">Entendido</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="modal-ubicaciones" class="modal-backdrop" aria-hidden="true">
+        <div class="modal-card modal-card--info mdl-card" role="dialog" aria-modal="true"
+          aria-labelledby="modal-ubicaciones-title">
+          <div class="map-head">
+            <h3 id="modal-ubicaciones-title">Ubicaciones guardadas</h3>
+          </div>
+          <div class="map-body">
+            <ul id="ubicaciones-lista" class="saved-list"></ul>
+          </div>
+          <div class="map-actions">
+            <button type="button" id="modal-ubicaciones-close"
+              class="primary-btn mdl-button mdl-js-button">Cerrar</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      if (window.innerWidth >= 992) {
+        requestAnimationFrame(() => {
+          document.getElementById("btn-abrir-mapa")?.click();
+        });
+      }
+    });
+  </script>
 </body>
 
 </html>

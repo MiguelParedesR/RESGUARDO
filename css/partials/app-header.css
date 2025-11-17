@@ -1,130 +1,183 @@
+/* =========================================================
+   HEADER — DISEÑO MODERNO CLARO
+   Compatible con roles (custodia / admin)
+   ========================================================= */
+
 :root {
   --app-header-bg: rgba(255, 255, 255, 0.95);
   --app-header-color: #0f172a;
   --app-header-muted: #475569;
   --app-header-border: rgba(15, 23, 42, 0.08);
+
   --app-header-accent: #2563eb;
+  --app-header-accent-hover: #1d4ed8;
+
   --app-header-danger: #dc2626;
+  --app-header-danger-hover: #b91c1c;
+
+  --radius-pill: 999px;
+  --shadow-header: 0 12px 26px rgba(15, 23, 42, 0.08);
 }
 
-.mdl-layout__header.app-header {
-  min-height: 64px;
+/* =========================================================
+   CONTENEDOR PRINCIPAL
+   ========================================================= */
+
+.app-header-modern {
+  width: 100%;
   background: var(--app-header-bg);
-  color: var(--app-header-color);
   border-bottom: 1px solid var(--app-header-border);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(18px);
-  z-index: 1200;
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+  box-shadow: var(--shadow-header);
 }
 
-.app-header-row {
-  min-height: 64px;
-  padding: 0 20px;
+/* =========================================================
+   ROW FLEX PRINCIPAL
+   ========================================================= */
+
+.app-header-modern-row {
+  height: 64px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 22px;
+  gap: 18px;
 }
+
+/* =========================================================
+   TÍTULO / MARCA
+   ========================================================= */
 
 .app-header-brand {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
-.app-header-brand .mdl-layout-title {
+.app-header-title {
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--app-header-color);
+  white-space: nowrap;
 }
+
+/* =========================================================
+   NAV PARA ADMIN (se oculta por JS para otros roles)
+   ========================================================= */
 
 .app-header-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.app-header-nav a {
-  text-decoration: none;
-  color: var(--app-header-muted);
-  font-weight: 600;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 8px 14px;
-  border-radius: 999px;
-  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.app-header-nav a:hover {
-  color: var(--app-header-color);
-  background: rgba(15, 23, 42, 0.06);
-}
-
-.app-header-nav a.is-active {
-  color: #fff;
-  background: var(--app-header-accent);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
-}
-
-.app-header-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.app-header-link {
-  display: inline-flex;
+.app-header-nav a {
+  text-decoration: none;
+  font-size: 0.82rem;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--app-header-muted);
+  transition: 0.2s ease;
+}
+
+.app-header-nav a:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--app-header-color);
+}
+
+.app-header-nav a.is-active {
+  background: var(--app-header-accent);
+  color: white;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+}
+
+/* =========================================================
+   ACCIONES DEL LADO DERECHO
+   ========================================================= */
+
+.app-header-actions {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.app-header-link {
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   text-decoration: none;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
   color: var(--app-header-color);
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition: 0.2s ease;
 }
 
 .app-header-link:hover {
   background: rgba(15, 23, 42, 0.06);
 }
 
-.app-header-link.app-header-link--danger {
+.app-header-link--danger {
   color: var(--app-header-danger);
-  border-color: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.25);
 }
 
-.app-header-link.app-header-link--danger:hover {
-  background: rgba(220, 38, 38, 0.08);
+.app-header-link--danger:hover {
+  background: rgba(220, 38, 38, 0.10);
+  color: var(--app-header-danger-hover);
 }
 
-@media (max-width: 800px) {
-  .app-header-row {
-    gap: 12px;
+/* =========================================================
+   RESPONSIVE — MÓVIL PERFECTO
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .app-header-modern-row {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 18px;
+    gap: 14px;
   }
 
+  /* Marca centrada */
+  .app-header-brand {
+    width: 100%;
+    text-align: center;
+  }
+
+  .app-header-title {
+    font-size: 1.1rem;
+  }
+
+  /* NAV — solo admin, full width */
   .app-header-nav {
     width: 100%;
-    order: 3;
+    justify-content: center;
+    gap: 6px;
     flex-wrap: wrap;
-    justify-content: flex-start;
   }
 
   .app-header-nav a {
-    flex: 1 1 calc(50% - 8px);
-    justify-content: center;
+    flex: 1 0 auto;
+    text-align: center;
   }
 
+  /* Acciones (Inicio / Salir) centradas en móvil */
   .app-header-actions {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: center;
+    padding-top: 4px;
   }
 
-  .app-header-actions .app-header-link {
+  .app-header-link {
     flex: 1;
     text-align: center;
   }
