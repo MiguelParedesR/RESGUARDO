@@ -1,14 +1,14 @@
-﻿/* === BEGIN HU:HU-REGISTRO-CUSTODIA styles (NO TOCAR FUERA) === */
+/* === BEGIN HU:HU-REGISTRO-CUSTODIA styles (NO TOCAR FUERA) === */
 :root {
   --registro-bg-image: url("https://i.postimg.cc/fyyNsd2n/Gemini-Generated-Image-6q4w4v6q4w4v6q4w.png");
-  --registro-bg-overlay: rgba(245, 246, 251, 0.88);
-  --glass-bg: rgba(255, 255, 255, 0.92);
-  --glass-border: rgba(15, 23, 42, 0.1);
-  --accent: #ff4d67;
-  --accent-soft: #ff7e90;
+  --registro-bg-overlay: rgba(248, 250, 252, 0.85);
+  --glass-bg: #ffffff;
+  --glass-border: rgba(148, 163, 184, 0.35);
+  --accent: #2563eb;
+  --accent-soft: #1d4ed8;
   --text-primary: #0f172a;
-  --text-muted: rgba(15, 23, 42, 0.65);
-  --error: #d90429;
+  --text-muted: rgba(71, 85, 105, 0.9);
+  --error: #dc2626;
   font-family: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 /* === END HU:HU-REGISTRO-CUSTODIA === */
@@ -16,7 +16,7 @@
 .registro-body {
   min-height: 100vh;
   margin: 0;
-  background: linear-gradient(135deg, #f5f6fb 0%, #dfe7f7 100%);
+  background: #f8fafc;
   color: var(--text-primary);
   position: relative;
   overflow-x: hidden;
@@ -30,7 +30,7 @@
     var(--registro-bg-image);
   background-size: cover;
   background-position: center;
-  opacity: 0.55;
+  opacity: 0.25;
   z-index: -2;
 }
 
@@ -119,9 +119,9 @@
 .registro-field input,
 .registro-field select {
   border-radius: 16px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.04);
+  background: #fff;
   color: var(--text-primary);
   font-size: 1rem;
   transition: border 0.2s ease, background 0.2s ease, transform 0.2s ease;
@@ -348,7 +348,7 @@
 .selfie-trigger {
   border: none;
   border-radius: 999px;
-  background: linear-gradient(135deg, #7c90ff, #4752d8);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
   padding: 12px 20px;
   font-weight: 600;

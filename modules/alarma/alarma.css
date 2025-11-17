@@ -636,7 +636,7 @@ body.alarma-route-open {
 .alarma-route__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(8, 15, 40, 0.55);
+  background: rgba(15, 23, 42, 0.35);
   backdrop-filter: blur(2px);
 }
 

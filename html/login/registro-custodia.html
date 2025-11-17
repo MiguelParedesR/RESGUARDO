@@ -10,7 +10,24 @@
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2563eb',
+            primaryDark: '#1d4ed8'
+          }
+        }
+      }
+    };
+  </script>
 
   <link rel="stylesheet" href="../../css/registro-custodia.css" />
   <link rel="stylesheet" href="../../css/partials/app-header.css" />
@@ -31,11 +48,11 @@
     <div id="app-header" data-page-title="Registro de Custodias"></div>
 
     <!-- === BEGIN HU:HU-REGISTRO-CUSTODIA layout (NO TOCAR FUERA) === -->
-    <main class="mdl-layout__content">
+    <main class="mdl-layout__content px-4 py-10">
       <section class="registro-hero">
         <div class="registro-hero__copy">
-          <p class="registro-hero__eyebrow">Paso unico</p>
-          <h1>Activa tu acceso de custodia</h1>
+          <p class="registro-hero__eyebrow">Registro</p>
+          <h1>Registrar custodia</h1>
         </div>
       </section>
 
@@ -81,7 +98,7 @@
                   <span class="material-icons" aria-hidden="true">photo_camera</span>
                   <span>Tomar selfie</span>
                 </button>
-                <p class="selfie-hint" id="selfie-hint">Pulsa el boton y sigue las instrucciones.</p>
+                <p class="selfie-hint" id="selfie-hint">Sigue las instrucciones.</p>
               </div>
             </div>
 
@@ -94,7 +111,7 @@
           <div class="registro-success" id="registro-success" hidden>
             <span class="material-icons" aria-hidden="true">check_circle</span>
             <h3>Registro completado</h3>
-            <p>Tu PIN es siempre los <strong>ultimos 4 digitos</strong> de tu DNI.</p>
+            <p>PIN = <strong>últimos 4 dígitos</strong> del DNI.</p>
             <button type="button" class="registro-btn" id="btn-volver-login">
               Ir al login
             </button>
