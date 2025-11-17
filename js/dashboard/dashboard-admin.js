@@ -43,6 +43,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }),
   };
 
+  const TIPO_CUSTODIA_META = {
+    S: {
+      code: "S",
+      label: "Simple",
+      description: "1 custodia en la cabina de la unidad que resguarda.",
+    },
+    A: {
+      code: "A",
+      label: "Tipo A",
+      description: "1 custodia con vehículo detrás de la unidad que resguarda.",
+    },
+    B: {
+      code: "B",
+      label: "Tipo B",
+      description: "Combinación de una custodia simple y una tipo A.",
+    },
+  };
+
   // === BEGIN HU:HU-RUTA-DESVIO-FRONT-ADMIN (ui refs) ===
   const routeAlertPanel = document.getElementById("route-alert-admin");
   const routeAlertTitle = document.getElementById("route-alert-title");
@@ -883,26 +901,35 @@ document.addEventListener("DOMContentLoaded", () => {
             if (pingErr) {
               console.warn("[admin] ubicacion query error", pingErr);
             }
+            const custodiosList = custodiosMap.get(s.id) || [];
             return {
               ...s,
               lastPing: ping || null,
-              custodios: custodiosMap.get(s.id) || [],
+              custodios: custodiosList,
+              tipoEtiqueta: buildTipoEtiquetaFromCustodias(custodiosList),
             };
           } catch (e) {
             console.warn("[admin] ubicacion query exception", e);
+            const custodiosList = custodiosMap.get(s.id) || [];
             return {
               ...s,
               lastPing: null,
-              custodios: custodiosMap.get(s.id) || [],
+              custodios: custodiosList,
+              tipoEtiqueta: buildTipoEtiquetaFromCustodias(custodiosList),
             };
           }
         })
       );
-      const enrichedNorm = (enriched || []).map((s) => ({
-        ...s,
-        lastPing: normPing(s.lastPing),
-        custodios: Array.isArray(s.custodios) ? s.custodios : [],
-      }));
+      const enrichedNorm = (enriched || []).map((s) => {
+        const custodiosList = Array.isArray(s.custodios) ? s.custodios : [];
+        return {
+          ...s,
+          lastPing: normPing(s.lastPing),
+          custodios: custodiosList,
+          tipoEtiqueta:
+            s.tipoEtiqueta || buildTipoEtiquetaFromCustodias(custodiosList),
+        };
+      });
       servicesCache = enrichedNorm;
       servicesLoaded = true;
       renderList(enrichedNorm);
@@ -928,7 +955,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function formatTitle(s) {
     const placa = (s.placa || "-").toString().toUpperCase();
     const cliente = (s.cliente?.nombre || "-").toString().toUpperCase();
-    const tipo = (s.tipo || "-").toString().toUpperCase();
+    const tipo = getTipoEtiqueta(s).toString().toUpperCase();
     return [placa, cliente, tipo].join(" - ");
   }
   // === END HU:HU-MARCADORES-CUSTODIA ===
@@ -993,6 +1020,40 @@ document.addEventListener("DOMContentLoaded", () => {
       .join(", ");
   }
 
+  function buildTipoEtiquetaFromCustodias(custodios) {
+    if (!Array.isArray(custodios) || !custodios.length) return "";
+    let simple = 0;
+    let tipoA = 0;
+    let tipoB = 0;
+    custodios.forEach((cust) => {
+      const raw = (cust.tipo_custodia || "").toUpperCase();
+      if (raw === "SIMPLE" || raw === "S") simple += 1;
+      else if (raw === "A" || raw === "TIPO A") tipoA += 1;
+      else if (raw === "B" || raw === "TIPO B") tipoB += 1;
+    });
+    const pairsB = Math.min(simple, tipoA) + tipoB;
+    const remainingSimple = simple - Math.min(simple, tipoA);
+    const remainingA = tipoA - Math.min(simple, tipoA);
+    const parts = [];
+    const codeB = TIPO_CUSTODIA_META.B.code || "B";
+    const codeA = TIPO_CUSTODIA_META.A.code || "A";
+    const codeS = TIPO_CUSTODIA_META.S.code || "S";
+    if (pairsB > 0) parts.push(pairsB === 1 ? codeB : `${pairsB}${codeB}`);
+    if (remainingA > 0)
+      parts.push(remainingA === 1 ? codeA : `${remainingA}${codeA}`);
+    if (remainingSimple > 0)
+      parts.push(
+        remainingSimple === 1 ? codeS : `${remainingSimple}${codeS}`
+      );
+    return parts.length ? parts.join(" + ") : "";
+  }
+
+  function getTipoEtiqueta(servicio) {
+    return (
+      (servicio?.tipoEtiqueta || servicio?.tipo || "").toString().trim() || "-"
+    );
+  }
+
   function updateServiceFlag(servicioId, flag, value) {
     if (!servicioId) return;
     const key = String(servicioId);
@@ -1046,6 +1107,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (flags?.checkinPending) card.classList.add("alarma-card--flash");
       const badgesHtml = renderAlertBadges(s.id) || "";
       const custodiosLabel = describeCustodios(s.custodios);
+      const tipoLabel = getTipoEtiqueta(s);
       let pingLabel = "-",
         pingClass = "ping-ok",
         alertNow = false;
@@ -1086,7 +1148,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="meta"><span class="pill">${h(s.empresa)}</span></div>
         <div><strong>Destino:</strong> ${h(s.destino_texto || "-")}</div>
         <div><strong>Custodios:</strong> ${h(custodiosLabel)}</div>
-        <div><strong>Tipo:</strong> ${h(s.tipo || "-")}</div>
+        <div><strong>Tipo:</strong> ${h(tipoLabel || "-")}</div>
         <div class="${pingClass}"><strong>Ultimo ping:</strong> ${pingLabel}</div>
         <div class="row-actions">
           <button class="btn" data-act="ver" data-id="${
@@ -1324,6 +1386,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     metricEstado.textContent = s.estado;
     const custodiosTexto = describeCustodios(s.custodios);
+    const tipoLabel = getTipoEtiqueta(s);
     details.innerHTML = `<div><strong>Empresa:</strong> ${
       s.empresa
     }</div><div><strong>Cliente:</strong> ${
@@ -1331,7 +1394,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }</div><div><strong>Placa:</strong> ${
       s.placa || "-"
     }</div><div><strong>Tipo:</strong> ${
-      s.tipo || "-"
+      tipoLabel || "-"
     }</div><div><strong>Destino:</strong> ${
       s.destino_texto || "-"
     }</div><div><strong>Custodios:</strong> ${h(

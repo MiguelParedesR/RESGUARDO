@@ -63,14 +63,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   function setupNavigation(nav, scope) {
     if (!nav) return;
 
-    // Si NO es admin -> ocultar todo el menú
-    if (scope !== "admin") {
+    const attrScope = (scope || "").toLowerCase();
+    const roleScope = (sessionStorage.getItem("auth_role") || "").toLowerCase();
+    const isAdmin = attrScope === "admin" || roleScope === "admin";
+
+    if (!isAdmin) {
       nav.hidden = true;
       nav.setAttribute("aria-hidden", "true");
       return;
     }
 
-    // Admin → mostrar navegación
     nav.hidden = false;
     nav.setAttribute("aria-hidden", "false");
 
@@ -94,3 +96,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   }
 });
+
+
+

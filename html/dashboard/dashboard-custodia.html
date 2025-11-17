@@ -36,16 +36,6 @@
 
     <main class="mdl-layout__content">
       <div class="uber-shell">
-        <header class="uber-desktop-head">
-          <h1>Registro de Custodia</h1>
-          <nav aria-label="Modo de registro">
-            <button type="button" class="uber-tab active">
-              <span class="material-icons" aria-hidden="true">directions_car</span>
-              Viaje
-            </button>
-          </nav>
-        </header>
-
         <div class="uber-content">
           <section class="uber-panel" aria-label="Nuevo servicio de custodia">
             <header class="uber-mobile-head">
@@ -110,11 +100,6 @@
                   aria-label="Sugerencias de direcciones"></div>
               </div>
 
-              <div class="list-row">
-                <span class="material-icons list-icon" aria-hidden="true">photo_camera</span>
-                <button type="button" id="btn-abrir-mapa" class="list-button">Buscar ubicación en el mapa</button>
-              </div>
-
               <div class="divider"></div>
 
               <div class="list-row">
@@ -136,10 +121,6 @@
           <section class="uber-map-area" aria-label="Mapa de selección de destino">
             <section id="modal-mapa" class="modal-backdrop map-inline" aria-hidden="true">
               <div class="modal-card">
-                <div class="map-head">
-                  <span class="material-icons" aria-hidden="true">directions_car</span>
-                  <h3>Viaje</h3>
-                </div>
                 <div class="map-body">
                   <div class="map-search">
                     <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input"
@@ -149,11 +130,7 @@
                   <div id="map-container"></div>
                   <p class="map-hint">Selecciona un punto en el mapa.</p>
                 </div>
-                <div class="map-actions">
-                  <button type="button" id="map-aceptar"
-                    class="primary-btn mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
-                  <button type="button" id="map-cerrar" class="ghost-btn mdl-button mdl-js-button">Cerrar</button>
-                </div>
+                
               </div>
             </section>
           </section>
