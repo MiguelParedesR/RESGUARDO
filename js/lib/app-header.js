@@ -70,11 +70,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!isAdmin) {
       nav.hidden = true;
       nav.setAttribute("aria-hidden", "true");
+      nav.classList.add("nav-hidden-by-role");
+      nav.style.display = "none";
       return;
     }
 
     nav.hidden = false;
     nav.setAttribute("aria-hidden", "false");
+    nav.classList.remove("nav-hidden-by-role");
+    nav.style.removeProperty("display");
 
     const links = nav.querySelectorAll("a[data-nav-key]");
     const path = window.location.pathname.toLowerCase();
