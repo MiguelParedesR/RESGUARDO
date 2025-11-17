@@ -1,19 +1,19 @@
 /* === BEGIN HU:HU-ADMIN-CUSTODIAS-PANEL styles (NO TOCAR FUERA) === */
 :root {
-  --page-bg: #f8fafc;
+  --page-bg: #f5f7fa;
   --card-bg: #fff;
   --ink-900: #0f172a;
   --ink-700: #1f2a44;
   --ink-500: #4f5b76;
-  --ink-300: #94a3b8;
-  --stroke: #e2e8f0;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.1);
-  --success: #22c55e;
-  --danger: #dc2626;
+  --ink-300: #8c97ad;
+  --stroke: #e1e7f0;
+  --accent: #3b4bd6;
+  --accent-soft: rgba(59, 75, 214, 0.1);
+  --success: #2e7d32;
+  --danger: #c62828;
   --radius-lg: 24px;
   --radius-md: 16px;
-  --shadow-soft: 0 24px 45px rgba(15, 23, 42, 0.12);
+  --shadow-soft: 0 28px 55px rgba(15, 23, 42, 0.12);
 }
 
 body {
@@ -97,7 +97,6 @@ body {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  border: 1px solid var(--stroke);
   padding: 0;
   overflow-x: auto;
 }
@@ -201,7 +200,7 @@ tr:last-child td {
 }
 
 .modal::backdrop {
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(7, 10, 24, 0.65);
   backdrop-filter: blur(3px);
 }
 

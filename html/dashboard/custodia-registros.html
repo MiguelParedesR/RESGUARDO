@@ -7,31 +7,11 @@
   <title>Mis servicios - Custodia</title>
   <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-
   <!-- MDL -->
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="manifest" href="/manifest.json" />
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#2563eb',
-            primaryDark: '#1d4ed8'
-          }
-        }
-      }
-    };
-  </script>
 
   <link rel="stylesheet" href="../../css/dashboard/custodia-registros.css" />
   <link rel="stylesheet" href="../../css/partials/app-header.css" />
@@ -48,18 +28,20 @@
   <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base bg-gray-50 text-slate-900">
+<body class="mdl-base">
   <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
     <div id="app-header" data-page-title="Mis servicios"></div>
 
-    <main class="mdl-layout__content bg-gray-50 px-4 py-10">
-      <section class="page page--custodia w-full max-w-6xl mx-auto space-y-8">
-        <div class="layout-custodia layout-custodia--sidebar gap-8" role="region" aria-label="Servicios por cliente">
-          <aside class="custodia-panel custodia-panel--filters bg-white border border-gray-100 rounded-2xl shadow-sm"
-            aria-label="Filtro de clientes">
+    <main class="mdl-layout__content">
+      <section class="page page--custodia">
+        <div class="layout-custodia layout-custodia--sidebar" role="region" aria-label="Servicios por cliente">
+          <aside class="custodia-panel custodia-panel--filters" aria-label="Filtro de clientes">
             <div class="panel-head">
               <p class="panel-eyebrow">Directorio</p>
               <h2 class="panel-title">Clientes</h2>
+              <p class="panel-hint">
+                Selecciona un cliente para revisar los servicios activos y continúa solo si eres el titular asignado.
+              </p>
             </div>
             <!-- === BEGIN HU:HU-CUSTODIA-CLIENTE-SEARCH+RUTA === -->
             <div class="cliente-search">
@@ -87,18 +69,21 @@
           </aside>
 
           <div class="custodia-main">
-            <div class="topbar bg-white border border-gray-100 rounded-2xl shadow-sm p-6 flex flex-wrap items-center justify-between gap-6">
-              <div class="titles space-y-1">
+            <div class="topbar">
+              <div class="titles">
                 <h1>Mis servicios</h1>
+                <p class="subtitle">
+                  Selecciona un cliente para ver sus placas y continúa sólo si eres el custodio titular.
+                </p>
               </div>
-              <button class="mdl-button mdl-js-button mdl-button--raised topbar__cta bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 font-semibold shadow-sm"
+              <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent topbar__cta"
                 onclick="location.href='/html/dashboard/dashboard-custodia.html'" aria-label="Registrar nuevo servicio">
                 + Nuevo servicio
               </button>
             </div>
-            <section class="custodia-panel custodia-panel--services bg-white border border-gray-100 rounded-2xl shadow-sm" aria-live="polite">
+            <section class="custodia-panel custodia-panel--services" aria-live="polite">
               <div id="cards-placeholder" class="cards-placeholder" role="status">
-                Selecciona un cliente.
+                Selecciona un cliente para visualizar los servicios disponibles.
               </div>
               <div id="cards-custodia" class="cards-grid" aria-label="Listado de servicios"></div>
             </section>
@@ -115,6 +100,9 @@
               </button>
             </header>
             <div class="add-modal__body">
+              <p id="add-modal-description">
+                Selecciona el tipo de custodia que realizaras para este servicio.
+              </p>
               <div class="add-modal__options" role="radiogroup" aria-label="Tipo de custodia">
                 <label class="option">
                   <input type="radio" name="add-tipo" value="Simple" checked />

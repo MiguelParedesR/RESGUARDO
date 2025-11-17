@@ -7,32 +7,11 @@
     <title>Registro de Custodia</title>
     <link rel="icon" href="/assets/icon-192.svg" type="image/svg\+xml">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-
     <!-- MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        primaryDark: '#1d4ed8'
-                    }
-                }
-            }
-        };
-    </script>
-
-    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="manifest" href="/manifest.json" /><!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -47,7 +26,7 @@
     <script defer src="../../config.js"></script>
     <script defer src="../../js/lib/permissions.js"></script>
 
-    <!-- ProtecciÃ³n + mÃ³dulo -->
+    <!-- Protecci├│n + m├│dulo -->
     <script defer src="../../js/guard.js"></script>
     <script defer src="../../modules/alarma/alarma.js"></script>
     <script defer src="../../js/lib/app-header.js"></script>
@@ -56,21 +35,21 @@
     <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base bg-gray-50 text-slate-900">
+<body class="mdl-base">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <div id="app-header" data-page-title="Registro de Custodia"></div>
 
-        <main class="mdl-layout__content bg-gray-50 px-4 py-10">
-            <section class="wrap w-full max-w-6xl mx-auto">
-                <form id="form-custodia" class="mdl-card mdl-shadow--3dp card bg-white rounded-3xl border border-gray-100">
-                    <div class="mdl-card__title px-6 py-5 border-b border-gray-100">
-                        <h2 class="mdl-card__title-text text-2xl font-semibold text-slate-900">Nuevo servicio de custodia</h2>
+        <main class="mdl-layout__content">
+            <section class="wrap">
+                <form id="form-custodia" class="mdl-card mdl-shadow--3dp card">
+                    <div class="mdl-card__title">
+                        <h2 class="mdl-card__title-text">Nuevo servicio de custodia</h2>
                     </div>
 
-                    <div class="mdl-card__supporting-text grid gap-6 p-6">
-                        <div class="col flex flex-col gap-5">
+                    <div class="mdl-card__supporting-text grid">
+                        <div class="col">
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
-                                <select class="mdl-textfield__input border border-gray-300 rounded-xl bg-white" id="tipo" required>
+                                <select class="mdl-textfield__input" id="tipo" required>
                                     <option value="Simple">Simple</option>
                                     <option value="Tipo A">Tipo A</option>
                                     <option value="Tipo B">Tipo B</option>
@@ -88,7 +67,7 @@
                                         type="search" autocomplete="off" placeholder="Escribe para buscar"
                                         aria-controls="cliente-results" aria-autocomplete="list" required />
                                     <button type="button" id="cliente-clear" class="cliente-search__clear"
-                                        aria-label="Limpiar bÃºsqueda">
+                                        aria-label="Limpiar b├║squeda">
                                         <i class="material-icons" aria-hidden="true">close</i>
                                     </button>
                                 </div>
@@ -111,26 +90,27 @@
 
                             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label destino-wrapper">
                                 <input class="mdl-textfield__input" id="destino" type="text"
-                                    placeholder="DirecciÃ³n destino" required autocomplete="off">
-                                <label class="mdl-textfield__label" for="destino">DirecciÃ³n destino</label>
+                                    placeholder="Direcci├│n destino" required autocomplete="off">
+                                <label class="mdl-textfield__label" for="destino">Direcci├│n destino</label>
                                 <ul id="destino-suggestions" class="suggestions"></ul>
                             </div>
 
                             <div class="row-inline">
                                 <button type="button" id="btn-abrir-mapa"
-                                    class="mdl-button mdl-js-button mdl-button--raised secondary-btn">Buscar en el mapa</button>
-                                <span id="direccion-estado" class="hint">Sugerencias disponibles o usa Buscar en el mapa.</span>
+                                    class="mdl-button mdl-js-button mdl-button--raised">Buscar en el mapa</button>
+                                <span id="direccion-estado" class="hint">Empieza a escribir para ver sugerencias o usa
+                                    Buscar en el mapa.</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mdl-card__actions actions flex flex-wrap gap-3 items-center justify-between">
+                    <div class="mdl-card__actions actions">
                         <button type="submit" id="btn-guardar"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent primary-btn">
+                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
                             <span class="btn-label">Guardar servicio</span>
                             <span class="btn-spinner" aria-hidden="true"></span>
                         </button>
-                        <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button secondary-btn">Limpiar</button>
+                        <button type="button" id="btn-limpiar" class="mdl-button mdl-js-button">Limpiar</button>
                     </div>
                 </form>
             </section>
@@ -142,7 +122,7 @@
                     <div class="mdl-card__title">
                         <h2 id="modal-cliente-title" class="mdl-card__title-text">Agregar nuevo cliente</h2>
                     </div>
-                    <div class="mdl-card__supporting-text p-6">
+                    <div class="mdl-card__supporting-text">
                         <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-dirty">
                             <input type="text" id="modal-cliente-input" class="mdl-textfield__input" maxlength="120"
                                 placeholder="Nombre del cliente">
@@ -151,11 +131,11 @@
                         <p id="modal-cliente-feedback" class="modal-cliente__feedback" role="status"
                             aria-live="assertive"></p>
                     </div>
-                    <div class="mdl-card__actions px-6 py-4 flex items-center justify-end gap-3">
+                    <div class="mdl-card__actions">
                         <button type="button" id="modal-cliente-cancel"
-                            class="mdl-button mdl-js-button secondary-btn">Cancelar</button>
+                            class="mdl-button mdl-js-button">Cancelar</button>
                         <button type="button" id="modal-cliente-save"
-                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent primary-btn">Guardar</button>
+                            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Guardar</button>
                     </div>
                 </div>
             </section>
@@ -163,24 +143,25 @@
 
             <!-- Modal MAPA -->
             <section id="modal-mapa" class="modal-backdrop">
-                <div class="modal-card mdl-card mdl-shadow--4dp bg-white rounded-3xl">
-                    <div class="mdl-card__title border-b border-gray-100 px-6 py-4">
+                <div class="modal-card mdl-card mdl-shadow--4dp">
+                    <div class="mdl-card__title">
                         <h2 class="mdl-card__title-text">Buscar destino en el mapa</h2>
                     </div>
-                    <div class="mdl-card__supporting-text p-6">
+                    <div class="mdl-card__supporting-text">
                         <div class="map-search">
                             <input type="text" id="map-search-input" class="mdl-textfield__input map-search-input"
-                                placeholder="Buscar direcciÃ³n...">
+                                placeholder="Buscar direcci├│n...">
                             <button type="button" id="map-search-btn"
-                                class="mdl-button mdl-js-button mdl-button--raised primary-btn">Buscar</button>
+                                class="mdl-button mdl-js-button mdl-button--raised">Buscar</button>
                         </div>
                         <div id="map-container"></div>
-                        <p class="hint">Selecciona un punto en el mapa.</p>
+                        <p class="hint">Haz clic en el mapa para seleccionar el destino. Se intentar├í obtener la
+                            direcci├│n (reverse geocoding).</p>
                     </div>
-                    <div class="mdl-card__actions px-6 py-4 flex items-center gap-3 justify-end">
+                    <div class="mdl-card__actions">
                         <button type="button" id="map-aceptar"
-                            class="mdl-button mdl-js-button mdl-button--accent primary-btn">Aceptar</button>
-                        <button type="button" id="map-cerrar" class="mdl-button mdl-js-button secondary-btn">Cerrar</button>
+                            class="mdl-button mdl-js-button mdl-button--accent">Aceptar</button>
+                        <button type="button" id="map-cerrar" class="mdl-button mdl-js-button">Cerrar</button>
                     </div>
                 </div>
             </section>
@@ -194,6 +175,3 @@
 </body>
 
 </html>
-
-
-

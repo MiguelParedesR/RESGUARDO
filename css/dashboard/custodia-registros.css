@@ -1,30 +1,27 @@
 ﻿:root {
   font-family: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --bg-app: #f8fafc;
-  --panel-bg: #ffffff;
-  --ink-900: #1f2937;
-  --ink-700: #334155;
-  --ink-500: #475569;
-  --ink-300: #94a3b8;
-  --ink-200: #cbd5f5;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --primary-soft: #dbeafe;
-  --accent: #2563eb;
+  --bg-app: #f5f7fa;
+  --panel-bg: #fff;
+  --ink-900: #0f172a;
+  --ink-700: #1f2a44;
+  --ink-500: #364155;
+  --ink-300: #7a869a;
+  --ink-200: #a9b4c7;
+  --primary: #3b4bd6;
+  --primary-soft: #e8ebff;
+  --accent: #ff4d67;
   --success: #2e7d32;
   --warning: #e65100;
   --radius-lg: 24px;
   --radius-md: 16px;
   --radius-sm: 10px;
-  --elev-panel: 0 20px 45px rgba(15, 23, 42, 0.06);
+  --elev-panel: 0 35px 65px rgba(15, 23, 42, 0.08);
   --cust-sidebar-width: 320px;
   --cust-header-height: 64px;
 }
 
 body {
   font-family: inherit;
-  background: var(--bg-app);
-  color: var(--ink-700);
 }
 
 .page--custodia {
@@ -56,19 +53,19 @@ body {
 }
 
 .topbar__cta {
-  background: var(--primary);
+  background: var(--accent);
   border-radius: 999px;
-  padding: 12px 22px;
+  padding: 10px 18px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.25);
+  letter-spacing: 0.05em;
+  box-shadow: 0 15px 35px rgba(255, 77, 103, 0.3);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   align-self: flex-start;
 }
 
 .topbar__cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(29, 78, 216, 0.3);
+  box-shadow: 0 20px 40px rgba(255, 77, 103, 0.32);
 }
 
 .layout-custodia {
@@ -96,7 +93,6 @@ body {
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--elev-panel);
-  border: 1px solid #e2e8f0;
   display: grid;
   gap: 18px;
   align-content: flex-start;
@@ -111,8 +107,8 @@ body {
   width: var(--cust-sidebar-width);
   max-height: calc(100vh - var(--cust-header-height) - 32px);
   border-radius: var(--radius-lg);
-  background: var(--panel-bg);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+  background: linear-gradient(180deg, #f6f8fc 0%, #eef1f8 100%);
+  box-shadow: var(--elev-panel);
   padding: 24px;
   overflow-y: auto;
 }
@@ -522,7 +518,7 @@ body {
 .add-modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.25);
+  background: rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(2px);
 }
 
@@ -684,7 +680,7 @@ body {
 .route-modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.25);
+  background: rgba(15, 23, 42, 0.45);
 }
 
 .route-modal__card {
@@ -821,4 +817,3 @@ body {
     min-width: auto;
   }
 }
-

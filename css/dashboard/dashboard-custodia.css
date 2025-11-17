@@ -1,4 +1,4 @@
-input::placeholder,
+﻿input::placeholder,
 textarea::placeholder {
     color: rgba(90, 107, 138, 0.8);
     transition: opacity 0.2s ease;
@@ -11,72 +11,21 @@ textarea:focus::placeholder {
     opacity: 0;
 }
 
-body {
-    font-family: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #f8fafc;
-    color: #1f2937;
-}
-
-.mdl-layout__content {
-    background: #f8fafc;
-}
-
 .wrap {
     min-height: calc(100vh - 64px);
-    padding: clamp(24px, 5vw, 48px);
+    padding: 16px;
     display: grid;
     place-items: start center;
-    background: #f8fafc;
 }
 
 .card {
     width: min(1100px, 96vw);
-    background: #fff;
-    border-radius: 28px;
-    box-shadow: 0 35px 65px rgba(15, 23, 42, 0.08);
-    border: 1px solid #eef2ff;
 }
 
 .grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
-}
-
-.mdl-card__title-text {
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.primary-btn {
-    background: #2563eb !important;
-    color: #fff !important;
-    border-radius: 999px !important;
-    text-transform: none !important;
-    font-weight: 600 !important;
-    padding: 10px 20px !important;
-    letter-spacing: 0.01em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.primary-btn:hover {
-    background: #1d4ed8 !important;
-}
-
-.secondary-btn {
-    background: #e5e7eb !important;
-    color: #1f2937 !important;
-    border-radius: 999px !important;
-    text-transform: none !important;
-    font-weight: 600 !important;
-    padding: 10px 18px !important;
-}
-
-.secondary-btn:hover {
-    background: #d1d5db !important;
 }
 
 .btn-spinner {
@@ -129,7 +78,7 @@ body {
 
 .hint {
     font-size: 12px;
-    color: #64748b;
+    opacity: .75;
 }
 
 .cliente-field {
@@ -148,7 +97,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #dce3ef;
     border-radius: 12px;
     padding: 8px 12px;
     background: #fff;
@@ -298,7 +247,7 @@ body {
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, .25);
+    background: rgba(0, 0, 0, .45);
     display: none;
     align-items: center;
     justify-content: center;
@@ -342,7 +291,7 @@ body {
     padding: 8px 10px;
 }
 
-/* -------- Custodios dinámicos -------- */
+/* -------- Custodios din├ímicos -------- */
 .custodios-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -359,7 +308,7 @@ body {
     border: 1px solid #e3e6ed;
     border-radius: 12px;
     padding: 12px;
-    background: #f8fafc;
+    background: #fafbfd;
 }
 
 .custodio-block h3 {
@@ -387,9 +336,9 @@ body {
 .custodio-block .cam-estado { font-size: 12px; color: #607d8b; }
 
 /* -------- Mini modal (servicio activo por placa) -------- */
-.mini-modal { position: fixed; inset:0; background: rgba(15,23,42,.25); display:none; align-items:center; justify-content:center; z-index: 5000; }
+.mini-modal { position: fixed; inset:0; background: rgba(0,0,0,.25); display:none; align-items:center; justify-content:center; z-index: 5000; }
 .mini-modal.show { display:flex; animation: fadeIn .12s ease-out; }
-.mini-card { width: min(520px, 92vw); background: #fff; border-radius:12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); transform: translateY(12px); opacity: 0; animation: popIn .16s ease-out forwards; }
+.mini-card { width: min(520px, 92vw); background:#fff; border-radius:12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); transform: translateY(12px); opacity: 0; animation: popIn .16s ease-out forwards; }
 .mini-head { padding: 12px 14px; border-bottom: 1px solid #eceff5; }
 .mini-head h4 { margin: 0; font-size: 16px; }
 .mini-body { padding: 12px 14px; }

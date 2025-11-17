@@ -42,11 +42,11 @@
     <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base is-consulta bg-gray-50 text-slate-900">
+<body class="mdl-base is-consulta">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <div id="app-header" data-page-title="Consulta"></div>
-        <main class="mdl-layout__content bg-gray-50 px-4 py-8">
-            <section class="page page--fluid w-full max-w-7xl mx-auto space-y-8">
+        <main class="mdl-layout__content">
+            <section class="page page--fluid">
                 <div class="mobile-controls" aria-label="Selección de cliente (móvil)">
                     <select id="select-clientes-mobile" class="mobile-select" aria-label="Seleccione cliente">
                         <option value="">Seleccione cliente</option>
@@ -56,8 +56,8 @@
                         <span>Limpiar</span>
                     </button>
                 </div>
-                <div class="layout-consulta gap-6">
-                    <aside id="sidebar" class="sidebar bg-white border border-gray-100 rounded-2xl shadow-sm" aria-label="Lista de clientes">
+                <div class="layout-consulta">
+                    <aside id="sidebar" class="sidebar" aria-label="Lista de clientes">
                         <div class="sidebar-inner">
                             <header class="sidebar-header">
                                 <span class="material-icons sidebar-header__icon" aria-hidden="true">apartment</span>
@@ -89,7 +89,7 @@
                             </nav>
                         </div>
                     </aside>
-                    <div class="dashboard bg-white border border-gray-100 rounded-3xl shadow p-6">
+                    <div class="dashboard">
                         <button id="btn-reset" class="mdl-button mdl-js-button fab" aria-label="Nueva consulta">
                             <i class="material-icons" aria-hidden="true">add_circle</i>
                             <span>Nueva consulta</span>

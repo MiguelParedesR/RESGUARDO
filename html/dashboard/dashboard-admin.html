@@ -55,19 +55,19 @@
     <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base has-subheader bg-gray-50 text-slate-900">
+<body class="mdl-base has-subheader">
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <!-- Header compartido inyectado -->
         <div id="app-header" data-page-title="Administrador" data-nav="admin"></div>
 
-        <main class="mdl-layout__content bg-gray-50 px-4 py-8">
-            <section class="page w-full max-w-7xl mx-auto space-y-8">
+        <main class="mdl-layout__content">
+            <section class="page">
                 <!-- La barra Lista/Filtros se movió al header para quedar fija -->
 
                 <!-- SPLIT: sidebar + mapa -->
-                <div class="split flex flex-col gap-8 lg:flex-row">
+                <div class="split">
                     <!-- Sidebar -->
-                    <aside class="sidebar bg-white border border-gray-100 rounded-2xl shadow-sm">
+                    <aside class="sidebar">
                         <div class="sidebar-head">
                             <div class="lbl" style="font-size:14px;font-weight:800;color:#37474f;">Servicios</div>
                             <div class="head-actions">
@@ -86,7 +86,7 @@
                     </aside>
 
                     <!-- Panel de mapa -->
-                    <section class="map-panel bg-white border border-gray-100 rounded-3xl shadow-lg overflow-hidden relative">
+                    <section class="map-panel">
                         <div class="map-head">
                             <div class="map-title" id="map-title">Selecciona un servicio</div>
                             <div class="map-metrics">
@@ -161,7 +161,7 @@
                         <div class="map-overlay" hidden></div>
                         <div id="map-admin"></div>
 
-                        <div class="details bg-slate-50 border border-gray-100 rounded-2xl p-4" id="details">
+                        <div class="details" id="details">
                             <div><strong>Empresa:</strong> --</div>
                             <div><strong>Cliente:</strong> --</div>
                             <div><strong>Placa:</strong> --</div>
@@ -169,7 +169,7 @@
                             <div><strong>Destino:</strong> --</div>
                             <div>
                                 <button id="btn-finalizar"
-                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent primary-btn" disabled>
+                                    class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
                                     Finalizar servicio
                                 </button>
                             </div>

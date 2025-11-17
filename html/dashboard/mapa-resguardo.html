@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
@@ -7,34 +7,14 @@
   <title>Seguimiento de Custodia</title>
   <link rel="icon" href="/assets/icon-192.svg" type="image/svg\+xml">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-
   <!-- MDL -->
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin />
   <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossorigin />
   <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
-  <link rel="manifest" href="/manifest.json" />
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#2563eb',
-            primaryDark: '#1d4ed8'
-          }
-        }
-      }
-    };
-  </script>
-  <!-- Leaflet -->
+  <link rel="manifest" href="/manifest.json" /><!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -48,7 +28,7 @@
   <script defer src="../../config.js"></script>
   <script defer src="../../js/lib/permissions.js"></script>
 
-  <!-- Protección + Lógica -->
+  <!-- Protecci├│n + L├│gica -->
   <script defer src="../../modules/alarma/alarma.js"></script>
   <script defer src="../../js/lib/router-local.js"></script>
   <script defer src="../../js/lib/app-header.js"></script>
@@ -57,32 +37,29 @@
   <script defer src="../../js/pwa.js"></script>
 </head>
 
-<body class="mdl-base bg-gray-50 text-slate-900">
+<body class="mdl-base">
   <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
     <div id="app-header" data-page-title="Seguimiento de Custodia"></div>
 
-    <main class="mdl-layout__content bg-gray-50 px-4 py-8">
-      <section class="page w-full max-w-6xl mx-auto space-y-6">
+    <main class="mdl-layout__content">
+      <section class="page">
         <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="Boton de Panico"
           aria-label="Boton de Panico">
           <span class="alarma-panic-btn__icon"></span>
           <span class="alarma-panic-btn__label">Boton de Panico</span>
         </button>
-        <div class="topbar bg-white/95 backdrop-blur border border-gray-100 rounded-2xl shadow-sm px-4 py-3 flex flex-wrap items-center gap-4">
-          <button id="btn-finalizar"
-            class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent primary-btn" disabled>
+        <div class="topbar">
+          <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
             Servicio Finalizado
           </button>
-          <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised secondary-btn">Custodias
-            +</button>
+          <button id="btn-custodias-mobile" class="mdl-button mdl-js-button mdl-button--raised">Custodias +</button>
           <div class="metrics">
             <span><strong>Distancia:</strong> <span id="distancia-label">--</span></span>
           </div>
         </div>
 
-        <div class="layout-track gap-6 items-start">
-          <aside id="custodios-sidebar" class="cust-sidebar rounded-2xl border border-gray-100 shadow-sm bg-white"
-            aria-hidden="true">
+        <div class="layout-track">
+          <aside id="custodios-sidebar" class="cust-sidebar" aria-hidden="true">
             <div class="cust-head">
               <h3>Custodios</h3>
               <div class="cust-head__actions">
@@ -93,7 +70,7 @@
             </div>
             <div id="custodios-list" class="cust-list"></div>
           </aside>
-          <div class="map-wrap with-sidebar rounded-3xl border border-gray-100 shadow-lg overflow-hidden bg-white">
+          <div class="map-wrap with-sidebar">
             <div id="map-track"></div>
             <div class="panel show">
               <p><strong>Destino:</strong> <span id="destino-texto">Cargando..</span></p>
@@ -110,7 +87,7 @@
         <div class="alarma-route__backdrop" data-ruta-alert-close="backdrop"></div>
         <article class="alarma-route__card" role="dialog" aria-modal="true" aria-labelledby="ruta-alert-title">
           <header class="alarma-route__head">
-            <p class="alarma-route__eyebrow">Desvío detectado</p>
+            <p class="alarma-route__eyebrow">Desv├¡o detectado</p>
             <button type="button" class="alarma-route__close" data-ruta-alert-close="close"
               aria-label="Cerrar alerta de ruta">
               <i class="material-icons" aria-hidden="true">close</i>
@@ -119,7 +96,7 @@
           <div class="alarma-route__body">
             <h3 id="ruta-alert-title" class="alarma-route__title">Te has desviado de la ruta establecida</h3>
             <p id="ruta-alert-copy" class="alarma-route__copy">
-              Fuera de trazo asignado.
+              Verifica tu posici├│n y regresa al trazo indicado para continuar con el servicio.
             </p>
             <p id="ruta-alert-meta" class="alarma-route__meta" aria-live="polite"></p>
           </div>
@@ -148,7 +125,7 @@
       const destinoEl = document.getElementById('destino-texto');
       const estadoEl = document.getElementById('estado-texto');
 
-      if (!servicioId || !window.sb) { destinoEl.textContent = '—'; estadoEl.textContent = '—'; return; }
+      if (!servicioId || !window.sb) { destinoEl.textContent = 'ÔÇö'; estadoEl.textContent = 'ÔÇö'; return; }
 
       try {
         const { data, error } = await window.sb
@@ -159,13 +136,13 @@
 
         if (error) throw error;
 
-        destinoEl.textContent = data?.destino_texto || '—';
+        destinoEl.textContent = data?.destino_texto || 'ÔÇö';
         estadoEl.textContent = data?.estado || 'EN CURSO';
         estadoEl.style.color = (data?.estado === 'FINALIZADO') ? '#2e7d32' : '#f57c00';
       } catch (err) {
         console.error('[mapa-resguardo] error', err);
-        destinoEl.textContent = '—';
-        estadoEl.textContent = '—';
+        destinoEl.textContent = 'ÔÇö';
+        estadoEl.textContent = 'ÔÇö';
       }
     });
   </script>
@@ -373,7 +350,7 @@
                 <i class="material-icons" aria-hidden="true">photo_camera</i>
               </button>
               <img id="am-preview" class="selfie-thumb" alt="Selfie tomada" hidden />
-              <p class="selfie-hint">Presiona el botón para habilitar la cámara y captura la selfie.</p>
+              <p class="selfie-hint">Presiona el bot├│n para habilitar la c├ímara y captura la selfie.</p>
             </div>
             <!-- === END HU:HU-CAMERA-COMPACT-UI === -->
             <div class="cam-actions">
