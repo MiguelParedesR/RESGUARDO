@@ -23,6 +23,8 @@
   <link rel="stylesheet" href="../../css/partials/app-header.css" />
   <link rel="stylesheet" href="../../modules/alarma/alarma.css" />
 
+  <script src="https://cdn.tailwindcss.com"></script>
+
   <!-- Supabase (CDN) ANTES de config.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="../../config.js"></script>
@@ -43,10 +45,17 @@
 
     <main class="mdl-layout__content">
       <section class="page">
-        <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="Boton de Panico"
-          aria-label="Boton de Panico">
-          <span class="alarma-panic-btn__icon"></span>
-          <span class="alarma-panic-btn__label">Boton de Panico</span>
+        <button id="alarma-panic-btn" class="alarma-panic-btn" type="button" title="Botón de pánico"
+          aria-label="Botón de pánico">
+          <i class="material-icons alarma-panic-btn__icon" aria-hidden="true">sos</i>
+        </button>
+        <button id="alarma-manual-btn" type="button" aria-label="Lanzar alarma manual"
+          class="tw-inline-flex tw-items-center tw-justify-center tw-gap-2 tw-rounded-full tw-bg-red-500 tw-px-5 tw-py-2.5 tw-font-semibold tw-text-white tw-shadow-lg tw-transition hover:tw-bg-red-600 focus-visible:tw-ring-2 focus-visible:tw-ring-offset-2 focus-visible:tw-ring-red-500">
+          <svg class="tw-h-5 tw-w-5" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3c-4.97 0-9 4.03-9 9 0 3.87 2.44 7.16 5.86 8.43l-.86 2.57h7l-.86-2.57C18.56 19.16 21 15.87 21 12c0-4.97-4.03-9-9-9Z"
+              stroke="currentColor" stroke-width="1.5" fill="currentColor" />
+          </svg>
+          <span>Alarma</span>
         </button>
         <div class="topbar">
           <button id="btn-finalizar" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" disabled>
