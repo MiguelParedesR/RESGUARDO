@@ -21,6 +21,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
+  const primeAudioForAlerts = () => {
+    if (window.__mapaAudioPrimerReady) return;
+    const primerFn = window.Alarma?.primeAlerts;
+    if (typeof primerFn !== "function") return;
+    try {
+      primerFn({ sound: true, haptics: true });
+      window.__mapaAudioPrimerReady = true;
+    } catch (err) {
+      console.warn("[mapa][audio] primeAlerts fallo", err);
+    }
+  };
+  primeAudioForAlerts();
+  if (!window.__mapaAudioPrimerReady) {
+    let retries = 0;
+    const retryTimer = setInterval(() => {
+      if (window.__mapaAudioPrimerReady || retries > 8) {
+        clearInterval(retryTimer);
+        return;
+      }
+      retries += 1;
+      primeAudioForAlerts();
+    }, 600);
+  }
+
   const servicioId = sessionStorage.getItem("servicio_id_actual");
   if (!servicioId) {
     showMsg("Ingresa desde Mis servicios y usa SEGUIR para abrir el mapa.");
@@ -85,6 +109,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       extendSession();
     }
   });
+  setupExtremeReportModal();
 
   // === BEGIN HU:HU-FIX-PGRST203 registrar-ubicacion (NO TOCAR FUERA) ===
   const buildRegistrarUbicacionPayload = ({
@@ -163,11 +188,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   const rutaAlertMetaEl = document.getElementById("ruta-alert-meta");
   const rutaAlertViewBtn = document.getElementById("ruta-alert-view");
   const rutaAlertCloseEls = document.querySelectorAll("[data-ruta-alert-close]");
+  // === BEGIN HU:HU-REPORTESE-EXTREMO-FRONT (UI refs) ===
+  const extremeReportEl = document.getElementById("extreme-report");
+  const extremeReportAudioBtn = document.getElementById("extreme-report-audio");
+  const extremeReportSafeBtn = document.getElementById("extreme-report-safe");
+  // === END HU:HU-REPORTESE-EXTREMO-FRONT ===
   // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
   const hasPushKey = Boolean(window.APP_CONFIG?.WEB_PUSH_PUBLIC_KEY);
+  // === BEGIN HU:HU-REPORTESE-EXTREMO-FRONT (state) ===
+  const extremeFlow = {
+    active: false,
+    visible: false,
+    ackPending: false,
+    awaitingCheckin: false,
+    pendingMethod: null,
+    vibTimer: null,
+    wakeLock: null,
+    record: null,
+    notification: null,
+    safeBusy: false,
+  };
+  // === END HU:HU-REPORTESE-EXTREMO-FRONT ===
   // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
   const ICON = {
     carrito: L.icon({
@@ -611,6 +655,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
 
     window.addEventListener("beforeunload", () => {
+      resetExtremeReportFlow("unload");
       try {
         navigator.geolocation.clearWatch(watchId);
       } catch {}
@@ -816,6 +861,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const evtServicioId =
       record.servicio_id || record.servicioId || evt.servicio_id;
     if (evtServicioId && String(evtServicioId) !== servicioId) return;
+    if (evt.type === "reporte_forzado") {
+      handleExtremeReportRecord(record);
+      return;
+    }
+    if (evt.type === "reporte_forzado_ack") {
+      handleExtremeRemoteAck("remote");
+      return;
+    }
     if (evt.type === "ruta_desviada") {
       handleRutaDesvioRecord(record);
       return;
@@ -824,6 +877,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       lastCheckinAt = Date.now();
       localCheckinAttempt = 0;
       scheduleLocalCheckin("checkin_ok");
+      if (extremeFlow.active && extremeFlow.ackPending) {
+        sendExtremeAck("audio")
+          .then(() => resetExtremeReportFlow("audio"))
+          .catch((err) => {
+            console.warn("[extreme-report] ack audio", err);
+            resumeExtremeReport("ack-error");
+          });
+      }
       return;
     }
     if (evt.type === "checkin") {
@@ -933,6 +994,320 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   /* === END HU:HU-CHECKIN-15M === */
+
+  /* === BEGIN HU:HU-REPORTESE-EXTREMO-FRONT (NO TOCAR FUERA) === */
+  // Configura modal y listeners del flujo "Repórtese extremo".
+  function setupExtremeReportModal() {
+    if (!extremeReportEl) return;
+    extremeReportEl.setAttribute("aria-hidden", "true");
+    extremeReportAudioBtn?.addEventListener("click", handleExtremeAudioAction);
+    extremeReportSafeBtn?.addEventListener("click", handleExtremeSafeAction);
+    document.addEventListener("visibilitychange", () => {
+      if (!extremeFlow.active) return;
+      if (document.hidden) {
+        triggerExtremeNotification(extremeFlow.record || {});
+      } else {
+        closeExtremeNotification();
+        requestExtremeWakeLock().catch(() => {});
+      }
+    });
+  }
+
+  // Procesa el evento realtime que exige un reporte extremo.
+  function handleExtremeReportRecord(record) {
+    if (!extremeReportEl) return;
+    resetExtremeReportFlow("replace");
+    showExtremeReport(record || {});
+    showMsg("El centro de monitoreo requiere un audio inmediato.");
+  }
+
+  // Limpia el flujo cuando el admin confirma el acuse por otra via.
+  function handleExtremeRemoteAck(reason) {
+    if (!extremeFlow.active && !extremeFlow.visible) return;
+    resetExtremeReportFlow(reason || "remote-ack");
+  }
+
+  // Muestra el modal, guarda el estado y enciende audio/vibración.
+  function showExtremeReport(record) {
+    if (!extremeReportEl) return;
+    const builtRecord = buildExtremeRecordSource(record);
+    extremeFlow.record = builtRecord;
+    extremeFlow.active = true;
+    extremeFlow.visible = true;
+    extremeFlow.ackPending = true;
+    extremeFlow.awaitingCheckin = false;
+    extremeFlow.pendingMethod = null;
+    extremeFlow.safeBusy = false;
+    extremeReportEl.classList.add("is-open");
+    extremeReportEl.setAttribute("aria-hidden", "false");
+    toggleExtremeButtons(false);
+    startExtremeOutputs(builtRecord);
+    triggerExtremeNotification(builtRecord);
+  }
+
+  // Oculta el modal y silencia todos los canales locales.
+  function hideExtremeReportUI(reason) {
+    if (!extremeReportEl || !extremeFlow.visible) return;
+    extremeReportEl.classList.remove("is-open");
+    extremeReportEl.setAttribute("aria-hidden", "true");
+    extremeFlow.visible = false;
+    stopExtremeOutputs(reason || "hide");
+  }
+
+  // Reactiva el modal en caso una confirmación falle.
+  function resumeExtremeReport(reason) {
+    if (!extremeReportEl || !extremeFlow.active || extremeFlow.visible) return;
+    extremeReportEl.classList.add("is-open");
+    extremeReportEl.setAttribute("aria-hidden", "false");
+    extremeFlow.visible = true;
+    toggleExtremeButtons(false);
+    startExtremeOutputs(extremeFlow.record || {});
+    if (reason === "ack-error") {
+      showMsg("No se pudo confirmar tu reporte. Intenta nuevamente.");
+    }
+  }
+
+  // Reinicia el estado local para evitar repeticiones o fugas.
+  function resetExtremeReportFlow(reason) {
+    if (!extremeFlow.active && !extremeFlow.visible) return;
+    hideExtremeReportUI(reason || "reset");
+    extremeFlow.active = false;
+    extremeFlow.ackPending = false;
+    extremeFlow.awaitingCheckin = false;
+    extremeFlow.pendingMethod = null;
+    extremeFlow.safeBusy = false;
+    extremeFlow.record = null;
+    toggleExtremeButtons(false);
+  }
+
+  // Habilita o bloquea los botones del modal según el flujo actual.
+  function toggleExtremeButtons(disabled) {
+    const isDisabled = Boolean(disabled);
+    if (extremeReportAudioBtn) extremeReportAudioBtn.disabled = isDisabled;
+    if (extremeReportSafeBtn) extremeReportSafeBtn.disabled = isDisabled;
+  }
+
+  // Prepara audio, vibración y bloqueo de pantalla durante la alerta.
+  function startExtremeOutputs(record) {
+    try {
+      window.Alarma?.enableAlerts?.({ sound: true, haptics: true });
+    } catch (err) {
+      console.warn("[extreme-report] enable alerts", err);
+    }
+    try {
+      window.Alarma?.sirenaOn?.({ record });
+    } catch (err) {
+      console.warn("[extreme-report] sirenaOn", err);
+    }
+    startExtremeVibration();
+    requestExtremeWakeLock().catch(() => {});
+  }
+
+  // Detiene todos los canales sensoriales activados por la alerta.
+  function stopExtremeOutputs(reason) {
+    try {
+      window.Alarma?.sirenaOff?.(reason || "extreme");
+    } catch (err) {
+      console.warn("[extreme-report] sirenaOff", err);
+    }
+    stopExtremeVibration();
+    releaseExtremeWakeLock(reason || "extreme");
+    closeExtremeNotification();
+  }
+
+  // Inicia un patrón de vibración fuerte y periódico.
+  function startExtremeVibration() {
+    stopExtremeVibration();
+    if (typeof navigator.vibrate !== "function") return;
+    const pattern = [320, 140, 320, 180, 640];
+    try {
+      navigator.vibrate(pattern);
+    } catch (_) {}
+    extremeFlow.vibTimer = setInterval(() => {
+      try {
+        navigator.vibrate?.(pattern);
+      } catch (_) {}
+    }, 2200);
+  }
+
+  // Limpia vibraciones pendientes para ahorrar batería.
+  function stopExtremeVibration() {
+    if (extremeFlow.vibTimer) {
+      clearInterval(extremeFlow.vibTimer);
+      extremeFlow.vibTimer = null;
+    }
+    try {
+      navigator.vibrate?.(0);
+    } catch (_) {}
+  }
+
+  // Solicita mantener la pantalla encendida mientras dure la alerta.
+  async function requestExtremeWakeLock() {
+    if (!("wakeLock" in navigator) || extremeFlow.wakeLock) return;
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      extremeFlow.wakeLock = lock;
+      lock.addEventListener("release", () => {
+        extremeFlow.wakeLock = null;
+        if (extremeFlow.active && !document.hidden) {
+          requestExtremeWakeLock().catch(() => {});
+        }
+      });
+    } catch (err) {
+      console.warn("[extreme-report] wakeLock", err);
+      extremeFlow.wakeLock = null;
+    }
+  }
+
+  // Libera el wake lock cuando ya no es necesario.
+  async function releaseExtremeWakeLock(reason) {
+    const lock = extremeFlow.wakeLock;
+    if (!lock) return;
+    try {
+      await lock.release();
+    } catch (err) {
+      console.warn("[extreme-report] wakeLock release", reason, err);
+    } finally {
+      extremeFlow.wakeLock = null;
+    }
+  }
+
+  // Lanza una notificación intrusiva cuando la app está en background.
+  async function triggerExtremeNotification(record) {
+    if (!document.hidden) return;
+    if (typeof Notification === "undefined") return;
+    try {
+      if (Notification.permission === "default") {
+        await window.Alarma?.requestNotifications?.({
+          reason: "reporte-extremo",
+        });
+      }
+      if (Notification.permission !== "granted") return;
+      closeExtremeNotification();
+      const infoParts = [];
+      if (record?.cliente) infoParts.push(record.cliente);
+      if (record?.placa) infoParts.push(`Placa ${record.placa}`);
+      const notif = new Notification("¡REPORTESE AHORA!", {
+        body:
+          "Tu centro de monitoreo requiere un audio inmediato." +
+          (infoParts.length ? ` (${infoParts.join(" · ")})` : ""),
+        tag: "reporte-extremo",
+        renotify: true,
+        requireInteraction: true,
+      });
+      notif.onclick = () => {
+        try {
+          window.focus();
+        } catch (_) {}
+        notif.close();
+      };
+      extremeFlow.notification = notif;
+    } catch (err) {
+      console.warn("[extreme-report] notification", err);
+    }
+  }
+
+  // Cierra la última notificación mostrada para evitar duplicados.
+  function closeExtremeNotification() {
+    if (extremeFlow.notification?.close) {
+      try {
+        extremeFlow.notification.close();
+      } catch (_) {}
+    }
+    extremeFlow.notification = null;
+  }
+
+  // Inicia el panel de audio y pausa la sirena mientras el usuario graba.
+  function handleExtremeAudioAction() {
+    if (extremeFlow.awaitingCheckin) return;
+    if (!extremeFlow.active) {
+      showExtremeReport({});
+    }
+    extremeFlow.pendingMethod = "audio";
+    extremeFlow.awaitingCheckin = true;
+    hideExtremeReportUI("audio");
+    whenCheckinApiReady(() => {
+      try {
+        const attempt = Math.min(localCheckinAttempt + 1, 3);
+        const payload = buildLocalCheckinPayload(attempt);
+        window.Alarma.openCheckinPrompt(payload);
+      } catch (err) {
+        console.warn("[extreme-report] audio open", err);
+        extremeFlow.awaitingCheckin = false;
+        resumeExtremeReport("audio-error");
+        showMsg("No se pudo abrir el panel de audio. Intenta nuevamente.");
+      }
+    });
+  }
+
+  // Permite confirmar manualmente que todo está en orden sin audio.
+  async function handleExtremeSafeAction() {
+    if (!extremeFlow.active || extremeFlow.safeBusy) return;
+    extremeFlow.pendingMethod = "safe";
+    extremeFlow.safeBusy = true;
+    toggleExtremeButtons(true);
+    hideExtremeReportUI("safe");
+    try {
+      await sendExtremeAck("safe");
+      showMsg("Confirmación enviada. Gracias por reportarte.");
+      resetExtremeReportFlow("safe");
+    } catch (err) {
+      console.warn("[extreme-report] safe ack", err);
+      extremeFlow.safeBusy = false;
+      toggleExtremeButtons(false);
+      resumeExtremeReport("safe-error");
+      showMsg("No se pudo confirmar. Intenta nuevamente.");
+    }
+  }
+
+  // Emite el acuse de recibo para que el admin libere el botón.
+  async function sendExtremeAck(method) {
+    if (!extremeFlow.ackPending) return true;
+    if (!hasAlarma || typeof window.Alarma?.emit !== "function") {
+      throw new Error("Modulo de alarma no disponible");
+    }
+    const payload = buildExtremeRecordSource(extremeFlow.record || {});
+    payload.metadata = {
+      ...(payload.metadata || {}),
+      channel: "reporte-extremo",
+      method: method || extremeFlow.pendingMethod || "unknown",
+      responded_at: new Date().toISOString(),
+      source: "mapa-resguardo",
+    };
+    await window.Alarma.emit("reporte_forzado_ack", payload);
+    extremeFlow.ackPending = false;
+    return true;
+  }
+
+  // Normaliza el payload que se reutiliza entre sirena y acuses.
+  function buildExtremeRecordSource(record) {
+    const base = record && typeof record === "object" ? record : {};
+    const metadata =
+      base.metadata && typeof base.metadata === "object"
+        ? { ...base.metadata }
+        : {};
+    if (!metadata.channel) metadata.channel = "reporte-extremo";
+    return {
+      servicio_id: base.servicio_id || servicioId,
+      servicio_custodio_id: base.servicio_custodio_id || servicioCustodioId,
+      custodia_id: base.custodia_id || custodiaIdActual,
+      empresa: base.empresa || servicioInfo?.empresa || empresaActual || null,
+      cliente:
+        base.cliente ||
+        servicioInfo?.cliente?.nombre ||
+        custSession?.cliente ||
+        null,
+      placa:
+        base.placa ||
+        servicioInfo?.placa ||
+        servicioInfo?.placa_upper ||
+        custSession?.placa ||
+        null,
+      tipo: base.tipo || servicioInfo?.tipo || custodioTipo || null,
+      metadata,
+    };
+  }
+  /* === END HU:HU-REPORTESE-EXTREMO-FRONT === */
 
   /* === BEGIN HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === */
   function handleRutaDesvioRecord(record) {
@@ -1339,6 +1714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   window.addEventListener("beforeunload", () => {
+    resetExtremeReportFlow("unload");
     cleanupChannels();
     cleanupCheckinMonitoring("unload");
     if (sessionTouchTimer) {

@@ -117,6 +117,33 @@
         </article>
       </section>
       <!-- === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA === -->
+      <!-- === BEGIN HU:HU-REPORTESE-EXTREMO-FRONT === -->
+      <section id="extreme-report" class="extreme-report" aria-hidden="true">
+        <div class="extreme-report__backdrop" data-extreme-report-close="backdrop"></div>
+        <article class="extreme-report__card" role="dialog" aria-modal="true" aria-labelledby="extreme-report-title">
+          <header class="extreme-report__head">
+            <div class="extreme-report__pulse" aria-hidden="true">
+              <i class="material-icons" aria-hidden="true">priority_high</i>
+            </div>
+            <div class="extreme-report__titles">
+              <p class="extreme-report__eyebrow">Alerta extrema</p>
+              <h2 id="extreme-report-title" class="extreme-report__title">¡REPORTESE AHORA!</h2>
+            </div>
+          </header>
+          <p class="extreme-report__copy">
+            Tu centro de control exige una confirmación inmediata. Envía un audio corto o confirma tu estado a la brevedad.
+          </p>
+          <div class="extreme-report__actions">
+            <button type="button" id="extreme-report-audio" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
+              ENVIAR AUDIO
+            </button>
+            <button type="button" id="extreme-report-safe" class="mdl-button mdl-js-button extreme-report__secondary" data-extreme-report-close="safe">
+              Estoy seguro
+            </button>
+          </div>
+        </article>
+      </section>
+      <!-- === END HU:HU-REPORTESE-EXTREMO-FRONT === -->
 
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
         <div class="mdl-snackbar__text"></div>

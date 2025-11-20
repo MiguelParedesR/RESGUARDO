@@ -115,6 +115,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let map;
   const markers = new Map();
   const PING_FRESH_MIN = 10;
+  const LATE_REPORT_MIN = 16;
+  const REPORT_RETRY_MS = 60000;
   let selectedId = null;
   let overviewLayer = null,
     focusLayer = null,
@@ -129,6 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastPanicRecord = null;
   let alarmaUnsubscribe = null;
   const serviceFlags = new Map();
+  const lateReportTimers = new Map();
   let alertsEnabled = false;
 
   // === BEGIN HU:HU-MAP-MARKERS-ALL realtime state (NO TOCAR FUERA) ===
@@ -931,6 +934,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       });
       servicesCache = enrichedNorm;
+      updateLateReportFlags(enrichedNorm);
       servicesLoaded = true;
       renderList(enrichedNorm);
       // === BEGIN HU:HU-MAP-MARKERS-ALL marker refresh hook (NO TOCAR FUERA) ===
@@ -1068,6 +1072,162 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // === BEGIN HU:HU-SOLICITUD-REPORTE detección tardía (no tocar fuera) ===
+  function updateLateReportFlags(services) {
+    if (!Array.isArray(services)) return;
+    services.forEach((svc) => {
+      const computed = evaluateLateReportState(svc);
+      const existing = getLateReportState(svc.id);
+      if (computed.tardy) {
+        const next = {
+          tardy: true,
+          maxMinutes: computed.maxMinutes,
+          tardyNames: computed.tardyNames,
+          requestStatus: existing?.requestStatus || "idle",
+          requestedAt: existing?.requestedAt || null,
+        };
+        updateServiceFlag(svc.id, "reportLate", next);
+      } else {
+        clearLateReport(svc.id);
+      }
+    });
+  }
+
+  function evaluateLateReportState(servicio) {
+    const custodios = Array.isArray(servicio?.custodios)
+      ? servicio.custodios
+      : [];
+    if (!custodios.length) {
+      return { tardy: false, maxMinutes: null, tardyNames: [] };
+    }
+    const now = new Date();
+    let tardy = false;
+    let maxMinutes = 0;
+    const tardyNames = [];
+    custodios.forEach((cust) => {
+      const ts = cust?.lastPing?.captured_at;
+      const minutes = ts ? minDiff(now, new Date(ts)) : Number.POSITIVE_INFINITY;
+      if (minutes > maxMinutes) maxMinutes = minutes;
+      if (minutes > LATE_REPORT_MIN) {
+        tardy = true;
+        const nombre = (cust?.nombre_custodio || "Custodia").trim();
+        if (nombre && !tardyNames.includes(nombre)) {
+          tardyNames.push(nombre);
+        }
+      }
+    });
+    return { tardy, maxMinutes, tardyNames };
+  }
+  // === END HU:HU-SOLICITUD-REPORTE ===
+
+  function getLateReportState(servicioId) {
+    const flags = serviceFlags.get(String(servicioId));
+    const state = flags?.reportLate;
+    return state && state.tardy ? state : null;
+  }
+
+  function formatLateReportLabel(state) {
+    const names = Array.isArray(state?.tardyNames) ? state.tardyNames : [];
+    if (!names.length) return "Custodia";
+    if (names.length === 1) return names[0];
+    return `${names[0]} +${names.length - 1}`;
+  }
+
+  function buildLateReportButton(state) {
+    if (!state) return "";
+    const status = state.requestStatus || "idle";
+    const label = formatLateReportLabel(state);
+    const disabledAttr = status === "waiting" ? "disabled" : "";
+    const statusClass =
+      status === "waiting" ? " is-waiting" : status === "warn" ? " is-warn" : "";
+    const text =
+      status === "waiting"
+        ? "Esperando confirmación…"
+        : `SOLICITAR REPORTE + ${label}`;
+    const spinner =
+      status === "waiting"
+        ? '<span class="btn-report-late__spinner" aria-hidden="true"></span>'
+        : "";
+    return `<button class="btn btn-report-late${statusClass}" data-act="report" data-state="${status}" ${disabledAttr}>${h(
+      text
+    )}${spinner}</button>`;
+  }
+
+  async function handleLateReportClick(button, servicio) {
+    const servicioId = servicio?.id;
+    if (!servicioId) return;
+    const state = getLateReportState(servicioId);
+    if (!state?.tardy) return;
+    if (state.requestStatus === "waiting") return;
+    if (button) button.disabled = true;
+    setLateReportStatus(servicioId, {
+      requestStatus: "waiting",
+      requestedAt: Date.now(),
+    });
+    try {
+      const payload = buildLateReportPayload(servicio, state);
+      if (typeof window.Alarma?.emit === "function") {
+        await window.Alarma.emit("reporte_forzado", payload);
+      } else {
+        throw new Error("Modulo de alarma no disponible");
+      }
+      showMsg("Solicitud de reporte enviada. Esperando confirmación…");
+      scheduleLateReportRetry(servicioId);
+    } catch (err) {
+      console.warn("[reporte] emit error", err);
+      showMsg("No se pudo solicitar el reporte. Intenta nuevamente.");
+      clearLateReportTimer(servicioId);
+      setLateReportStatus(servicioId, { requestStatus: "idle" });
+    }
+  }
+
+  function setLateReportStatus(servicioId, updates) {
+    const state = getLateReportState(servicioId);
+    if (!state) return;
+    const next = { ...state, ...updates };
+    updateServiceFlag(servicioId, "reportLate", next);
+    refreshList();
+  }
+
+  function scheduleLateReportRetry(servicioId) {
+    clearLateReportTimer(servicioId);
+    const key = String(servicioId);
+    const timer = setTimeout(() => {
+      lateReportTimers.delete(key);
+      setLateReportStatus(servicioId, { requestStatus: "warn" });
+    }, REPORT_RETRY_MS);
+    lateReportTimers.set(key, timer);
+  }
+
+  function clearLateReportTimer(servicioId) {
+    const key = String(servicioId);
+    const timer = lateReportTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      lateReportTimers.delete(key);
+    }
+  }
+
+  function buildLateReportPayload(servicio, state) {
+    const metadata = {
+      origin: "dashboard-admin",
+      tardy_minutes: state?.maxMinutes || null,
+      tardy_custodias: state?.tardyNames || [],
+    };
+    return {
+      servicio_id: servicio?.id || null,
+      empresa: servicio?.empresa || null,
+      cliente:
+        servicio?.cliente?.nombre ||
+        servicio?.clienteNombre ||
+        servicio?.cliente ||
+        null,
+      placa: servicio?.placa || servicio?.placa_upper || null,
+      tipo: servicio?.tipo || null,
+      metadata,
+    };
+  }
+
   function renderAlertBadges(servicioId) {
     const flags = servicioId ? serviceFlags.get(String(servicioId)) : null;
     if (!flags) return "";
@@ -1108,6 +1268,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const badgesHtml = renderAlertBadges(s.id) || "";
       const custodiosLabel = describeCustodios(s.custodios);
       const tipoLabel = getTipoEtiqueta(s);
+      const lateState = getLateReportState(s.id);
+      const lateButtonHtml = buildLateReportButton(lateState);
       let pingLabel = "-",
         pingClass = "ping-ok",
         alertNow = false;
@@ -1154,6 +1316,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <button class="btn" data-act="ver" data-id="${
             s.id
           }">Ver en mapa</button>
+          ${lateButtonHtml}
           <button class="btn btn-accent" data-act="fin" data-id="${s.id}" ${
         s.estado === "FINALIZADO" ? "disabled" : ""
       }>Finalizar</button>
@@ -1180,6 +1343,8 @@ document.addEventListener("DOMContentLoaded", () => {
           selectService(s);
         } else if (btn.dataset.act === "fin") {
           await finalizarServicio(s);
+        } else if (btn.dataset.act === "report") {
+          await handleLateReportClick(btn, s);
         }
       });
       listado.appendChild(card);
@@ -1467,6 +1632,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // === BEGIN HU:HU-PANICO-MODAL-UNICO panic handler (no tocar fuera) ===
   function handleAlarmaEvent(evt) {
     if (!evt) return;
+    if (evt.type === "reporte_forzado") {
+      applyLateReportRemote(evt);
+      return;
+    }
+    if (evt.type === "reporte_forzado_ack") {
+      const sid = extractServicioIdFromEvent(evt);
+      if (sid) {
+        clearLateReport(sid);
+        refreshList();
+      }
+      return;
+    }
     if (evt.type === "panic") {
       lastPanicRecord = evt.record || evt.payload || evt;
       console.log("[panic] recibido en admin", {
@@ -1516,6 +1693,7 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshList();
     } else if (evt.type === "checkin_ok" && evt.record?.servicio_id) {
       updateServiceFlag(evt.record.servicio_id, "checkinPending", false);
+      clearLateReport(evt.record.servicio_id);
       refreshList();
     } else if (evt.type === "ruta_desviada") {
       const record = normalizeRouteDeviationRecord(evt.record || evt.payload || evt);
@@ -1945,3 +2123,45 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[QA] sirena + TTS en bucle OK");
 });
 
+  function clearLateReport(servicioId) {
+    clearLateReportTimer(servicioId);
+    updateServiceFlag(servicioId, "reportLate", false);
+  }
+
+  function extractServicioIdFromEvent(evt) {
+    const source = evt?.record || evt?.event || evt?.payload || evt || {};
+    const metadata =
+      source.metadata && typeof source.metadata === "object"
+        ? source.metadata
+        : {};
+    return (
+      source.servicio_id ||
+      source.servicioId ||
+      metadata.servicio_id ||
+      metadata.servicioId ||
+      null
+    );
+  }
+
+  function applyLateReportRemote(evt) {
+    const servicioId = extractServicioIdFromEvent(evt);
+    if (!servicioId) return;
+    const source = evt?.record || evt?.event || evt?.payload || evt || {};
+    const metadata =
+      source.metadata && typeof source.metadata === "object"
+        ? source.metadata
+        : {};
+    const tardyNames = Array.isArray(metadata.tardy_custodias)
+      ? metadata.tardy_custodias
+      : [];
+    const state = {
+      tardy: true,
+      maxMinutes: metadata.tardy_minutes || null,
+      tardyNames,
+      requestStatus: "waiting",
+      requestedAt: Date.now(),
+    };
+    updateServiceFlag(servicioId, "reportLate", state);
+    scheduleLateReportRetry(servicioId);
+    refreshList();
+  }

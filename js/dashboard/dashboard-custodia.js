@@ -48,6 +48,12 @@
       modalClienteSave: document.getElementById("modal-cliente-save"),
       modalClienteFeedback: document.getElementById("modal-cliente-feedback"),
       modalClienteCancel: document.getElementById("modal-cliente-cancel"),
+      modalClienteDuplicate: document.getElementById("modal-cliente-duplicate"),
+      modalClienteDuplicateText: document.getElementById(
+        "modal-cliente-duplicate-text"
+      ),
+      modalClienteSelect: document.getElementById("modal-cliente-select"),
+      modalClienteDismiss: document.getElementById("modal-cliente-dismiss"),
       placa: document.getElementById("placa"),
       destino: document.getElementById("destino"),
       destinoStatus: document.getElementById("direccion-estado"),
@@ -56,8 +62,11 @@
       modalMapa: document.getElementById("modal-mapa"),
       mapSearchInput: document.getElementById("map-search-input"),
       mapSearchBtn: document.getElementById("map-search-btn"),
+      mapSearchResults: document.getElementById("map-search-results"),
       mapAceptar: document.getElementById("map-aceptar"),
       mapCerrar: document.getElementById("map-cerrar"),
+      mapCancel: document.getElementById("map-cancel"),
+      mapSelectedAddress: document.getElementById("map-selected-address"),
       btnGuardar: document.getElementById("btn-guardar"),
       btnLimpiar: document.getElementById("btn-limpiar"),
       btnUbicaciones: document.getElementById("btn-ubicaciones"),
@@ -93,6 +102,8 @@
       placaCheckTimer: null,
       lastPlacaAlertId: "",
       savedUbicaciones: [],
+      mapSearchTimer: null,
+      duplicateCliente: null,
     };
   }
 
@@ -154,9 +165,16 @@
       if (!evt.target.closest(".destino-wrapper")) {
         clearSuggestions(refs);
       }
+      if (
+        !evt.target.closest(".map-search") &&
+        !evt.target.closest("#map-search-results")
+      ) {
+        clearMapSearchResults(refs);
+      }
     });
     refs.btnMapa?.addEventListener("click", () => openMapModal(refs, state));
     refs.mapCerrar?.addEventListener("click", () => closeMapModal(refs, state));
+    refs.mapCancel?.addEventListener("click", () => closeMapModal(refs, state));
     refs.mapAceptar?.addEventListener("click", () => {
       if (!state.destinoCoords) {
         showMsg(state, "Selecciona un punto en el mapa primero.");
@@ -172,6 +190,22 @@
         evt.preventDefault();
         handleMapSearch(refs, state);
       }
+    });
+    refs.mapSearchInput?.addEventListener("input", () =>
+      handleMapSearchInput(refs, state)
+    );
+    refs.mapSearchResults?.addEventListener("click", (evt) => {
+      const button = evt.target.closest("button[data-lat]");
+      if (!button) return;
+      applyMapSearchResult(
+        {
+          lat: button.dataset.lat,
+          lon: button.dataset.lng,
+          display_name: button.dataset.name,
+        },
+        refs,
+        state
+      );
     });
     refs.placa.addEventListener("input", () => {
       refs.placa.value = refs.placa.value
@@ -202,6 +236,8 @@
     });
     bindClienteSearch(refs, state);
     updateGuardarEstado(refs, state);
+    syncMapAria(refs, state);
+    window.addEventListener("resize", () => syncMapAria(refs, state));
   }
 
   function handleDestinoKeydown(evt, state, refs) {
@@ -283,10 +319,41 @@
     refs.suggestions.classList.remove("visible");
   }
 
+  function syncMapAria(refs, state) {
+    if (!refs.modalMapa) return;
+    const isDesktop = window.innerWidth >= 992;
+    if (isDesktop) {
+      refs.modalMapa.setAttribute("aria-hidden", "false");
+      initMapIfNeeded(refs, state);
+    } else if (!refs.modalMapa.classList.contains("open")) {
+      refs.modalMapa.setAttribute("aria-hidden", "true");
+    }
+  }
+
   function openMapModal(refs, state) {
     if (!refs.modalMapa) return;
+    const isDesktop = window.innerWidth >= 992;
+    if (isDesktop) {
+      initMapIfNeeded(refs, state);
+      refs.modalMapa.setAttribute("aria-hidden", "false");
+      setTimeout(() => refs.mapSearchInput?.focus(), 60);
+      return;
+    }
+    const container = refs.modalMapa.closest(".uber-map-area");
+    container?.classList.add("mobile-map-open");
     refs.modalMapa.classList.add("open");
     refs.modalMapa.setAttribute("aria-hidden", "false");
+    const existing = (refs.destino?.value || "").trim();
+    if (state.destinoCoords && existing) {
+      updateMapSelectedAddress(refs, existing);
+      setMapConfirmEnabled(refs, true);
+    } else {
+      updateMapSelectedAddress(
+        refs,
+        "Mueve el mapa o busca una dirección para continuar."
+      );
+      setMapConfirmEnabled(refs, false);
+    }
     setTimeout(() => {
       initMapIfNeeded(refs, state);
       state.map?.setView(
@@ -299,8 +366,14 @@
 
   function closeMapModal(refs) {
     if (!refs.modalMapa) return;
+    if (window.innerWidth >= 992) return;
+    const container = refs.modalMapa.closest(".uber-map-area");
+    container?.classList.remove("mobile-map-open");
     refs.modalMapa.classList.remove("open");
     refs.modalMapa.setAttribute("aria-hidden", "true");
+    clearMapSearchResults(refs);
+    updateMapSelectedAddress(refs, "Mueve el mapa o busca una dirección.");
+    setMapConfirmEnabled(refs, false);
   }
 
   function initMapIfNeeded(refs, state) {
@@ -371,6 +444,8 @@
             "Dirección establecida desde el mapa.";
           refs.destinoStatus.style.color = "#2e7d32";
         }
+        updateMapSelectedAddress(refs, data.display_name);
+        setMapConfirmEnabled(refs, true);
         updateGuardarEstado(refs, state);
       }
     } catch (err) {
@@ -380,29 +455,93 @@
 
   async function handleMapSearch(refs, state) {
     const query = refs.mapSearchInput?.value?.trim();
-    if (!query) return;
+    if (!query) {
+      clearMapSearchResults(refs);
+      return;
+    }
+    performMapSearch(query, refs, state);
+  }
+
+  function handleMapSearchInput(refs, state) {
+    const value = refs.mapSearchInput?.value || "";
+    if (state.mapSearchTimer) clearTimeout(state.mapSearchTimer);
+    if (!value.trim()) {
+      clearMapSearchResults(refs);
+      return;
+    }
+    state.mapSearchTimer = setTimeout(() => {
+      performMapSearch(value, refs, state);
+    }, 360);
+  }
+
+  async function performMapSearch(query, refs, state) {
     try {
       const items = await fetchAutocomplete(query, state.locationIqKey);
       if (!items?.length) {
+        clearMapSearchResults(refs);
         showMsg(state, "No se encontraron direcciones.");
         return;
       }
-      const best = items[0];
-      const lat = parseFloat(best.lat);
-      const lng = parseFloat(best.lon);
-      state.map?.setView([lat, lng], 15);
-      setMarker(state, { lat, lng });
-      refs.destino.value = best.display_name;
+      renderMapSearchResults(items, refs, state);
+    } catch (err) {
+      console.warn("[map-search] error", err);
+      showMsg(state, "No se pudo buscar en el mapa.");
+    }
+  }
+
+  function renderMapSearchResults(items, refs, state) {
+    if (!refs.mapSearchResults) return;
+    refs.mapSearchResults.innerHTML = "";
+    const filtered = (items || []).filter((item) =>
+      /lima|callao/i.test(item.display_name || "")
+    );
+    const list = filtered.slice(0, 6);
+    if (!list.length) {
+      clearMapSearchResults(refs);
+      return;
+    }
+    list.forEach((item) => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.lat = item.lat;
+      button.dataset.lng = item.lon;
+      button.dataset.name = item.display_name || "";
+      button.textContent = item.display_name || "Dirección";
+      li.appendChild(button);
+      refs.mapSearchResults.appendChild(li);
+    });
+    refs.mapSearchResults.classList.add("visible");
+    refs.mapSearchResults.hidden = false;
+  }
+
+  function clearMapSearchResults(refs) {
+    if (!refs.mapSearchResults) return;
+    refs.mapSearchResults.innerHTML = "";
+    refs.mapSearchResults.classList.remove("visible");
+    refs.mapSearchResults.hidden = true;
+  }
+
+  function applyMapSearchResult(result, refs, state) {
+    clearMapSearchResults(refs);
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon || result.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    state.map?.setView([lat, lng], 15);
+    setMarker(state, { lat, lng });
+    state.destinoCoords = { lat, lng };
+    const label = (result.display_name || "").trim();
+    if (label) {
+      refs.destino.value = label;
       refs.destino.classList.add("has-value");
       if (refs.destinoStatus) {
         refs.destinoStatus.textContent = "Dirección establecida desde el mapa.";
         refs.destinoStatus.style.color = "#2e7d32";
       }
-      updateGuardarEstado(refs, state);
-    } catch (err) {
-      console.warn(`${LOG_API} search`, err);
-      showMsg(state, "No se pudo buscar en el mapa.");
+      updateMapSelectedAddress(refs, label);
     }
+    setMapConfirmEnabled(refs, true);
+    updateGuardarEstado(refs, state);
   }
 
   async function handleSubmit(evt, refs, state) {
@@ -544,6 +683,8 @@
     }
     clearClienteSelection(refs, state, true);
     state.lastPlacaAlertId = "";
+    updateMapSelectedAddress(refs, "Mueve el mapa o busca una dirección.");
+    setMapConfirmEnabled(refs, false);
     updateGuardarEstado(refs, state);
     closePlacaModal(refs);
   }
@@ -564,6 +705,17 @@
     if (!btn) return;
     btn.classList.toggle("loading", loading);
     btn.disabled = loading;
+  }
+
+  function setMapConfirmEnabled(refs, enabled) {
+    if (refs.mapAceptar) refs.mapAceptar.disabled = !enabled;
+  }
+
+  function updateMapSelectedAddress(refs, text) {
+    if (refs.mapSelectedAddress) {
+      refs.mapSelectedAddress.textContent =
+        text || "Selecciona un punto en el mapa.";
+    }
   }
 
   function updateGuardarEstado(refs, state) {
@@ -828,13 +980,22 @@
       openClienteModal(refs, state)
     );
     refs.modalClienteCancel?.addEventListener("click", () =>
-      closeClienteModal(refs)
+      closeClienteModal(refs, state)
     );
     refs.modalCliente?.addEventListener("click", (evt) => {
-      if (evt.target === refs.modalCliente) closeClienteModal(refs);
+      if (evt.target === refs.modalCliente) closeClienteModal(refs, state);
     });
     refs.modalClienteSave?.addEventListener("click", () =>
       handleClienteSave(refs, state)
+    );
+    refs.modalClienteSelect?.addEventListener("click", () =>
+      handleClienteDuplicateSelect(refs, state)
+    );
+    refs.modalClienteDismiss?.addEventListener("click", () =>
+      handleClienteDuplicateDismiss(refs, state)
+    );
+    refs.modalClienteInput?.addEventListener("input", () =>
+      hideClienteDuplicate(refs, state)
     );
     updateClienteFeedback(refs, "");
   }
@@ -870,7 +1031,13 @@
         .ilike("nombre_upper", pattern)
         .order("nombre", { ascending: true })
         .limit(20);
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505" || error.code === "409") {
+          await handleClienteDuplicado(query, refs, state);
+          return;
+        }
+        throw error;
+      }
       state.clienteResults = data || [];
       renderClienteResults(refs, state);
       if (state.clienteResults.length) {
@@ -956,7 +1123,10 @@
       }
     }
     hideClienteResults(refs);
-    refs.clienteAddBtn.hidden = true;
+    if (refs.clienteAddBtn) {
+      refs.clienteAddBtn.hidden = true;
+      delete refs.clienteAddBtn.dataset.prefill;
+    }
     updateClienteFeedback(refs, "");
     updateGuardarEstado(refs, state);
   }
@@ -972,61 +1142,172 @@
       refs.clienteInput.classList.remove("has-value");
     }
     hideClienteResults(refs);
-  refs.clienteAddBtn.hidden = true;
-  delete refs.clienteAddBtn.dataset.prefill;
-  if (!silent) updateClienteFeedback(refs, "");
-  updateGuardarEstado(refs, state);
-}
+    if (refs.clienteAddBtn) {
+      refs.clienteAddBtn.hidden = true;
+      delete refs.clienteAddBtn.dataset.prefill;
+    }
+    if (!silent) updateClienteFeedback(refs, "");
+    updateGuardarEstado(refs, state);
+  }
 
   function updateClienteFeedback(refs, message) {
     if (refs.clienteFeedback) refs.clienteFeedback.textContent = message || "";
   }
 
+  function setClienteModalFeedback(refs, message, isError = false) {
+    if (!refs.modalClienteFeedback) return;
+    refs.modalClienteFeedback.textContent = message || "";
+    refs.modalClienteFeedback.classList.toggle("is-error", Boolean(isError));
+  }
+
+  function toggleClienteModalLoading(refs, loading) {
+    if (refs.modalClienteSave) refs.modalClienteSave.disabled = loading;
+    if (refs.modalClienteInput) refs.modalClienteInput.disabled = loading;
+  }
+
+  function hideClienteDuplicate(refs, state, preserveFeedback = false) {
+    if (state) state.duplicateCliente = null;
+    if (refs.modalClienteDuplicate) refs.modalClienteDuplicate.hidden = true;
+    refs.modalClienteInput?.classList.remove("is-error");
+    if (!preserveFeedback) setClienteModalFeedback(refs, "");
+  }
+
+  function showClienteDuplicate(cliente, refs, state) {
+    if (!cliente?.id) return;
+    state.duplicateCliente = {
+      id: cliente.id,
+      nombre: cliente.nombre || "",
+    };
+    if (refs.modalClienteDuplicateText) {
+      refs.modalClienteDuplicateText.textContent = `${cliente.nombre} ya está registrado.`;
+    }
+    if (refs.modalClienteDuplicate) {
+      refs.modalClienteDuplicate.hidden = false;
+    }
+    refs.modalClienteInput?.classList.add("is-error");
+    setClienteModalFeedback(
+      refs,
+      "Ese cliente ya existe. Selecciónalo o modifica el nombre.",
+      true
+    );
+  }
+
+  function resetClienteModalState(refs, state) {
+    toggleClienteModalLoading(refs, false);
+    hideClienteDuplicate(refs, state);
+    refs.modalClienteInput?.removeAttribute("disabled");
+  }
+
   function openClienteModal(refs, state) {
     if (!refs.modalCliente) return;
-    refs.modalClienteInput.value = (state.clienteQuery || "").trim();
-    if (refs.modalClienteFeedback) refs.modalClienteFeedback.textContent = "";
+    const baseValue =
+      refs.clienteAddBtn?.dataset.prefill || (state.clienteQuery || "").trim();
+    if (refs.modalClienteInput) refs.modalClienteInput.value = baseValue;
+    resetClienteModalState(refs, state);
     refs.modalCliente.classList.add("open");
     refs.modalCliente.setAttribute("aria-hidden", "false");
     setTimeout(() => refs.modalClienteInput?.focus(), 60);
   }
 
-  function closeClienteModal(refs) {
+  function closeClienteModal(refs, state) {
     if (!refs.modalCliente) return;
     refs.modalCliente.classList.remove("open");
     refs.modalCliente.setAttribute("aria-hidden", "true");
-    if (refs.modalClienteFeedback) refs.modalClienteFeedback.textContent = "";
+    resetClienteModalState(refs, state);
   }
 
   async function handleClienteSave(refs, state) {
     const nombre = refs.modalClienteInput?.value.trim();
     if (!nombre || nombre.length < 3) {
-      if (refs.modalClienteFeedback) {
-        refs.modalClienteFeedback.textContent =
-          "Ingresa al menos 3 caracteres para el nombre.";
-      }
+      setClienteModalFeedback(
+        refs,
+        "Ingresa al menos 3 caracteres para el nombre.",
+        true
+      );
       return;
     }
-    if (refs.modalClienteFeedback) {
-      refs.modalClienteFeedback.textContent = "Guardando...";
-    }
+    hideClienteDuplicate(refs, state);
+    setClienteModalFeedback(refs, "Guardando...");
+    toggleClienteModalLoading(refs, true);
     try {
       const { data, error } = await window.sb
         .from("cliente")
         .insert({ nombre })
         .select("id,nombre")
         .single();
-      if (error) throw error;
-      closeClienteModal(refs);
+      if (error) {
+        if (error.code === "23505" || error.code === "409") {
+          await handleClienteDuplicado(nombre, refs, state);
+          return;
+        }
+        throw error;
+      }
+      closeClienteModal(refs, state);
       selectClienteResult(data, refs, state, { manualValue: data.nombre || "" });
       updateClienteFeedback(refs, "Cliente agregado correctamente.");
     } catch (err) {
       console.error("[cliente-modal] error", err);
-      if (refs.modalClienteFeedback) {
-        refs.modalClienteFeedback.textContent =
-          "Error al guardar. Intenta nuevamente.";
-      }
+      setClienteModalFeedback(
+        refs,
+        "Error al guardar. Intenta nuevamente.",
+        true
+      );
+    } finally {
+      toggleClienteModalLoading(refs, false);
     }
+  }
+
+  async function handleClienteDuplicado(nombre, refs, state) {
+    try {
+      const normalized = normalizeCliente(nombre);
+      const { data, error } = await window.sb
+        .from("cliente")
+        .select("id,nombre")
+        .eq("nombre_upper", normalized)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        showClienteDuplicate(data, refs, state);
+        return;
+      }
+      setClienteModalFeedback(
+        refs,
+        "Ese cliente ya existe. Ajusta el texto o selecciónalo.",
+        true
+      );
+    } catch (err) {
+      console.warn("[cliente-duplicado] lookup", err);
+      setClienteModalFeedback(
+        refs,
+        "No se pudo validar el duplicado. Intenta nuevamente.",
+        true
+      );
+    }
+  }
+
+  function handleClienteDuplicateSelect(refs, state) {
+    if (!state?.duplicateCliente) return;
+    const selected = { ...state.duplicateCliente };
+    selectClienteResult(
+      { id: selected.id, nombre: selected.nombre },
+      refs,
+      state,
+      { manualValue: selected.nombre }
+    );
+    updateClienteFeedback(
+      refs,
+      `${selected.nombre} fue seleccionado automáticamente.`
+    );
+    closeClienteModal(refs, state);
+  }
+
+  function handleClienteDuplicateDismiss(refs, state) {
+    hideClienteDuplicate(refs, state);
+    setClienteModalFeedback(
+      refs,
+      "Edita el nombre para registrar un cliente nuevo."
+    );
+    setTimeout(() => refs.modalClienteInput?.focus(), 60);
   }
   // === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH ===
 

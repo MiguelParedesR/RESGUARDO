@@ -1,4 +1,4 @@
-﻿/* dashboard-admin.css – Sidebar fijo + mapa a la derecha + topbar pro */
+/* dashboard-admin.css – Sidebar fijo + mapa a la derecha + topbar pro */
 
 
 
@@ -497,13 +497,7 @@ body.view-lista .sidebar {
 
 
 
-.row-actions .btn {
-
-    padding: 6px 10px;
-
-    border-radius: 8px;
-
-}
+.row-actions .btn {\n    padding: 6px 10px;\n    border-radius: 8px;\n}\n\n.row-actions .btn-report-late {\n    background: #ffb84d;\n    color: #5c3b00;\n    border: none;\n    font-weight: 600;\n    animation: reportBounce 1.4s ease-in-out infinite;\n    position: relative;\n}\n\n.row-actions .btn-report-late.is-warn {\n    background: #ff7043;\n    color: #fff;\n    animation-duration: 1s;\n}\n\n.row-actions .btn-report-late.is-waiting {\n    background: #eceff1;\n    color: #607d8b;\n    animation: none;\n    cursor: default;\n}\n\n.btn-report-late__spinner {\n    width: 12px;\n    height: 12px;\n    border-radius: 50%;\n    border: 2px solid rgba(255, 255, 255, 0.4);\n    border-top-color: currentColor;\n    animation: spin 0.9s linear infinite;\n    display: inline-block;\n    margin-left: 6px;\n}\n
 
 
 
@@ -961,3 +955,5 @@ body.view-filtros .sidebar { display: none !important; }
 }
 
 
+\n@keyframes reportBounce {\n  0%,100% { transform: translateY(0); box-shadow: 0 0 0 rgba(255,184,77,0.3);}\n  50% { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,184,77,0.6);}\n}\n
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }\n
