@@ -239,11 +239,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 (c) => c?.lastPing?.lat != null && c?.lastPing?.lng != null
               ).length
             : null;
-        if (expected != null) {
-          console.assert(
-            dataset.length === expected,
-            `[markers] servicio ${servicioId} esperado ${expected} got ${dataset.length}`
-          );
+        if (expected != null && dataset.length !== expected) {
+          console.warn("[markers] ajuste de duplicados", {
+            servicioId,
+            expected,
+            got: dataset.length,
+          });
+          // Evita fallar por duplicados o pings atrasados
+          const unique = new Map();
+          dataset.forEach((row) => {
+            const key = row?.servicio_custodio_id || row?.custodia_id;
+            if (!key) return;
+            if (!unique.has(key)) unique.set(key, row);
+          });
+          if (unique.size !== dataset.length) {
+            const deduped = Array.from(unique.values());
+            updateMarkers(deduped, {
+              scopedToService: true,
+              servicioId,
+            });
+            markersRealtime.lastPayload = deduped;
+          }
         }
       }
       console.log("[task][HU-MAP-MARKERS-ALL] done", {
