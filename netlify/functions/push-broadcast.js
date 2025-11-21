@@ -12,6 +12,7 @@ const ALLOWED_TYPES = new Set([
   "checkin",
   "heartbeat",
   "ruta_desviada",
+  "reporte_forzado",
 ]);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +59,32 @@ const buildDefaultPayload = (type, event) => {
       badge: "/assets/icon-192.svg",
       tag: `ruta-desviada-${event?.servicio_id || "servicio"}`,
       vibrate: [300, 150, 300, 150, 500],
+      requireInteraction: true,
+      renotify: true,
+      data: {
+        servicio_id: event?.servicio_id || null,
+        url_admin: "/html/dashboard/dashboard-admin.html",
+        url_custodia: "/html/dashboard/mapa-resguardo.html",
+      },
+    };
+    if (event?.metadata) {
+      base.data.metadata = event.metadata;
+    }
+    if (event?.empresa) base.data.empresa = event.empresa;
+    if (event?.cliente) base.data.cliente = event.cliente;
+    return base;
+  }
+
+  if (type === "reporte_forzado") {
+    const title = "¡REPORTESE AHORA!";
+    const base = {
+      title,
+      body:
+        "El centro de monitoreo exige un audio inmediato. Responde para continuar.",
+      icon: "/assets/icon-192.svg",
+      badge: "/assets/icon-192.svg",
+      tag: `reporte-forzado-${event?.servicio_id || "servicio"}`,
+      vibrate: [320, 160, 320, 180, 680],
       requireInteraction: true,
       renotify: true,
       data: {
