@@ -132,6 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let alarmaUnsubscribe = null;
   const serviceFlags = new Map();
   const lateReportTimers = new Map();
+  const lateReportTimers = new Map();
   let alertsEnabled = false;
 
   // === BEGIN HU:HU-MAP-MARKERS-ALL realtime state (NO TOCAR FUERA) ===
@@ -2142,6 +2143,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function clearLateReport(servicioId) {
     clearLateReportTimer(servicioId);
     updateServiceFlag(servicioId, "reportLate", false);
+  }
+
+  function clearLateReportTimer(servicioId) {
+    const key = String(servicioId);
+    const timer = lateReportTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      lateReportTimers.delete(key);
+    }
   }
 
   function extractServicioIdFromEvent(evt) {
