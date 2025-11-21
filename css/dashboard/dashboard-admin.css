@@ -484,31 +484,87 @@ body.view-lista .sidebar {
 
 
 .row-actions {
-
     display: flex;
-
-    gap: 8px;
-
+    gap: 10px;
     flex-wrap: wrap;
-
     margin-top: 6px;
-
+    align-items: center;
+    justify-content: flex-end;
 }
 
 
 
-.row-actions .btn {\n    padding: 6px 10px;\n    border-radius: 8px;\n}\n\n.row-actions .btn-report-late {\n    background: #ffb84d;\n    color: #5c3b00;\n    border: none;\n    font-weight: 600;\n    animation: reportBounce 1.4s ease-in-out infinite;\n    position: relative;\n}\n\n.row-actions .btn-report-late.is-warn {\n    background: #ff7043;\n    color: #fff;\n    animation-duration: 1s;\n}\n\n.row-actions .btn-report-late.is-waiting {\n    background: #eceff1;\n    color: #607d8b;\n    animation: none;\n    cursor: default;\n}\n\n.btn-report-late__spinner {\n    width: 12px;\n    height: 12px;\n    border-radius: 50%;\n    border: 2px solid rgba(255, 255, 255, 0.4);\n    border-top-color: currentColor;\n    animation: spin 0.9s linear infinite;\n    display: inline-block;\n    margin-left: 6px;\n}\n
+.btn-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--stroke);
+    background: #f8fafc;
+    color: #2f3b52;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.btn-icon i {
+    font-size: 22px;
+}
+
+.btn-icon:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+    background: #eef2f7;
+}
+
+.btn-icon:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.row-actions .btn-report-late {
+    background: #ffb84d;
+    color: #5c3b00;
+    border: none;
+    animation: reportBounce 1.4s ease-in-out infinite;
+}
+
+.row-actions .btn-report-late.is-warn {
+    background: #ff7043;
+    color: #fff;
+    animation-duration: 1s;
+}
+
+.row-actions .btn-report-late.is-waiting {
+    background: #eceff1;
+    color: #607d8b;
+    animation: none;
+    cursor: default;
+}
+
+.btn-report-late__spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: currentColor;
+    animation: spin 0.9s linear infinite;
+    position: absolute;
+    right: -6px;
+    top: -6px;
+    background: #fff;
+}
 
 
 
 .row-actions .btn-accent {
-
     background: var(--accent);
-
     color: #fff;
-
     border: none;
-
 }
 
 
@@ -957,3 +1013,86 @@ body.view-filtros .sidebar { display: none !important; }
 
 \n@keyframes reportBounce {\n  0%,100% { transform: translateY(0); box-shadow: 0 0 0 rgba(255,184,77,0.3);}\n  50% { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,184,77,0.6);}\n}\n
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }\n
+/* === HU: Acciones con iconos en cards (override) === */
+.row-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--stroke);
+  background: #f8fafc;
+  color: #2f3b52;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.btn-icon i { font-size: 22px; }
+
+.btn-icon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  background: #eef2f7;
+}
+
+.btn-icon:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.row-actions .btn-report-late {
+  background: #ffb84d;
+  color: #5c3b00;
+  border: none;
+  animation: reportBounce 1.4s ease-in-out infinite;
+}
+
+.row-actions .btn-report-late.is-warn {
+  background: #ff7043;
+  color: #fff;
+  animation-duration: 1s;
+}
+
+.row-actions .btn-report-late.is-waiting {
+  background: #eceff1;
+  color: #607d8b;
+  animation: none;
+  cursor: default;
+}
+
+.btn-report-late__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: currentColor;
+  animation: spin 0.9s linear infinite;
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  background: #fff;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

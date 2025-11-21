@@ -1164,9 +1164,15 @@ document.addEventListener("DOMContentLoaded", () => {
       status === "waiting"
         ? '<span class="btn-report-late__spinner" aria-hidden="true"></span>'
         : "";
-    return `<button class="btn btn-report-late${statusClass}" data-act="report" data-state="${status}" ${disabledAttr}>${h(
+    return `<button class="btn btn-icon btn-report-late${statusClass}" data-act="report" data-state="${status}" ${disabledAttr} aria-label="${h(
       text
-    )}${spinner}</button>`;
+    )}">
+      <i class="material-icons" aria-hidden="true">${
+        status === "waiting" ? "hourglass_top" : "campaign"
+      }</i>
+      <span class="sr-only">${h(text)}</span>
+      ${spinner}
+    </button>`;
   }
 
   async function handleLateReportClick(button, servicio) {
@@ -1334,13 +1340,19 @@ document.addEventListener("DOMContentLoaded", () => {
         <div><strong>Tipo:</strong> ${h(tipoLabel || "-")}</div>
         <div class="${pingClass}"><strong>Ultimo ping:</strong> ${pingLabel}</div>
         <div class="row-actions">
-          <button class="btn" data-act="ver" data-id="${
+          <button class="btn btn-icon" data-act="ver" data-id="${
             s.id
-          }">Ver en mapa</button>
+          }" aria-label="Ver en mapa">
+            <i class="material-icons" aria-hidden="true">map</i>
+            <span class="sr-only">Ver en mapa</span>
+          </button>
           ${lateButtonHtml}
-          <button class="btn btn-accent" data-act="fin" data-id="${s.id}" ${
-        s.estado === "FINALIZADO" ? "disabled" : ""
-      }>Finalizar</button>
+          <button class="btn btn-icon btn-accent" data-act="fin" data-id="${
+            s.id
+          }" ${s.estado === "FINALIZADO" ? "disabled" : ""} aria-label="Finalizar servicio">
+            <i class="material-icons" aria-hidden="true">check_circle</i>
+            <span class="sr-only">Finalizar</span>
+          </button>
         </div>`;
       card.addEventListener("click", async (e) => {
         const reopen = e.target.closest(".js-panic-reopen");
