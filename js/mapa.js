@@ -109,7 +109,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       extendSession();
     }
   });
-  setupExtremeReportModal();
 
   // === BEGIN HU:HU-FIX-PGRST203 registrar-ubicacion (NO TOCAR FUERA) ===
   const buildRegistrarUbicacionPayload = ({
@@ -194,6 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const extremeReportSafeBtn = document.getElementById("extreme-report-safe");
   // === END HU:HU-REPORTESE-EXTREMO-FRONT ===
   // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
+  setupExtremeReportModal();
 
   // Estado global
   const hasAlarma = typeof window.Alarma === "object";
