@@ -1224,6 +1224,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function clearLateReport(servicioId) {
+    clearLateReportTimer(servicioId);
+    updateServiceFlag(servicioId, "reportLate", false);
+  }
+
   function buildLateReportPayload(servicio, state) {
     const metadata = {
       origin: "dashboard-admin",
@@ -2138,20 +2143,6 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[QA] modal único de pánico OK");
   console.log("[QA] sirena + TTS en bucle OK");
 });
-
-  function clearLateReport(servicioId) {
-    clearLateReportTimer(servicioId);
-    updateServiceFlag(servicioId, "reportLate", false);
-  }
-
-  function clearLateReportTimer(servicioId) {
-    const key = String(servicioId);
-    const timer = lateReportTimers.get(key);
-    if (timer) {
-      clearTimeout(timer);
-      lateReportTimers.delete(key);
-    }
-  }
 
   function extractServicioIdFromEvent(evt) {
     const source = evt?.record || evt?.event || evt?.payload || evt || {};
