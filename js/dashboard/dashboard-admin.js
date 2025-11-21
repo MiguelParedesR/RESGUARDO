@@ -132,7 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let alarmaUnsubscribe = null;
   const serviceFlags = new Map();
   const lateReportTimers = new Map();
-  const lateReportTimers = new Map();
   let alertsEnabled = false;
 
   // === BEGIN HU:HU-MAP-MARKERS-ALL realtime state (NO TOCAR FUERA) ===
