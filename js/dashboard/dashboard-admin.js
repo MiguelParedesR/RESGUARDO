@@ -1099,7 +1099,7 @@ document.addEventListener("DOMContentLoaded", () => {
           tardy: true,
           maxMinutes: computed.maxMinutes,
           tardyNames: computed.tardyNames,
-          requestStatus: existing?.requestStatus || "idle",
+          requestStatus: existing?.requestStatus === "waiting" ? "waiting" : "warn",
           requestedAt: existing?.requestedAt || null,
         };
         updateServiceFlag(svc.id, "reportLate", next);
