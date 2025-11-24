@@ -619,6 +619,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     const pinUser = ICON.carrito;
     // === END HU:HU-MAPA-CARRITO ===
     await ensureGeoPermission("tracking-start");
+
+    // Fix: al retomar el servicio, forzamos un fix inmediato de ubicacion
+    const requestFreshLocation = () =>
+      new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            geoPermissionLogged = true;
+            onPos(pos.coords.latitude, pos.coords.longitude, pinUser, pos.coords);
+            resolve(true);
+          },
+          (err) => {
+            if (!geoPermissionLogged) {
+              geoPermissionLogged = true;
+            }
+            console.warn("[mapa] ubicacion inicial fallo", err);
+            showMsg("Activa tu ubicacion para continuar el seguimiento.");
+            resolve(false);
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+        );
+      });
+
+    await requestFreshLocation();
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!geoPermissionLogged) {
