@@ -142,6 +142,9 @@
     "checkin-missed": "checkin_missed",
     checkin_missed: "checkin_missed",
     checkin: "checkin",
+    reporte_forzado: "reporte_forzado",
+    "reporte-forzado": "reporte_forzado",
+    ruta_desviada: "ruta_desviada",
     // === BEGIN HU:HU-PANICO-SIRENA-SISMATE eventos ack (NO TOCAR FUERA) ===
     panic_ack: "panic_ack",
     // === END HU:HU-PANICO-SIRENA-SISMATE ===
