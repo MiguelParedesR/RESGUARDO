@@ -328,9 +328,16 @@
     ]);
 
     const originalType = record.type;
-    const typeForDb = ALLOWED_DB_TYPES.has(originalType)
+    let typeForDb = ALLOWED_DB_TYPES.has(originalType)
       ? originalType
-      : "checkin";
+      : "checkin_ok";
+    if (
+      originalType &&
+      /^reporte[_-]?forzado$/i.test(String(originalType)) &&
+      !ALLOWED_DB_TYPES.has(originalType)
+    ) {
+      typeForDb = "checkin";
+    }
 
     const metadata =
       record.metadata && typeof record.metadata === "object"
