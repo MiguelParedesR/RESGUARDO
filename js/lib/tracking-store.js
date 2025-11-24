@@ -34,24 +34,28 @@
 
     // Realtime por tabla (Supabase v2) + filtro por servicio
     let channel = null;
-    try {
-      channel = sb
-        .channel(`ubicacion-svc-${servicioId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "ubicacion",
-            filter: `servicio_id=eq.${servicioId}`,
-          },
-          (payload) => {
-            // Solo refrescamos si llega algo; no asumimos orden
-            fetchLast();
-          }
-        )
-        .subscribe();
-    } catch {}
+    const realtimeAllowed =
+      window.APP_CONFIG?.REALTIME_OK !== false && Boolean(sb?.channel);
+    if (realtimeAllowed) {
+      try {
+        channel = sb
+          .channel(`ubicacion-svc-${servicioId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "ubicacion",
+              filter: `servicio_id=eq.${servicioId}`,
+            },
+            () => {
+              // Solo refrescamos si llega algo; no asumimos orden
+              fetchLast();
+            }
+          )
+          .subscribe();
+      } catch {}
+    }
 
     // Fallback a polling, útil offline o sin Realtime
     const timer = setInterval(() => {

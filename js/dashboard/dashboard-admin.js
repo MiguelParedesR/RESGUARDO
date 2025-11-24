@@ -133,6 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const serviceFlags = new Map();
   const lateReportTimers = new Map();
   let alertsEnabled = false;
+  const canUseRealtime = () =>
+    window.APP_CONFIG?.REALTIME_OK !== false && Boolean(window.sb?.channel);
 
   // === BEGIN HU:HU-MAP-MARKERS-ALL realtime state (NO TOCAR FUERA) ===
   const MARKER_COLUMNS =
@@ -162,7 +164,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   function ensureMarkersChannel(servicioId) {
-    if (!window.sb?.channel) return;
+    if (!canUseRealtime()) {
+      cleanupMarkersChannel();
+      return;
+    }
     if (
       markersRealtime.channel &&
       markersRealtime.channelServicioId === servicioId
@@ -2106,11 +2111,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 150);
   let rtServicio = null,
     rtUbicacion = null;
+  const startRealtimePolling = (() => {
+    let timer = null;
+    const POLL_MS = 30000;
+    return (reason = "fallback") => {
+      if (timer) return;
+      console.warn("[realtime] fallback polling", { reason });
+      timer = setInterval(() => {
+        try {
+          loadServices();
+          refreshMarkersState("poll");
+        } catch (err) {
+          console.warn("[poll] refresh error", err);
+        }
+      }, POLL_MS);
+    };
+  })();
   function setupRealtime() {
-    if (!window.sb?.channel) {
-      // fallback polling
-      setInterval(loadServices, 30000);
+    if (!canUseRealtime()) {
+      startRealtimePolling("disabled");
       loadServices();
+      refreshMarkersState("poll");
       return;
     }
     try {
@@ -2123,7 +2144,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )
         .subscribe();
     } catch (e) {
-      setInterval(loadServices, 30000);
+      startRealtimePolling("servicio-channel-error");
     }
     try {
       rtUbicacion = window.sb
@@ -2134,7 +2155,12 @@ document.addEventListener("DOMContentLoaded", () => {
           () => scheduleRefresh()
         )
         .subscribe();
-    } catch (e) {}
+    } catch (e) {
+      startRealtimePolling("ubicacion-channel-error");
+    }
+    window.addEventListener("realtime:down", () =>
+      startRealtimePolling("realtime-down")
+    );
     window.addEventListener("beforeunload", () => {
       try {
         if (rtServicio) window.sb.removeChannel(rtServicio);

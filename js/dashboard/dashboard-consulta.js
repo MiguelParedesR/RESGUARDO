@@ -32,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return "";
     }
   };
+  const canUseRealtime = () =>
+    window.APP_CONFIG?.REALTIME_OK !== false && Boolean(window.sb?.channel);
 
   // Snackbar
   const snackbar = document.getElementById("app-snackbar");
@@ -617,10 +619,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupRealtime();
 
+  const startRealtimePolling = (() => {
+    let timer = null;
+    const POLL_MS = 30000;
+    return (reason = "fallback") => {
+      if (timer) return;
+      console.warn("[consulta] realtime deshabilitado, usando polling", {
+        reason,
+      });
+      timer = setInterval(async () => {
+        try {
+          await cargarClientes();
+          if (clienteSeleccionado?.id) {
+            await cargarServiciosPorCliente(clienteSeleccionado.id);
+          }
+        } catch (err) {
+          console.warn("[consulta] polling error", err);
+        }
+      }, POLL_MS);
+    };
+  })();
+
   function setupRealtime() {
+    if (!canUseRealtime()) {
+      startRealtimePolling("disabled");
+      return;
+    }
     try {
       const ch = window.sb?.channel?.("rt-consulta-servicio");
-      if (!ch) return;
+      if (!ch) {
+        startRealtimePolling("channel-missing");
+        return;
+      }
       ch.on(
         "postgres_changes",
         { event: "*", schema: "public", table: "servicio" },
@@ -637,7 +667,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       console.warn("[consulta] realtime inactivo", err);
+      startRealtimePolling("channel-error");
     }
+    window.addEventListener("realtime:down", () =>
+      startRealtimePolling("realtime-down")
+    );
   }
 
   // === BEGIN HU:HU-MARCADORES-CUSTODIA consulta custodios (NO TOCAR FUERA) ===

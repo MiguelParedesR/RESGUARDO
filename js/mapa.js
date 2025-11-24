@@ -45,6 +45,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 600);
   }
 
+  const canUseRealtime = () =>
+    window.APP_CONFIG?.REALTIME_OK !== false && Boolean(window.sb?.channel);
+
   const servicioId = sessionStorage.getItem("servicio_id_actual");
   if (!servicioId) {
     showMsg("Ingresa desde Mis servicios y usa SEGUIR para abrir el mapa.");
@@ -664,7 +667,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function subscribeServicio() {
-    if (!window.sb?.channel) return;
+    if (!canUseRealtime()) return;
     cleanupServicioChannel();
     try {
       servicioChannel = window.sb
@@ -693,6 +696,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     servicioChannel = null;
   }
+  window.addEventListener("realtime:down", () => cleanupServicioChannel());
 
   function cleanupChannels() {
     cleanupServicioChannel();

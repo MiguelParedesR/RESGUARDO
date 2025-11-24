@@ -16,6 +16,51 @@ window.APP_CONFIG = {
     window.APP_CONFIG.SUPABASE_ANON_KEY
   );
   console.log("[config] Cliente Supabase inicializado correctamente");
+
+  // Salud del websocket de Realtime (CSP/firewall pueden bloquearlo)
+  window.APP_CONFIG.REALTIME_OK = typeof WebSocket !== "undefined";
+  window.APP_CONFIG.REALTIME_ERROR = null;
+
+  function disableRealtime(reason, err) {
+    if (window.APP_CONFIG.REALTIME_OK === false) return;
+    window.APP_CONFIG.REALTIME_OK = false;
+    window.APP_CONFIG.REALTIME_ERROR =
+      reason || err?.message || err || "unknown";
+    try {
+      window.sb?.removeAllChannels?.();
+    } catch {}
+    try {
+      window.sb?.realtime?.disconnect?.();
+    } catch {}
+    try {
+      window.dispatchEvent(
+        new CustomEvent("realtime:down", {
+          detail: { reason, error: err?.message || err || null },
+        })
+      );
+    } catch {}
+    console.warn("[config][realtime] deshabilitado", {
+      reason,
+      error: err?.message || err,
+    });
+  }
+
+  window.APP_CONFIG.canUseRealtime = () =>
+    window.APP_CONFIG.REALTIME_OK !== false && Boolean(window.sb?.channel);
+
+  const rt = window.sb?.realtime;
+  if (rt?.onOpen) {
+    rt.onOpen(() => {
+      window.APP_CONFIG.REALTIME_OK = true;
+      window.APP_CONFIG.REALTIME_ERROR = null;
+    });
+  }
+  if (rt?.onError) {
+    rt.onError((err) => disableRealtime("socket_error", err));
+  }
+  if (rt?.onClose) {
+    rt.onClose((evt) => disableRealtime("closed", evt));
+  }
 })();
 
 (async () => {
