@@ -1,7 +1,7 @@
 :root {
   --login-bg: #f8fafc;
   --login-bg-overlay: rgba(248, 250, 252, 0.2);
-  --login-bg-image: url("https://i.postimg.cc/fyyNsd2n/Gemini-Generated-Image-6q4w4v6q4w4v6q4w.png");
+  --login-bg-image: url("/assets/img/login-hero-bg.jpg");
   --glass-bg: rgba(255, 255, 255, 0.95);
   --glass-border: rgba(148, 163, 184, 0.3);
   --accent: #2563eb;
