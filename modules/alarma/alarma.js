@@ -317,12 +317,31 @@
 
   // === BEGIN HU:HU-NO400-ALARM_EVENT db payload (NO TOCAR FUERA) ===
   function buildDbInsertPayload(record) {
+    const ALLOWED_DB_TYPES = new Set([
+      "start",
+      "panic",
+      "heartbeat",
+      "finalize",
+      "checkin",
+      "checkin_ok",
+      "checkin_missed",
+    ]);
+
+    const originalType = record.type;
+    const typeForDb = ALLOWED_DB_TYPES.has(originalType)
+      ? originalType
+      : "heartbeat";
+
     const metadata =
       record.metadata && typeof record.metadata === "object"
-        ? record.metadata
+        ? { ...record.metadata }
         : {};
-    const payload = {
-      type: record.type,
+    if (!metadata.event_type) {
+      metadata.event_type = originalType || typeForDb;
+    }
+
+    return {
+      type: typeForDb,
       servicio_id: record.servicio_id,
       empresa: record.empresa,
       cliente: record.cliente,
@@ -331,9 +350,8 @@
       lat: record.lat ?? null,
       lng: record.lng ?? null,
       direccion: record.direccion ?? null,
-      metadata: metadata,
+      metadata,
     };
-    return payload;
   }
   // === END HU:HU-NO400-ALARM_EVENT ===
 
