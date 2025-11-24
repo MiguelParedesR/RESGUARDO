@@ -12,8 +12,7 @@
     empresaOtroGroup: "#campo-empresa-otro",
     empresaOtroInput: "#empresa-otra",
     selfieTrigger: "#selfie-trigger",
-    selfieHint: "#selfie-hint",
-    selfieStatus: "#selfie-status",
+    selfieLabel: "#selfie-label",
     selfieBlock: "#selfie-block",
     submitBtn: "#btn-registrar",
   };
@@ -138,27 +137,21 @@
 
   function setupSelfieIcon() {
     const trigger = document.querySelector(SELECTORS.selfieTrigger);
-    const hintEl = document.querySelector(SELECTORS.selfieHint);
+    const labelEl = document.querySelector(SELECTORS.selfieLabel);
     setSelfieState("pending");
     if (!trigger || !globalThis.CustodiaSelfie?.attach) return;
-    const hintMessages = {
-      idle: "Pulsa el boton para abrir la camara.",
-      ready: "Selfie lista. Puedes volver a capturar si deseas.",
-    };
 
     globalThis.CustodiaSelfie.attach(trigger, {
-      hintEl,
-      hintIdle: hintMessages.idle,
-      hintReady: hintMessages.ready,
+      hintEl: null,
+      hintIdle: "",
+      hintReady: "",
       onCapture: ({ blob }) => {
         state.selfieBlob = blob;
-        if (hintEl) hintEl.textContent = hintMessages.ready;
-        setSelfieState("ready");
+        setSelfieState("ready", labelEl);
       },
       onError: (err) => {
         console.warn(`${CAMERA_PREFIX} capture fail`, err);
-        if (hintEl) hintEl.textContent = hintMessages.idle;
-        setSelfieState();
+        setSelfieState("error", labelEl);
         if (err?.name === "NotAllowedError") {
           console.warn(`${PERM_PREFIX} camera denied`);
           showMsg("Necesitas permitir el uso de la camara para continuar.");
@@ -435,22 +428,27 @@
     container.classList.add("is-valid");
   }
 
-  function setSelfieState(stateValue) {
+  function setSelfieState(stateValue, labelEl) {
     const block = document.querySelector(SELECTORS.selfieBlock);
-    const status = document.querySelector(SELECTORS.selfieStatus);
-    if (!block || !status) return;
+    const trigger = document.querySelector(SELECTORS.selfieTrigger);
+    if (!block || !trigger) return;
     block.classList.remove("is-ready", "is-error");
+    trigger.classList.remove("is-ready", "is-error");
+    const label = labelEl || trigger.querySelector("#selfie-label");
     if (stateValue === "ready") {
       block.classList.add("is-ready");
-      status.textContent = "Lista";
+      trigger.classList.add("is-ready");
+      if (label) label.textContent = "Selfie lista";
       return;
     }
     if (stateValue === "error") {
       block.classList.add("is-error");
-      status.textContent = "Requerida";
+      trigger.classList.add("is-error");
+      if (label) label.textContent = "Reintentar selfie";
       return;
     }
-    status.textContent = "Pendiente";
+    if (label) label.textContent = "Tomar selfie";
+    trigger.classList.add("is-error");
   }
 
   function setButtonLoading(btn, loading) {

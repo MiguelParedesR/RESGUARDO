@@ -311,39 +311,6 @@
   transition: border 0.2s ease, background 0.2s ease;
 }
 
-.selfie-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.selfie-header p {
-  margin: 0;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.selfie-header span {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.selfie-status {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--ink-700, #1f2a44);
-}
-
-.selfie-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
 .selfie-trigger {
   border: none;
@@ -356,7 +323,7 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .selfie-trigger:hover {
@@ -369,12 +336,6 @@
   pointer-events: none;
 }
 
-.selfie-hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
 .selfie-block.is-ready {
   border-color: rgba(46, 125, 50, 0.45);
   background: #f6fff8;
@@ -385,9 +346,18 @@
   background: #fff5f5;
 }
 
-.selfie-block.is-error .selfie-status {
-  background: rgba(217, 4, 41, 0.15);
-  color: var(--error);
+.selfie-trigger.is-ready {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+.selfie-trigger.is-error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+.selfie-block--inline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
 }
 
 

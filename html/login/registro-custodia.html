@@ -51,7 +51,6 @@
     <main class="mdl-layout__content px-4 py-10">
       <section class="registro-hero">
         <div class="registro-hero__copy">
-          <p class="registro-hero__eyebrow">Registro</p>
           <h1>Registrar custodia</h1>
         </div>
       </section>
@@ -85,21 +84,11 @@
               <input type="text" id="empresa-otra" placeholder="Ingresa el nombre de la empresa" />
             </div>
 
-            <div class="selfie-block" id="selfie-block" aria-live="polite">
-              <div class="selfie-header">
-                <div>
-                  <p>Selfie de verificacion</p>
-                  <span>La usaremos una vez para confirmar tu identidad.</span>
-                </div>
-                <span class="selfie-status" id="selfie-status">Pendiente</span>
-              </div>
-              <div class="selfie-content selfie-content--compact">
-                <button type="button" class="selfie-trigger" id="selfie-trigger">
-                  <span class="material-icons" aria-hidden="true">photo_camera</span>
-                  <span>Tomar selfie</span>
-                </button>
-                <p class="selfie-hint" id="selfie-hint">Sigue las instrucciones.</p>
-              </div>
+            <div class="selfie-block selfie-block--inline" id="selfie-block" aria-live="polite">
+              <button type="button" class="selfie-trigger" id="selfie-trigger">
+                <span class="material-icons" aria-hidden="true">photo_camera</span>
+                <span id="selfie-label">Tomar selfie</span>
+              </button>
             </div>
 
             <button type="submit" class="registro-btn" id="btn-registrar">
