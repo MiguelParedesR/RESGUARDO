@@ -54,6 +54,16 @@ const json = (statusCode, payload, extraHeaders = {}) => ({
   body: JSON.stringify(payload),
 });
 
+const softFail = (reason) =>
+  json(200, {
+    ok: false,
+    sent: 0,
+    failed: 0,
+    deactivated: 0,
+    results: [],
+    reason,
+  });
+
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders };
@@ -64,11 +74,13 @@ export async function handler(event) {
   }
 
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    return json(500, { error: "VAPID keys not configured" });
+    console.warn("[push] VAPID keys missing; skipping send");
+    return softFail("vapid_not_configured");
   }
 
   if (!supabase) {
-    return json(500, { error: "Supabase client not configured" });
+    console.warn("[push] Supabase credentials missing; skipping send");
+    return softFail("supabase_not_configured");
   }
 
   let body;

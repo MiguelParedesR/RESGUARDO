@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // BOTONES HOME / LOGOUT
     const btnHome = document.getElementById("app-header-home");
     const btnLogout = document.getElementById("app-header-logout");
+    const actions = btnHome?.parentElement || btnLogout?.parentElement;
 
     btnHome?.setAttribute("href", "/html/index.html");
 
@@ -53,6 +54,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       window.location.href = "/html/login/login.html";
     });
+
+    // En la pagina de login ocultamos acciones Inicio/Salir
+    const isLoginPage = /\/html\/login\/login\.html$/i.test(
+      window.location.pathname
+    );
+    if (isLoginPage && actions) {
+      actions.style.display = "none";
+    }
   } catch (e) {
     console.warn("[app-header] not loaded", e);
   }
