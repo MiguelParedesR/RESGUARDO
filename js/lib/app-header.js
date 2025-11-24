@@ -55,12 +55,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.location.href = "/html/login/login.html";
     });
 
-    // En la pagina de login ocultamos acciones Inicio/Salir
-    const isLoginPage = /\/html\/login\/login\.html$/i.test(
-      window.location.pathname
+    // En login y dashboard de custodia ocultamos acciones Inicio/Salir
+    const path = window.location.pathname;
+    const isLoginPage = /\/html\/login\/login\.html$/i.test(path);
+    const isCustodiaDashboard = /\/html\/dashboard\/dashboard-custodia\.html$/i.test(
+      path
     );
-    if (isLoginPage && actions) {
+    if ((isLoginPage || isCustodiaDashboard) && actions) {
       actions.style.display = "none";
+      actions.setAttribute("aria-hidden", "true");
     }
   } catch (e) {
     console.warn("[app-header] not loaded", e);
