@@ -317,10 +317,10 @@
 
   // === BEGIN HU:HU-NO400-ALARM_EVENT db payload (NO TOCAR FUERA) ===
   function buildDbInsertPayload(record) {
+    // Tipos permitidos por el enum alarm_event_type en BD
     const ALLOWED_DB_TYPES = new Set([
       "start",
       "panic",
-      "heartbeat",
       "finalize",
       "checkin",
       "checkin_ok",
@@ -330,7 +330,7 @@
     const originalType = record.type;
     const typeForDb = ALLOWED_DB_TYPES.has(originalType)
       ? originalType
-      : "heartbeat";
+      : "checkin";
 
     const metadata =
       record.metadata && typeof record.metadata === "object"
