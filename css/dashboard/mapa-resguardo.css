@@ -108,6 +108,8 @@
     min-height: 0;
     background: #e9eef6;
     flex: 1;
+    /* Evita que el navegador capture scroll y que Leaflet haga preventDefault en touchmove no cancelable */
+    touch-action: none;
 }
 
 .cust-sidebar {
