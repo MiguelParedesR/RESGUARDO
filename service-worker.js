@@ -1,7 +1,7 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
 // === BEGIN HU:HU-SW-UPDATE sw-versioning (NO TOCAR FUERA) ===
-const VERSION = "v1.1.230";
+const VERSION = "v1.1.236";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
@@ -83,6 +83,34 @@ const isHTML = (request) =>
   (request.headers.get("accept") || "").includes("text/html");
 const sameOrigin = (url) => url.origin === self.location.origin;
 
+// Limpia el snippet de Live Server que intenta abrir un WebSocket a
+// 127.0.0.1:5501 cuando la página se sirve en producción y genera un error de consola.
+// Si la respuesta no es HTML o no contiene la marca de Live Server, se devuelve intacta.
+const stripLiveServerSnippet = async (response) => {
+  if (!response?.ok || !response.clone) return response;
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/html")) return response;
+
+  try {
+    const text = await response.clone().text();
+    if (!text.includes("live-server")) return response;
+
+    const cleaned = text.replace(
+      /<!-- Code injected by live-server -->[\s\S]*?<\/script>/i,
+      ""
+    );
+
+    return new Response(cleaned, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers),
+    });
+  } catch (err) {
+    console.warn("[sw] stripLiveServerSnippet error", err);
+    return response;
+  }
+};
+
 // === BEGIN HU:HU-SW-UPDATE sw-install (NO TOCAR FUERA) ===
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -159,9 +187,10 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const fresh = await fetch(req);
+          const sanitized = await stripLiveServerSnippet(fresh);
           const cache = await caches.open(RUNTIME_CACHE);
-          if (fresh && fresh.ok) cache.put(req, fresh.clone());
-          return fresh;
+          if (sanitized && sanitized.ok) cache.put(req, sanitized.clone());
+          return sanitized;
         } catch {
           const cache = await caches.open(RUNTIME_CACHE);
           const cached = await cache.match(req);

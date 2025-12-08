@@ -1,213 +1,90 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Accesos Monitoreo de Resguardos</title>
-  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml">
+  <title>Acceso por PIN | Resguardo</title>
+  <link rel="icon" href="/assets/icon-192.svg" type="image/svg+xml" />
 
-
-
-  <!-- MDL base (solo layout/header) -->
-
+  <!-- MDL (solo para snackbar) -->
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css" />
-
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <!-- Icons & fonts -->
+
+  <!-- Fuentes e iconos -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@500;600&display=swap"
+  />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap" />
 
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#2563eb',
-            primaryDark: '#1d4ed8',
-            surface: '#ffffff',
-            surfaceMuted: '#f8fafc'
-          },
-        },
-      },
-    };
-  </script>
-  <!-- App styles -->
-
+  <!-- Estilos -->
   <link rel="stylesheet" href="../../css/login/login.css" />
-  <link rel="stylesheet" href="../../css/partials/app-header.css" />
   <link rel="manifest" href="/manifest.json" />
 
-
-
   <!-- Supabase (primero) + Config (luego) -->
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script defer src="../../config.js"></script>
 
-
-
-  <!-- Lógica del login -->
-
+  <!-- Logica del login -->
   <script defer src="../../js/login/login.js"></script>
-
-  <script defer src="../../js/lib/app-header.js"></script>
-
   <script defer src="../../js/pwa.js"></script>
-
 </head>
 
+<body class="pin-body">
+  <main class="pin-page">
+    <div class="pin-shell">
+      <section class="pin-card" aria-label="Ingreso por PIN">
+        <div class="pin-card__glow"></div>
+        <h1 class="pin-title">Ingresa tu PIN</h1>
+        <p class="pin-subtitle">(4 digitos) o (5 digitos) de acuerdo a tu ROL.</p>
 
+        <div class="pin-input-area">
+          <div class="pin-dots" id="pin-dots" aria-hidden="true">
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+          </div>
+          <input
+            id="pin-input"
+            type="password"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="5"
+            aria-label="Campo para ingresar PIN numerico"
+            class="pin-native-input"
+          />
+        </div>
 
-<body class="login-body mdl-base">
-  <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header login-layout">
-    <div id="app-header" data-page-title="Accesos"></div>
-    <main class="mdl-layout__content px-4 py-10">
+        <a class="pin-link" href="./registro-custodia.html">Crear PIN</a>
 
-      <section class="login-hero">
-        <div class="login-hero__copy">
-          <h1>Selecciona un rol para ingresar</h1>
+        <div class="pin-keypad" role="grid" aria-label="Teclado numerico">
+          <button type="button" class="pin-key" data-digit="1">1</button>
+          <button type="button" class="pin-key" data-digit="2">2</button>
+          <button type="button" class="pin-key" data-digit="3">3</button>
+          <button type="button" class="pin-key" data-digit="4">4</button>
+          <button type="button" class="pin-key" data-digit="5">5</button>
+          <button type="button" class="pin-key" data-digit="6">6</button>
+          <button type="button" class="pin-key" data-digit="7">7</button>
+          <button type="button" class="pin-key" data-digit="8">8</button>
+          <button type="button" class="pin-key" data-digit="9">9</button>
+          <button type="button" class="pin-key pin-key--ghost" aria-disabled="true" tabindex="-1"> </button>
+          <button type="button" class="pin-key" data-digit="0">0</button>
+          <button type="button" class="pin-key pin-key--delete" data-delete aria-label="Borrar digito">
+            <span aria-hidden="true">⌫</span>
+          </button>
         </div>
       </section>
-      <section class="login-panel">
+    </div>
+  </main>
 
-        <div class="login-card glass-card w-full max-w-[520px] px-6 sm:px-10 py-8 sm:py-10 space-y-8">
-
-          <div class="role-switch" role="tablist" aria-label="Selecciona un rol">
-
-            <button class="role-switch__btn is-active" data-role-tab="ADMIN" aria-selected="true">
-
-              <span>Admin</span>
-
-            </button>
-
-            <button class="role-switch__btn" data-role-tab="CONSULTA" aria-selected="false">
-
-              <span>Consulta</span>
-
-            </button>
-
-            <button class="role-switch__btn" data-role-tab="CUSTODIA" aria-selected="false">
-
-              <span>Custodia</span>
-
-            </button>
-
-          </div>
-
-
-
-          <div class="forms-shell">
-
-            <form id="admin-form" class="login-form is-active" data-role-form="ADMIN" autocomplete="off">
-
-              <div class="login-field" id="admin-pass-field">
-
-                <label for="admin-pass">Clave de Admin</label>
-
-                <div class="login-input">
-
-                  <input id="admin-pass" type="password" minlength="4" required autocomplete="current-password" />
-
-                  <span class="material-icons" aria-hidden="true">lock</span>
-
-                </div>
-
-              </div>
-
-              <button type="submit" class="login-btn" id="admin-login">
-
-                <span class="btn-label">Ingresar</span>
-
-                <span class="btn-spinner" aria-hidden="true"></span>
-
-              </button>
-
-            </form>
-
-
-
-            <form id="consulta-form" class="login-form" data-role-form="CONSULTA" autocomplete="off">
-
-              <div class="login-field" id="consulta-pass-field">
-
-                <label for="consulta-pass">Clave de Consulta</label>
-
-                <div class="login-input">
-
-                  <input id="consulta-pass" type="password" minlength="4" required autocomplete="current-password" />
-
-                  <span class="material-icons" aria-hidden="true">visibility</span>
-
-                </div>
-
-              </div>
-
-              <button type="submit" class="login-btn" id="consulta-login">
-
-                <span class="btn-label">Ingresar</span>
-
-                <span class="btn-spinner" aria-hidden="true"></span>
-
-              </button>
-
-            </form>
-
-
-
-            <form id="custodia-form" class="login-form" data-role-form="CUSTODIA" autocomplete="off">
-
-              <div class="login-field" id="custodia-pin-field">
-
-                <label for="custodia-pin">PIN (últimos 4 dígitos del DNI)</label>
-
-                <div class="login-input">
-
-                  <input id="custodia-pin" type="tel" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required
-                    placeholder="0000" />
-
-                  <span class="material-icons" aria-hidden="true">pin</span>
-
-                </div>
-
-              </div>
-
-
-
-              <div class="login-field" id="custodia-dni-field" hidden>
-
-                <label for="custodia-dni">Confirma tu DNI completo</label>
-
-                <div class="login-input">
-
-                  <input id="custodia-dni" type="tel" inputmode="numeric" pattern="[0-9]{8,}" minlength="8"
-                    placeholder="00000000" />
-
-                  <span class="material-icons" aria-hidden="true">badge</span>
-                </div>
-              </div>
-              <p class="login-hint" id="custodia-hint">PIN + DNI según indique el sistema.</p>
-              <button type="submit" class="login-btn" id="custodia-login">
-                <span class="btn-label">Ingresar</span>
-                <span class="btn-spinner" aria-hidden="true"></span>
-              </button>
-              <p class="login-link">
-                <a href="./registro-custodia.html">¿Eres nuevo? Regístrate</a>
-              </p>
-            </form>
-          </div>
-        </div>
-      </section>
-      <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
-        aria-relevant="text">
-        <div class="mdl-snackbar__text"></div>
-        <button class="mdl-snackbar__action" type="button"></button>
-      </div>
-    </main>
+  <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar" aria-live="assertive" aria-atomic="true"
+    aria-relevant="text">
+    <div class="mdl-snackbar__text"></div>
+    <button class="mdl-snackbar__action" type="button"></button>
   </div>
 </body>
 </html>
