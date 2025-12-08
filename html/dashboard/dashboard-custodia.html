@@ -150,8 +150,11 @@
           </div>
           <div class="simple-modal__body">
             <label for="modal-cliente-input" class="simple-modal__label">Nombre del cliente</label>
-            <input type="text" id="modal-cliente-input" class="simple-modal__input" maxlength="120"
-              placeholder="Nombre del cliente" />
+            <div class="cliente-input-wrap" id="cliente-input-wrap">
+              <input type="text" id="modal-cliente-input" class="simple-modal__input" maxlength="120"
+                placeholder="Nombre del cliente" autocomplete="off" />
+              <p class="cliente-duplicate-msg" id="cliente-duplicate-msg">Ya existe este cliente.</p>
+            </div>
             <p id="modal-cliente-feedback" class="simple-modal__feedback" role="status" aria-live="assertive"></p>
             <div id="modal-cliente-duplicate" class="duplicate-banner" hidden>
               <p id="modal-cliente-duplicate-text"></p>

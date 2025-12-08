@@ -997,6 +997,7 @@
     refs.modalClienteInput?.addEventListener("input", () =>
       hideClienteDuplicate(refs, state)
     );
+    setupClienteLiveValidation(refs, state);
     updateClienteFeedback(refs, "");
   }
 
@@ -1236,7 +1237,7 @@
         .select("id,nombre")
         .single();
       if (error) {
-        if (error.code === "23505" || error.code === "409") {
+        if (isDuplicateClienteError(error)) {
           await handleClienteDuplicado(nombre, refs, state);
           return;
         }
@@ -1255,6 +1256,20 @@
     } finally {
       toggleClienteModalLoading(refs, false);
     }
+  }
+
+  function isDuplicateClienteError(error) {
+    if (!error) return false;
+    const code = String(error.code || "").trim();
+    const status = Number(error.status || error.statusCode || 0);
+    const msg = (error.message || error.details || "").toLowerCase();
+    return (
+      code === "23505" ||
+      code === "409" ||
+      status === 409 ||
+      msg.includes("duplicate key value") ||
+      msg.includes("already exists")
+    );
   }
 
   async function handleClienteDuplicado(nombre, refs, state) {
@@ -1308,6 +1323,54 @@
       "Edita el nombre para registrar un cliente nuevo."
     );
     setTimeout(() => refs.modalClienteInput?.focus(), 60);
+  }
+
+  // Realtime duplicate validation
+  function setupClienteLiveValidation(refs, state) {
+    const input = refs.modalClienteInput;
+    const wrap = document.getElementById("cliente-input-wrap");
+    const dupMsg = document.getElementById("cliente-duplicate-msg");
+    if (!input || !wrap) return;
+
+    const clearState = () => {
+      wrap.classList.remove("duplicate", "shake");
+      input.classList.remove("is-duplicate");
+      if (dupMsg) dupMsg.textContent = "";
+    };
+
+    const vibrate = () => {
+      try {
+        navigator.vibrate?.(120);
+      } catch (_) {}
+    };
+
+    const validateLive = debounce(async () => {
+      clearState();
+      const value = (input.value || "").trim();
+      if (value.length < 3) return;
+      try {
+        const normalized = normalizeCliente(value);
+        const { data, error } = await window.sb
+          .from("cliente")
+          .select("id,nombre")
+          .eq("nombre_upper", normalized)
+          .maybeSingle();
+        if (error) return;
+        if (data?.id) {
+          state.duplicateCliente = data;
+          wrap.classList.add("duplicate", "shake");
+          input.classList.add("is-duplicate");
+          if (dupMsg) dupMsg.textContent = "Ya existe este cliente.";
+          vibrate();
+          setTimeout(() => wrap.classList.remove("shake"), 420);
+        } else {
+          state.duplicateCliente = null;
+        }
+      } catch (_) {}
+    }, 220);
+
+    input.addEventListener("input", validateLive);
+    input.addEventListener("focus", clearState);
   }
   // === END HU:HU-DASHBOARD-CUSTODIA-CLIENTE-SEARCH ===
 

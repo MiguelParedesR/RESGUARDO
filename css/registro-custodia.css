@@ -55,6 +55,13 @@
   text-align: center;
 }
 
+.registro-hero__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
 .registro-hero__eyebrow {
   margin: 0;
   text-transform: uppercase;

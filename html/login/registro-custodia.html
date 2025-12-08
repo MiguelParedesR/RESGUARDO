@@ -30,7 +30,6 @@
   </script>
 
   <link rel="stylesheet" href="../../css/registro-custodia.css" />
-  <link rel="stylesheet" href="../../css/partials/app-header.css" />
   <link rel="manifest" href="/manifest.json" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -39,19 +38,21 @@
   <script defer src="../../js/lib/permissions.js"></script>
   <script defer src="../../js/lib/selfie-icon.js"></script>
   <script defer src="../../js/registro-custodia.js"></script>
-  <script defer src="../../js/lib/app-header.js"></script>
   <script defer src="../../js/pwa.js"></script>
 </head>
 
 <body class="registro-body mdl-base">
   <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header registro-layout">
-    <div id="app-header" data-page-title="Registro de Custodias"></div>
-
     <!-- === BEGIN HU:HU-REGISTRO-CUSTODIA layout (NO TOCAR FUERA) === -->
     <main class="mdl-layout__content px-4 py-10">
       <section class="registro-hero">
         <div class="registro-hero__copy">
-          <h1>Registrar custodia</h1>
+          <div class="registro-hero__title-row">
+            <a href="./login.html" class="dc-back" aria-label="Volver">
+              <i class="material-icons" aria-hidden="true">arrow_back</i>
+            </a>
+            <h1>Registrar custodia</h1>
+          </div>
         </div>
       </section>
 

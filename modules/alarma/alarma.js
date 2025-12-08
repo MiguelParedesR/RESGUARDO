@@ -93,6 +93,76 @@
     return /android|iphone|ipad|ipod/i.test(ua);
   }
 
+  function buildClientNotificationPayloadV2(pushType, eventPayload) {
+    const cliente = eventPayload.cliente || "Servicio";
+    const placa = eventPayload.placa
+      ? `Placa ${eventPayload.placa}`
+      : "Servicio asignado";
+    const servicioTipo = eventPayload.tipo || "Servicio";
+
+    let title;
+    let body;
+    if (pushType === "reporte_forzado") {
+      title = `REPORTESE AHORA - ${cliente}`;
+      body = `${placa} (${servicioTipo}). Confirma tu ubicacion de inmediato.`;
+    } else if (pushType === "panic") {
+      title = `ALERTA DE PANICO - ${cliente}`;
+      body = `${placa} (${servicioTipo}). Atender de inmediato.`;
+    } else if (pushType === "start") {
+      title = `Inicio de servicio - ${cliente}`;
+      body = `${placa} (${servicioTipo}) ha comenzado.`;
+    } else if (pushType === "checkin") {
+      title = `Recordatorio de check-in - ${cliente}`;
+      body = `${placa}: confirma tu estado.`;
+    } else {
+      title = `Actualizacion de servicio - ${cliente}`;
+      body = `${placa} (${servicioTipo}).`;
+    }
+
+    const data = {
+      servicio_id: eventPayload.servicio_id,
+      empresa: eventPayload.empresa,
+      cliente: eventPayload.cliente,
+      placa: eventPayload.placa,
+      tipo: eventPayload.tipo,
+      metadata: eventPayload.metadata,
+      timestamp: eventPayload.timestamp,
+      type: pushType,
+    };
+
+    const url =
+      pushType === "checkin" || pushType === "reporte_forzado"
+        ? "/html/dashboard/mapa-resguardo.html"
+        : "/html/dashboard/dashboard-admin.html";
+
+    return {
+      title,
+      body,
+      icon: "/assets/icon-192.svg",
+      badge: "/assets/icon-192.svg",
+      vibrate:
+        pushType === "panic" || pushType === "reporte_forzado"
+          ? [320, 160, 320, 180, 680]
+          : pushType === "checkin"
+          ? [220, 120, 220]
+          : [120, 80, 120],
+      requireInteraction: true,
+      renotify: true,
+      tag: `alarma-${pushType}-${eventPayload.servicio_id || "svc"}`,
+      data: {
+        ...data,
+        url,
+      },
+      actions:
+        pushType === "checkin" || pushType === "reporte_forzado"
+          ? [
+              { action: "open", title: "Responder" },
+              { action: "silence", title: "Silenciar" },
+            ]
+          : [{ action: "open", title: "Abrir" }],
+    };
+  }
+
   if (typeof document !== "undefined" && !global.__alarmaVisibilityHooked) {
     global.__alarmaVisibilityHooked = true;
     document.addEventListener("visibilitychange", () => {
@@ -322,22 +392,11 @@
       "start",
       "panic",
       "finalize",
-      "checkin",
-      "checkin_ok",
-      "checkin_missed",
     ]);
 
     const originalType = record.type;
-    let typeForDb = ALLOWED_DB_TYPES.has(originalType)
-      ? originalType
-      : "checkin_ok";
-    if (
-      originalType &&
-      /^reporte[_-]?forzado$/i.test(String(originalType)) &&
-      !ALLOWED_DB_TYPES.has(originalType)
-    ) {
-      typeForDb = "checkin";
-    }
+    // Si el tipo no existe en el enum (checkin, reporte_forzado, etc.), lo guardamos como panic
+    const typeForDb = ALLOWED_DB_TYPES.has(originalType) ? originalType : "panic";
 
     const metadata =
       record.metadata && typeof record.metadata === "object"
@@ -729,17 +788,23 @@
       return;
     }
     const expanded = expandEventRecord(eventRecord);
+    const originalType =
+      (expanded.metadata && expanded.metadata.event_type) ||
+      expanded.type ||
+      type ||
+      "";
     const rawMeta =
       expanded.metadata && typeof expanded.metadata === "object"
         ? expanded.metadata
         : {};
     const metadata = Object.keys(rawMeta).length ? { ...rawMeta } : {};
-    if (!metadata.event_type) metadata.event_type = type;
-    const pushType = normalisePushType(type);
+    const normalizedEventType = String(originalType || "").toLowerCase();
+    if (!metadata.event_type) metadata.event_type = normalizedEventType || type;
+    const pushType = normalisePushType(originalType);
     const eventTimestamp =
       expanded.timestamp || expanded.created_at || new Date().toISOString();
     const eventPayload = {
-      type: pushType,
+      type: normalizedEventType || pushType,
       servicio_id: expanded.servicio_id,
       empresa: expanded.empresa,
       cliente: expanded.cliente,
@@ -751,8 +816,10 @@
       metadata,
       timestamp: eventTimestamp,
     };
-    const audience = resolvePushAudience(pushType, eventPayload);
-    const payload = buildClientNotificationPayload(pushType, eventPayload);
+    const audience =
+      (options && options.audience) ||
+      resolvePushAudience(pushType, eventPayload);
+    const payload = buildClientNotificationPayloadV2(pushType, eventPayload);
 
     const body = {
       type: pushType,
@@ -827,13 +894,14 @@
     const base = String(rawType || "").toLowerCase();
     if (base.startsWith("panic")) return "panic";
     if (base.startsWith("start")) return "start";
+    if (base.startsWith("reporte")) return "reporte_forzado";
     if (base.startsWith("checkin")) return "checkin";
     if (base.startsWith("heartbeat")) return "heartbeat";
     return "heartbeat";
   }
 
   function resolvePushAudience(pushType, eventPayload) {
-    if (pushType === "checkin") {
+    if (pushType === "checkin" || pushType === "reporte_forzado") {
       return {
         roles: ["CUSTODIA"],
         empresa: eventPayload.empresa || null,
