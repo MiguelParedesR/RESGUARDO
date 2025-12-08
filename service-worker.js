@@ -1,7 +1,7 @@
 /* service-worker.js — precache + runtime cache + offline fallback (safe) */
 
 // === BEGIN HU:HU-SW-UPDATE sw-versioning (NO TOCAR FUERA) ===
-const VERSION = "v1.1.255";
+const VERSION = "v1.1.256";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const TILE_CACHE = `tiles-${VERSION}`;
