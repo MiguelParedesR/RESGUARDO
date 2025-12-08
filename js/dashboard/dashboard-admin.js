@@ -5,6 +5,24 @@
 // @rationale Mantener dashboard admin alineado con sonido, pánico y check-in sin regresiones.
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Mitiga errores de extensiones que cierran canales de mensaje (chrome.runtime)
+  window.addEventListener(
+    "unhandledrejection",
+    (event) => {
+      const msg =
+        event?.reason?.message ||
+        (typeof event?.reason === "string" ? event.reason : "");
+      if (
+        msg &&
+        msg.includes("message channel closed before a response was received")
+      ) {
+        console.warn("[admin] ignorando error de extension:", msg);
+        event.preventDefault();
+      }
+    },
+    { once: true }
+  );
+
   const h = (v) =>
     String(v ?? "").replace(
       /[&<>"']/g,

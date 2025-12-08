@@ -9,26 +9,9 @@ const ROUTES = {
 const PIN_MIN = 4;
 const PIN_MAX = 5;
 
-/**
- * UI helper for snackbar fallback
- */
-function showMsg(message) {
-  const snackbar = document.getElementById("app-snackbar");
-  try {
-    if (snackbar && snackbar.MaterialSnackbar) {
-      snackbar.MaterialSnackbar.showSnackbar({ message });
-    } else {
-      alert(message);
-    }
-  } catch (_) {
-    alert(message);
-  }
-}
-
 function ensureSupabase() {
   if (!window.sb) {
     console.error("[login] Supabase client not available");
-    showMsg("Configura la conexion a Supabase antes de continuar.");
     return false;
   }
   return true;
@@ -62,8 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const pinCard = document.querySelector(".pin-card");
   const keypadButtons = document.querySelectorAll("[data-digit]");
   const deleteBtn = document.querySelector("[data-delete]");
-  const statusEl = document.getElementById("pin-status");
-  const helperEl = document.getElementById("pin-helper");
 
   let pinBuffer = "";
   let checkTimer = null;
@@ -113,7 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   renderDots();
-  setStatus("Listo para escribir.", "muted");
 
   function normalizePin(value) {
     return (value || "").replace(/\D/g, "").slice(0, PIN_MAX);
@@ -121,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setPin(value) {
     pinBuffer = normalizePin(value);
+    clearError();
     if (pinInput && pinInput.value !== pinBuffer) pinInput.value = pinBuffer;
     renderDots();
     scheduleCheck();
@@ -140,7 +121,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function removeDigit() {
     if (!pinBuffer.length) return;
     setPin(pinBuffer.slice(0, -1));
-    setStatus("Listo para escribir.", "muted");
   }
 
   function clearPin() {
@@ -150,14 +130,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function scheduleCheck() {
     if (checkTimer) clearTimeout(checkTimer);
     const len = pinBuffer.length;
-    if (!len) {
-      setStatus("Listo para escribir.", "muted");
-      return;
-    }
-    if (len < PIN_MIN) {
-      setStatus("El PIN necesita 4 o 5 digitos.", "muted");
-      return;
-    }
+    if (!len) return;
+    if (len < PIN_MIN) return;
     const delay =
       len === 4 ? DEBOUNCE_MS.long : len >= PIN_MAX ? DEBOUNCE_MS.short : DEBOUNCE_MS.short;
     checkTimer = setTimeout(() => runValidation(pinBuffer), delay);
@@ -165,33 +139,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function runValidation(pin) {
     if (pin.length < PIN_MIN) return;
-    const len = pin.length;
     const id = ++checkId;
-    const busyMsg = len === 4 ? "Validando PIN de custodia..." : "Validando PIN de usuario...";
-    setChecking(true, busyMsg);
+    setChecking(true);
     validatePin(pin, id).finally(() => {
       if (isCurrent(id)) setChecking(false);
     });
   }
 
-  function setChecking(flag, message) {
+  function setChecking(flag) {
     checking = flag;
     if (pinCard) pinCard.classList.toggle("is-busy", flag);
-    if (message) setStatus(message, flag ? "info" : "muted");
   }
 
   function isCurrent(id) {
     return id === checkId;
-  }
-
-  function setStatus(text, tone = "muted") {
-    if (statusEl) {
-      statusEl.textContent = text;
-      statusEl.setAttribute("data-tone", tone);
-    }
-    if (helperEl && !text) {
-      helperEl.textContent = "Ingresa tu PIN con el teclado numerico.";
-    }
   }
 
   function shakeDots() {
@@ -200,9 +161,17 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => pinDotsWrap.classList.remove("shake"), 360);
   }
 
+  function markError() {
+    if (pinDotsWrap) pinDotsWrap.classList.add("is-error");
+  }
+
+  function clearError() {
+    if (pinDotsWrap) pinDotsWrap.classList.remove("is-error");
+  }
+
   async function validatePin(pin, id) {
     if (!ensureSupabase()) {
-      shakeDots();
+      shakeAndClear();
       return;
     }
     try {
@@ -213,13 +182,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error("[login] validation error", err);
-      setStatus("No se pudo validar. Intenta de nuevo.", "error");
-      showMsg("No se pudo validar tu acceso. Intenta nuevamente.");
+      shakeAndClear();
     }
   }
 
   async function validateCustodia(pin, id) {
-    setStatus("Validando PIN de custodia...", "info");
     const { data, error } = await window.sb
       .from("custodia_login")
       .select("custodia_id,pin_last4")
@@ -229,19 +196,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (error) {
       console.error("[login] custodia pin", error);
-      setStatus("No se pudo validar el PIN.", "error");
-      showMsg("Error de conexion. Intenta nuevamente.");
+      shakeAndClear();
       return;
     }
 
     if (!data || !data.length) {
-      setStatus("PIN incorrecto o no registrado.", "error");
       shakeAndClear();
       return;
     }
 
     if (data.length > 1) {
-      setStatus("PIN duplicado. Contacta a un administrador.", "error");
       shakeAndClear();
       return;
     }
@@ -260,21 +224,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (error) {
       console.error("[login] custodia profile", error);
-      setStatus("No se pudo cargar tu perfil.", "error");
-      showMsg("No se pudo cargar tu perfil.");
+      shakeAndClear();
       return;
     }
 
     if (!data) {
-      setStatus("Perfil no encontrado.", "error");
       shakeAndClear();
       return;
     }
 
     if (data.is_active === false) {
-      setStatus("Tu perfil esta inactivo.", "error");
-      showMsg("Tu perfil esta inactivo. Contacta al administrador.");
-      clearPin();
+      shakeAndClear();
       return;
     }
 
@@ -293,15 +253,12 @@ document.addEventListener("DOMContentLoaded", () => {
     sessionStorage.setItem("auth_empresa", profile.empresa_label || "");
     localStorage.setItem("custodia_is_logged", "true");
 
-    setStatus("PIN correcto, redirigiendo...", "success");
-    showMsg("Bienvenido, custodia.");
     goHome("CUSTODIA");
   }
 
   async function validateUsuario(pin, id) {
-    setStatus("Validando PIN de usuario...", "info");
-    if (!/^[0-9]{5}$/.test(pin)) {
-      setStatus("PIN invalido.", "error");
+    const normalizedPin = (pin || "").trim();
+    if (!/^[0-9]{5}$/.test(normalizedPin)) {
       shakeAndClear();
       return;
     }
@@ -309,51 +266,52 @@ document.addEventListener("DOMContentLoaded", () => {
     const { data, error } = await window.sb
       .from("usuario")
       .select("id, role, is_active, created_at")
-      .eq("pin", pin)
+      .eq("pin", normalizedPin)
       .in("role", ["ADMIN", "CONSULTA"])
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
     if (!isCurrent(id)) return;
 
     if (error) {
       console.error("[login] usuario pin", error);
-      setStatus("No se pudo validar el PIN.", "error");
-      showMsg("No se pudo validar. Intenta nuevamente.");
-      return;
-    }
-
-    if (!data) {
-      setStatus("PIN incorrecto o no registrado.", "error");
       shakeAndClear();
       return;
     }
 
-    if (data.is_active === false) {
-      setStatus("Cuenta inactiva. Contacta al administrador.", "error");
-      showMsg("Tu usuario esta inactivo.");
-      clearPin();
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (!row) {
+      console.warn("[login] usuario pin no match", { pin: normalizedPin, status });
+      shakeAndClear();
       return;
     }
 
-    const role = (data.role || "").toUpperCase();
+    if (row.is_active === false) {
+      shakeAndClear();
+      return;
+    }
+
+    const role = (row.role || "").trim().toUpperCase();
     if (!ROUTES[role]) {
-      setStatus("Rol sin acceso configurado.", "error");
+      console.warn("[login] usuario pin role sin ruta", { role, pin });
       shakeAndClear();
       return;
     }
 
+    console.log("[login] usuario pin ok", { role, id: row.id });
     sessionStorage.setItem(CUSTODIA_SESSION_KEY, role);
-    sessionStorage.setItem("auth_usuario_id", data.id || "");
+    sessionStorage.setItem("auth_usuario_id", row.id || "");
 
-    setStatus("PIN correcto, redirigiendo...", "success");
-    showMsg(role === "ADMIN" ? "Bienvenido, Admin." : "Bienvenido.");
     goHome(role);
   }
 
   function shakeAndClear() {
+    markError();
     shakeDots();
-    setTimeout(() => clearPin(), 240);
+    setTimeout(() => {
+      clearPin();
+      clearError();
+    }, 260);
   }
 });
