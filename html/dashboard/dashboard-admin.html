@@ -63,6 +63,11 @@
                                         class="material-icons">tune</i> Filtros</button>
                                 <button id="btn-ver-todos" class="btn btn-ghost btn-ver-todos" title="Ver todos"><i
                                         class="material-icons">layers</i> Todos</button>
+                                <button id="no-report-badge" class="no-report-badge" type="button"
+                                    aria-label="Custodias sin reporte" hidden>
+                                    <i class="material-icons" aria-hidden="true">warning</i>
+                                    <span class="no-report-badge__count" id="no-report-count">0</span>
+                                </button>
                                 <span class="lbl" id="count-label">0</span>
                             </div>
                         </div>
@@ -147,6 +152,19 @@
 
                         <div class="map-overlay" hidden></div>
                         <div id="map-admin"></div>
+
+                        <div id="no-report-modal" class="no-report-modal" aria-hidden="true">
+                            <div class="no-report__backdrop" data-no-report-close="backdrop"></div>
+                            <article class="no-report__dialog" role="dialog" aria-modal="true"
+                                aria-labelledby="no-report-title">
+                                <button type="button" class="no-report__close" data-no-report-close="close"
+                                    aria-label="Cerrar listado">
+                                    <i class="material-icons" aria-hidden="true">close</i>
+                                </button>
+                                <h3 id="no-report-title" class="no-report__title">Custodias sin reporte</h3>
+                                <div id="no-report-list" class="no-report__list"></div>
+                            </article>
+                        </div>
 
                         <div class="details" id="details">
                             <div><strong>Empresa:</strong> --</div>

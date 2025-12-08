@@ -33,7 +33,7 @@
   <script defer src="../../config.js"></script>
   <script defer src="../../js/lib/permissions.js"></script>
 
-  <!-- Protecci├│n + L├│gica -->
+  <!-- Protecci+¦n + L+¦gica -->
   <script defer src="../../modules/alarma/alarma.js"></script>
   <script defer src="../../js/lib/router-local.js"></script>
   <script defer src="../../js/lib/app-header.js"></script>
@@ -93,7 +93,7 @@
         <div class="alarma-route__backdrop" data-ruta-alert-close="backdrop"></div>
         <article class="alarma-route__card" role="dialog" aria-modal="true" aria-labelledby="ruta-alert-title">
           <header class="alarma-route__head">
-            <p class="alarma-route__eyebrow">Desv├¡o detectado</p>
+            <p class="alarma-route__eyebrow">Desv+¡o detectado</p>
             <button type="button" class="alarma-route__close" data-ruta-alert-close="close"
               aria-label="Cerrar alerta de ruta">
               <i class="material-icons" aria-hidden="true">close</i>
@@ -102,7 +102,7 @@
           <div class="alarma-route__body">
             <h3 id="ruta-alert-title" class="alarma-route__title">Te has desviado de la ruta establecida</h3>
             <p id="ruta-alert-copy" class="alarma-route__copy">
-              Verifica tu posici├│n y regresa al trazo indicado para continuar con el servicio.
+              Verifica tu posici+¦n y regresa al trazo indicado para continuar con el servicio.
             </p>
             <p id="ruta-alert-meta" class="alarma-route__meta" aria-live="polite"></p>
           </div>
@@ -127,23 +127,33 @@
             </div>
             <div class="extreme-report__titles">
               <p class="extreme-report__eyebrow">Alerta extrema</p>
-              <h2 id="extreme-report-title" class="extreme-report__title">¡REPORTESE AHORA!</h2>
+              <h2 id="extreme-report-title" class="extreme-report__title">REPORTESE AHORA</h2>
+              <p class="extreme-report__meta" id="extreme-report-meta">Tu centro de control espera tu respuesta.</p>
             </div>
           </header>
-          <p class="extreme-report__copy">
-            Tu centro de control exige una confirmación inmediata. Envía un audio corto o confirma tu estado a la brevedad.
-          </p>
-          <div class="extreme-report__actions">
-            <button type="button" id="extreme-report-audio" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
-              ENVIAR AUDIO
-            </button>
-            <button type="button" id="extreme-report-safe" class="mdl-button mdl-js-button extreme-report__secondary" data-extreme-report-close="safe">
-              Estoy seguro
-            </button>
+          <div class="extreme-report__body">
+            <p class="extreme-report__copy">
+              Tu centro de control exige una confirmacion inmediata. Envia un audio corto o confirma tu estado a la brevedad.
+            </p>
+            <div class="extreme-report__actions">
+              <button type="button" id="extreme-report-audio" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
+                ENVIAR AUDIO
+              </button>
+              <button type="button" id="extreme-report-safe" class="mdl-button mdl-js-button extreme-report__secondary" data-extreme-report-close="safe">
+                Enviar texto
+              </button>
+            </div>
+            <div class="extreme-report__text" aria-hidden="true">
+              <label for="extreme-report-text-input" class="extreme-report__text-label">No puedo hablar, enviare un texto:</label>
+              <textarea id="extreme-report-text-input" class="extreme-report__text-input" rows="3" placeholder="Ej. Situacion controlada, sigo en ruta asignada."></textarea>
+              <div class="extreme-report__text-actions">
+                <button type="button" id="extreme-report-text-send" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Enviar texto</button>
+                <button type="button" class="extreme-report__text-cancel" data-extreme-report-text-cancel>Cancelar</button>
+              </div>
+            </div>
           </div>
         </article>
-      </section>
-      <!-- === END HU:HU-REPORTESE-EXTREMO-FRONT === -->
+      </section><!-- === END HU:HU-REPORTESE-EXTREMO-FRONT === -->
 
       <div id="app-snackbar" class="mdl-js-snackbar mdl-snackbar">
         <div class="mdl-snackbar__text"></div>
@@ -383,7 +393,7 @@
                 <i class="material-icons" aria-hidden="true">photo_camera</i>
               </button>
               <img id="am-preview" class="selfie-thumb" alt="Selfie tomada" hidden />
-              <p class="selfie-hint">Presiona el bot├│n para habilitar la c├ímara y captura la selfie.</p>
+              <p class="selfie-hint">Presiona el bot+¦n para habilitar la c+ímara y captura la selfie.</p>
             </div>
             <!-- === END HU:HU-CAMERA-COMPACT-UI === -->
             <div class="cam-actions">
@@ -668,3 +678,17 @@
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

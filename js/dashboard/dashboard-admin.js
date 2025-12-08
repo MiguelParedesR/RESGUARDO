@@ -9,18 +9,20 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener(
     "unhandledrejection",
     (event) => {
-      const msg =
+      const msgRaw =
         event?.reason?.message ||
-        (typeof event?.reason === "string" ? event.reason : "");
+        (typeof event?.reason === "string" ? event.reason : "") ||
+        (event?.reason ? String(event.reason) : "");
+      const msg = (msgRaw || "").toLowerCase();
       if (
-        msg &&
-        msg.includes("message channel closed before a response was received")
+        msg.includes("message channel closed") ||
+        msg.includes("channel closed before a response was received")
       ) {
         console.warn("[admin] ignorando error de extension:", msg);
         event.preventDefault();
       }
     },
-    { once: true }
+    { capture: true }
   );
 
   const h = (v) =>
@@ -135,6 +137,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const PING_FRESH_MIN = 10;
   const LATE_REPORT_MIN = 16;
   const REPORT_RETRY_MS = 60000;
+  const CHECKIN_WARN_MIN = 15;
+  const CHECKIN_CRITICAL_MIN = 16;
+  const STATUS_REFRESH_MS = 60000;
   let selectedId = null;
   let overviewLayer = null,
     focusLayer = null,
@@ -150,6 +155,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let alarmaUnsubscribe = null;
   const serviceFlags = new Map();
   const lateReportTimers = new Map();
+  let custodiaStatusTimer = null;
+  let noReportCache = [];
   let alertsEnabled = false;
   const canUseRealtime = () =>
     window.APP_CONFIG?.REALTIME_OK !== false && Boolean(window.sb?.channel);
@@ -513,21 +520,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     filtersDrawer.addEventListener("transitionend", onEnd);
   }
-  btnFiltros?.addEventListener("click", (e) => {
-    e.preventDefault();
-    openFiltersDrawer();
-  });
-  btnFiltrosMobile?.addEventListener("click", (e) => {
-    e.preventDefault();
-    toggleInlineFilters();
-  });
-  drawerCloseBtn?.addEventListener("click", () => closeFiltersDrawer());
-  mapOverlay?.addEventListener("click", () => closeFiltersDrawer());
-  document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
-      closeFiltersDrawer();
-    }
-  });
   if (isDesktop()) {
     ensureMap();
   } else {
@@ -722,6 +714,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const metricPing = document.getElementById("metric-ping");
   const metricEstado = document.getElementById("metric-estado");
   const details = document.getElementById("details");
+  const DEBUG_LOGS =
+    (window.APP_CONFIG && window.APP_CONFIG.DEBUG_LOGS === true) ||
+    (function () {
+      try {
+        return localStorage.getItem("admin.debug") === "true";
+      } catch (_) {
+        return false;
+      }
+    })();
+  const noReportBadge = document.getElementById("no-report-badge");
+  const noReportCount = document.getElementById("no-report-count");
+  const noReportModal = document.getElementById("no-report-modal");
+  const noReportList = document.getElementById("no-report-list");
+  const noReportBackdrop = document.querySelector(".no-report__backdrop");
+  const noReportCloseBtns = document.querySelectorAll("[data-no-report-close]");
 
   // Mapa
   function initMap() {
@@ -788,6 +795,40 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   relocateFilters();
 
+  btnFiltros?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openFiltersDrawer();
+  });
+  btnFiltrosMobile?.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleInlineFilters();
+  });
+  drawerCloseBtn?.addEventListener("click", () => closeFiltersDrawer());
+  mapOverlay?.addEventListener("click", () => closeFiltersDrawer());
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") {
+      closeFiltersDrawer();
+      if (isNoReportModalOpen()) {
+        closeNoReportModal();
+      }
+    }
+  });
+  noReportBadge?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openNoReportModal();
+  });
+  noReportBackdrop?.addEventListener("click", () => closeNoReportModal());
+  noReportCloseBtns.forEach((btn) =>
+    btn.addEventListener("click", () => closeNoReportModal())
+  );
+  noReportList?.addEventListener("click", (ev) => {
+    const alertBtn = ev.target.closest("[data-act='alert']");
+    if (alertBtn) {
+      ev.preventDefault();
+      handleAdminAlertClick(alertBtn);
+    }
+  });
+
   function toggleInlineFilters() {
     if (!filtersInlineHost) return;
     const willOpen = !filtersInlineHost.classList.contains("open");
@@ -814,6 +855,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
   const minDiff = (a, b) => Math.round((a - b) / 60000);
+  const formatMinutesAgo = (mins) => {
+    if (!Number.isFinite(mins)) return "sin reporte";
+    if (mins <= 0) return "hace instantes";
+    if (mins === 1) return "hace 1 min";
+    return `hace ${mins} min`;
+  };
   function normPing(row) {
     if (!row) return null;
     const lat = row.lat ?? row.latitude ?? row.latitud ?? row.y ?? null;
@@ -974,8 +1021,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       servicesCache = enrichedNorm;
       updateLateReportFlags(enrichedNorm);
+      applyCustodiaStatuses(enrichedNorm, "load");
       servicesLoaded = true;
       renderList(enrichedNorm);
+      startCustodiaStatusTicker();
       // === BEGIN HU:HU-MAP-MARKERS-ALL marker refresh hook (NO TOCAR FUERA) ===
       await refreshMarkersState("services-load");
       // === END HU:HU-MAP-MARKERS-ALL ===
@@ -1159,6 +1208,112 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // === END HU:HU-SOLICITUD-REPORTE ===
 
+  function getCustodiaState(servicioId) {
+    const flags = serviceFlags.get(String(servicioId));
+    return flags?.custodiaStatus || null;
+  }
+
+  function computeCustodiaStatusForService(servicio, nowMs) {
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const custodios = Array.isArray(servicio?.custodios)
+      ? servicio.custodios
+      : [];
+    const entries = [];
+    let level = "normal";
+    let maxDiff = null;
+    custodios.forEach((cust) => {
+      const ts =
+        cust?.lastPing?.captured_at ||
+        cust?.lastPing?.created_at ||
+        cust?.lastPing?.fecha ||
+        null;
+      const stamp = ts ? new Date(ts).getTime() : NaN;
+      const diff = Number.isFinite(stamp)
+        ? Math.max(0, Math.round((now - stamp) / 60000))
+        : Number.POSITIVE_INFINITY;
+      const status =
+        diff >= CHECKIN_CRITICAL_MIN || !Number.isFinite(diff)
+          ? "critical"
+          : diff > CHECKIN_WARN_MIN
+          ? "warning"
+          : "normal";
+      if (status === "critical") level = "critical";
+      else if (status === "warning" && level === "normal") level = "warning";
+      if (Number.isFinite(diff)) {
+        maxDiff = maxDiff == null ? diff : Math.max(maxDiff, diff);
+      }
+      entries.push({
+        servicioId: servicio?.id || null,
+        servicioCustodioId:
+          cust?.id || cust?.servicio_custodio_id || cust?.sc_id || null,
+        nombre: (cust?.nombre_custodio || "Custodia").trim() || "Custodia",
+        tipo: cust?.tipo_custodia || "",
+        diffMin: diff,
+        status,
+        cliente: servicio?.cliente?.nombre || "",
+        placa: servicio?.placa || servicio?.placa_upper || "",
+        empresa: servicio?.empresa || "",
+      });
+    });
+    const critical = entries.filter((e) => e.status === "critical");
+    const warning = entries.filter((e) => e.status === "warning");
+    return {
+      level,
+      maxDiff,
+      entries,
+      critical,
+      warning,
+      computedAt: now,
+      reason: level === "critical" ? "tardy" : "ok",
+    };
+  }
+
+  function applyCustodiaStatuses(services, reason = "manual") {
+    const now = Date.now();
+    const critical = [];
+    if (Array.isArray(services)) {
+      services.forEach((svc) => {
+        const state = computeCustodiaStatusForService(svc, now);
+        updateServiceFlag(svc.id, "custodiaStatus", state);
+        if (state.critical?.length) {
+          state.critical.forEach((item) => critical.push(item));
+        }
+      });
+    }
+    noReportCache = critical;
+    updateNoReportBadge();
+    if (reason === "tick") {
+      refreshList();
+    }
+  }
+
+  function startCustodiaStatusTicker() {
+    stopCustodiaStatusTicker();
+    custodiaStatusTimer = setInterval(() => {
+      if (!servicesLoaded) return;
+      applyCustodiaStatuses(servicesCache, "tick");
+    }, STATUS_REFRESH_MS);
+  }
+
+  function stopCustodiaStatusTicker() {
+    if (custodiaStatusTimer) {
+      clearInterval(custodiaStatusTimer);
+      custodiaStatusTimer = null;
+    }
+  }
+
+  function updateNoReportBadge() {
+    if (!noReportBadge || !noReportCount) return;
+    const count = noReportCache.length;
+    noReportCount.textContent = String(count);
+    noReportBadge.hidden = count === 0;
+    noReportBadge.setAttribute("aria-hidden", count === 0 ? "true" : "false");
+    noReportBadge.classList.toggle("is-critical", count > 0);
+    if (isNoReportModalOpen()) {
+      renderNoReportList();
+    }
+  }
+
   function getLateReportState(servicioId) {
     const flags = serviceFlags.get(String(servicioId));
     const state = flags?.reportLate;
@@ -1315,6 +1470,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const flags = serviceFlags.get(String(s.id));
       if (flags?.panic) card.classList.add("alarma-card--panic");
       if (flags?.checkinPending) card.classList.add("alarma-card--flash");
+      const custState = getCustodiaState(s.id);
+      if (custState?.level === "critical") card.classList.add("card-critical");
+      else if (custState?.level === "warning")
+        card.classList.add("card-warning");
       const badgesHtml = renderAlertBadges(s.id) || "";
       const custodiosLabel = describeCustodios(s.custodios);
       const tipoLabel = getTipoEtiqueta(s);
@@ -1323,17 +1482,21 @@ document.addEventListener("DOMContentLoaded", () => {
       let pingLabel = "-",
         pingClass = "ping-ok",
         alertNow = false;
-      if (s.lastPing?.created_at) {
-        const mins = minDiff(new Date(), new Date(s.lastPing.created_at));
-        pingLabel = `${mins} min`;
-        if (mins >= STALE_MIN && s.estado === "ACTIVO") {
-          pingClass = "ping-warn";
+      if (custState) {
+        pingLabel =
+          custState.maxDiff == null && !custState.entries?.length
+            ? "-"
+            : formatMinutesAgo(
+                Number.isFinite(custState.maxDiff)
+                  ? custState.maxDiff
+                  : Number.POSITIVE_INFINITY
+              );
+        if (custState.level === "critical" && s.estado === "ACTIVO") {
+          pingClass = "ping-critical";
           alertNow = true;
+        } else if (custState.level === "warning" && s.estado === "ACTIVO") {
+          pingClass = "ping-warning";
         }
-      } else if (s.estado === "ACTIVO") {
-        pingLabel = "sin datos";
-        pingClass = "ping-warn";
-        alertNow = true;
       }
       if (alertNow) {
         if (!beeped.has(s.id)) {
@@ -1346,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const tagClass =
         s.estado === "FINALIZADO"
           ? "t-final"
-          : pingClass === "ping-warn"
+          : pingClass !== "ping-ok"
           ? "t-alerta"
           : "t-activo";
       card.innerHTML = `
@@ -1411,6 +1574,127 @@ document.addEventListener("DOMContentLoaded", () => {
     if (servicesLoaded) {
       renderList(servicesCache);
     }
+  }
+
+  function isNoReportModalOpen() {
+    return noReportModal?.classList?.contains("is-open");
+  }
+
+  function openNoReportModal() {
+    if (!noReportModal) return;
+    renderNoReportList();
+    noReportModal.classList.add("is-open");
+    noReportModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeNoReportModal() {
+    if (!noReportModal) return;
+    noReportModal.classList.remove("is-open");
+    noReportModal.setAttribute("aria-hidden", "true");
+  }
+
+  function renderNoReportList() {
+    if (!noReportList) return;
+    noReportList.innerHTML = "";
+    if (!noReportCache.length) {
+      noReportList.innerHTML =
+        "<p class=\"no-report__empty\">Sin custodias pendientes.</p>";
+      return;
+    }
+    noReportCache.forEach((row) => {
+      const diffText = formatMinutesAgo(
+        Number.isFinite(row.diffMin) ? row.diffMin : Number.POSITIVE_INFINITY
+      );
+      const btnDisabled = row.servicioCustodioId ? "" : "disabled";
+      const alertLabel = h(
+        `Enviar alerta a ${row.nombre || "custodia"}`
+      );
+      const item = document.createElement("div");
+      item.className = "no-report__row";
+      item.innerHTML = `
+        <div class="no-report__info">
+          <p class="no-report__name">${h(row.nombre || "Custodia")}</p>
+          <p class="no-report__meta">${h(
+            row.tipo || "Tipo -"
+          )} · ${h(row.cliente || "-")} · ${h(row.placa || "Sin placa")}</p>
+          <p class="no-report__time">Último reporte: ${h(diffText)}</p>
+        </div>
+        <button class="btn btn-icon no-report__alert" data-act="alert" data-sid="${
+          row.servicioId
+        }" data-sc="${row.servicioCustodioId || ""}" ${btnDisabled} aria-label="${alertLabel}">
+          <i class="material-icons" aria-hidden="true">campaign</i>
+          <span class="sr-only">Enviar alerta</span>
+        </button>`;
+      noReportList.appendChild(item);
+    });
+  }
+
+  async function handleAdminAlertClick(button) {
+    if (!button) return;
+    const servicioId = button.dataset.sid;
+    const servicioCustodioId = button.dataset.sc;
+    if (!servicioId || !servicioCustodioId) return;
+    button.disabled = true;
+    button.classList.add("is-working");
+    try {
+      const { custodia } = await sendAdminAlert(servicioId, servicioCustodioId);
+      const nombre = custodia?.nombre_custodio || "Custodia";
+      showMsg(`Alerta enviada a ${nombre}`);
+      const icon = button.querySelector(".material-icons");
+      if (icon) icon.textContent = "check";
+      button.classList.add("is-sent");
+    } catch (err) {
+      console.warn("[admin][alert] send error", err);
+      showMsg("No se pudo enviar la alerta. Intenta nuevamente.");
+      button.disabled = false;
+    } finally {
+      button.classList.remove("is-working");
+    }
+  }
+
+  function buildAdminAlertPayload(servicioId, servicioCustodioId) {
+    const svc = servicesCache.find(
+      (item) => String(item.id) === String(servicioId)
+    );
+    const custodia =
+      svc?.custodios?.find(
+        (c) =>
+          String(c.id || c.servicio_custodio_id) ===
+          String(servicioCustodioId || "")
+      ) || null;
+    if (!svc) return null;
+    return {
+      payload: {
+        servicio_id: svc.id,
+        servicio_custodio_id: servicioCustodioId,
+        empresa: svc.empresa || null,
+        cliente: svc.cliente?.nombre || null,
+        placa: svc.placa || svc.placa_upper || null,
+        tipo: custodia?.tipo_custodia || svc.tipo || null,
+        metadata: {
+          event_type: "reporte_forzado",
+          origin: "dashboard-admin",
+          channel: "panic-admin",
+          target_sc_id: servicioCustodioId,
+          target_custodia_id: custodia?.custodia_id || null,
+          alert_kind: "panic_admin",
+        },
+      },
+      custodia,
+      servicio: svc,
+    };
+  }
+
+  async function sendAdminAlert(servicioId, servicioCustodioId) {
+    const built = buildAdminAlertPayload(servicioId, servicioCustodioId);
+    if (!built?.payload) {
+      throw new Error("Servicio o custodia no encontrada");
+    }
+    if (typeof window.Alarma?.emit !== "function") {
+      throw new Error("Modulo de alarma no disponible");
+    }
+    await window.Alarma.emit("reporte_forzado", built.payload);
+    return built;
   }
 
   function selectService(s) {
@@ -1596,14 +1880,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function showDetails(s) {
     mapTitle.textContent = formatTitle(s);
-    if (s.lastPing?.created_at) {
-      const mins = minDiff(new Date(), new Date(s.lastPing.created_at));
-      metricPing.textContent = `${mins} min`;
-      metricPing.className =
-        mins >= STALE_MIN && s.estado === "ACTIVO" ? "ping-warn" : "ping-ok";
+    const custState = getCustodiaState(s.id);
+    if (custState) {
+      const label =
+        custState.maxDiff == null && !custState.entries?.length
+          ? "-"
+          : formatMinutesAgo(
+              Number.isFinite(custState.maxDiff)
+                ? custState.maxDiff
+                : Number.POSITIVE_INFINITY
+            );
+      metricPing.textContent = label;
+      if (custState.level === "critical" && s.estado === "ACTIVO") {
+        metricPing.className = "ping-critical";
+      } else if (custState.level === "warning" && s.estado === "ACTIVO") {
+        metricPing.className = "ping-warning";
+      } else {
+        metricPing.className = "ping-ok";
+      }
     } else {
       metricPing.textContent = s.estado === "ACTIVO" ? "sin datos" : "-";
-      metricPing.className = s.estado === "ACTIVO" ? "ping-warn" : "";
+      metricPing.className = s.estado === "ACTIVO" ? "ping-warning" : "";
     }
     metricEstado.textContent = s.estado;
     const custodiosTexto = describeCustodios(s.custodios);
@@ -1688,11 +1985,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // === BEGIN HU:HU-PANICO-MODAL-UNICO panic handler (no tocar fuera) ===
   function handleAlarmaEvent(evt) {
     if (!evt) return;
-    if (evt.type === "reporte_forzado") {
+    const metaTypeRaw =
+      evt?.record?.metadata?.event_type || evt?.record?.metadata?.channel || "";
+    const metaType =
+      typeof metaTypeRaw === "string" ? metaTypeRaw.toLowerCase() : "";
+    const eventType = (evt.type || metaType || "").toLowerCase();
+    const metaOrigin =
+      evt?.record?.metadata?.origin || evt?.record?.origin || evt?.event?.origin;
+    if (eventType === "reporte_forzado") {
+      if (metaOrigin === "dashboard-admin") return;
       applyLateReportRemote(evt);
       return;
     }
-    if (evt.type === "reporte_forzado_ack") {
+    if (eventType === "reporte_forzado_ack") {
       const sid = extractServicioIdFromEvent(evt);
       if (sid) {
         clearLateReport(sid);
@@ -1700,7 +2005,27 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
+    if (eventType === "checkin_missed" && evt.record?.servicio_id) {
+      updateServiceFlag(evt.record.servicio_id, "checkinPending", true);
+      refreshList();
+      return;
+    }
+    if (eventType === "checkin_ok" && evt.record?.servicio_id) {
+      updateServiceFlag(evt.record.servicio_id, "checkinPending", false);
+      clearLateReport(evt.record.servicio_id);
+      refreshList();
+      return;
+    }
     if (evt.type === "panic") {
+      if (metaType === "checkin_missed" && evt.record?.servicio_id) {
+        updateServiceFlag(evt.record.servicio_id, "checkinPending", true);
+        refreshList();
+        return;
+      }
+      if (metaType === "reporte_forzado" && metaOrigin === "dashboard-admin") {
+        console.log("[panic] skip admin self-triggered reporte_forzado");
+        return;
+      }
       lastPanicRecord = evt.record || evt.payload || evt;
       console.log("[panic] recibido en admin", {
         servicio_id: lastPanicRecord?.servicio_id,
@@ -1744,14 +2069,7 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshList();
       }
     }
-    if (evt.type === "checkin_missed" && evt.record?.servicio_id) {
-      updateServiceFlag(evt.record.servicio_id, "checkinPending", true);
-      refreshList();
-    } else if (evt.type === "checkin_ok" && evt.record?.servicio_id) {
-      updateServiceFlag(evt.record.servicio_id, "checkinPending", false);
-      clearLateReport(evt.record.servicio_id);
-      refreshList();
-    } else if (evt.type === "ruta_desviada") {
+    if (eventType === "ruta_desviada") {
       const record = normalizeRouteDeviationRecord(evt.record || evt.payload || evt);
       handleRouteDeviation(record);
     }
@@ -2189,15 +2507,20 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         alarmaUnsubscribe?.();
       } catch (e) {}
+      try {
+        stopCustodiaStatusTicker();
+      } catch (e) {}
     });
     loadServices();
   }
   setupRealtime();
   initAlarmaIntegration();
-  console.log("[QA] markers general/servicio OK");
-  console.log("[QA] tooltip nombre OK");
-  console.log("[QA] modal único de pánico OK");
-  console.log("[QA] sirena + TTS en bucle OK");
+  if (DEBUG_LOGS) {
+    console.log("[QA] markers general/servicio OK");
+    console.log("[QA] tooltip nombre OK");
+    console.log("[QA] modal único de pánico OK");
+    console.log("[QA] sirena + TTS en bucle OK");
+  }
 });
 
   function extractServicioIdFromEvent(evt) {

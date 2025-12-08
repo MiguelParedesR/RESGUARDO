@@ -1,4 +1,4 @@
-// mapa.js - Seguimiento en tiempo real del resguardo
+﻿// mapa.js - Seguimiento en tiempo real del resguardo
 // Requiere: window.sb (config.js) y Leaflet cargado en la pagina.
 // La pagina debe tener: <div id="map-track"></div>, <span id="distancia-label"></span>, <button id="btn-finalizar"></button>
 
@@ -122,11 +122,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }) => {
     console.assert(
       typeof servicioIdArg === "string",
-      "[task][HU-FIX-PGRST203] servicioId inválido"
+      "[task][HU-FIX-PGRST203] servicioId invÃ¡lido"
     );
     console.assert(
       typeof lat === "number" && typeof lng === "number",
-      "[task][HU-FIX-PGRST203] lat/lng inválidos"
+      "[task][HU-FIX-PGRST203] lat/lng invÃ¡lidos"
     );
     const body = {
       p_servicio_id: servicioIdArg,
@@ -194,6 +194,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const extremeReportEl = document.getElementById("extreme-report");
   const extremeReportAudioBtn = document.getElementById("extreme-report-audio");
   const extremeReportSafeBtn = document.getElementById("extreme-report-safe");
+  const extremeReportMeta = document.getElementById("extreme-report-meta");
+  const extremeReportTitle = document.getElementById("extreme-report-title");
+  const extremeReportCopy = document.querySelector(".extreme-report__copy");
+  const extremeReportText = document.querySelector(".extreme-report__text");
+  const extremeReportTextInput = document.getElementById(
+    "extreme-report-text-input"
+  );
+  const extremeReportTextSend = document.getElementById(
+    "extreme-report-text-send"
+  );
+  const extremeReportTextCancel = document.querySelector(
+    "[data-extreme-report-text-cancel]"
+  );
   // === END HU:HU-REPORTESE-EXTREMO-FRONT ===
   // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
   setupExtremeReportModal();
@@ -212,9 +225,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     wakeLock: null,
     record: null,
     notification: null,
-    safeBusy: false,
+    textBusy: false,
+    textValue: "",
+    mode: "default",
   };
   // === END HU:HU-REPORTESE-EXTREMO-FRONT ===
+  const EXTREME_TITLE_DEFAULT = "REPORTESE AHORA";
+  const EXTREME_COPY_DEFAULT = "Tu centro de control exige una confirmacion inmediata. Envia un audio corto o confirma tu estado a la brevedad.";
+  const EXTREME_TITLE_PANIC = "ALERTA DE PANICO";
+  const EXTREME_COPY_PANIC = "El administrador envio una alerta prioritaria. Cierra otras alertas y responde de inmediato.";
+  const EXTREME_TITLE_URGENT = "REPORTESE URGENTE";
+  const EXTREME_COPY_URGENT = "No hemos recibido tu respuesta. Envia un audio o texto de inmediato para confirmar tu estado.";
   // === BEGIN HU:HU-MAPA-CARRITO Mapa-resguardo: icono carrito (NO TOCAR FUERA) ===
   const ICON = {
     carrito: L.icon({
@@ -235,6 +256,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   let checkinSubStop = null;
   let lastCheckinAt = null;
   let localCheckinAttempt = 0;
+  let alarmPollTimer = null;
+  let lastAlarmAt = 0;
+  const alarmSeenIds = new Set();
   /* === END HU:HU-CHECKIN-15M === */
   // === BEGIN HU:HU-CHECKIN-15M mapa init (NO TOCAR FUERA) ===
   if (hasAlarma) {
@@ -283,6 +307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let rutaClienteLayer = null;
   // === END HU:HU-RUTA-DESVIO-FRONT-CUSTODIA ===
   let lastSent = 0;
+  let alarmFallbackActive = false;
   let servicioChannel = null;
   let finishModal = null;
   const custodiosCache = { data: [], fetchedAt: 0 };
@@ -382,7 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     custodiosListEl.innerHTML = "";
     if (!list?.length) {
       custodiosListEl.innerHTML =
-        "<p class='cust-empty'>Este servicio aún no tiene custodias registradas.</p>";
+        "<p class='cust-empty'>Este servicio aÃºn no tiene custodias registradas.</p>";
       return;
     }
     list.forEach((item) => {
@@ -400,7 +425,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "Empresa sin asignar";
       info.innerHTML = `
         <p class="cust-name">${nombre}</p>
-        <p class="cust-meta">${item.tipo_custodia || "Sin tipo"} · ${empresa}</p>
+        <p class="cust-meta">${item.tipo_custodia || "Sin tipo"} Â· ${empresa}</p>
         <p class="cust-meta">Registrado: ${formatRelativeTime(
           item.created_at
         )}</p>
@@ -507,6 +532,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       initMap();
       subscribeServicio();
       initCheckinMonitoring();
+      startAlarmFallback();
     } catch (err) {
       console.error("[mapa] cargarServicio error", err);
       showMsg("No se pudo cargar el servicio");
@@ -889,8 +915,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const evtServicioId =
       record.servicio_id || record.servicioId || evt.servicio_id;
     if (evtServicioId && String(evtServicioId) !== servicioId) return;
+    if (!matchesTargetCustodia(record)) return;
     if (evt.type === "reporte_forzado") {
-      handleExtremeReportRecord(record);
+      const isAdminAlert =
+        record?.metadata?.alert_kind === "panic_admin" ||
+        record?.metadata?.channel === "panic-admin";
+      if (isAdminAlert) {
+        handleAdminPanic(record);
+      } else {
+        handleExtremeReportRecord(record);
+      }
       return;
     }
     if (evt.type === "reporte_forzado_ack") {
@@ -921,6 +955,104 @@ document.addEventListener("DOMContentLoaded", async () => {
       localCheckinAttempt = Math.max(localCheckinAttempt, attempt);
       lastCheckinAt = Date.now();
       scheduleLocalCheckin("push");
+    }
+  }
+
+  function matchesTargetCustodia(record) {
+    const meta = record?.metadata || {};
+    const targetSc =
+      meta.target_sc_id ||
+      meta.servicio_custodio_id ||
+      meta.target_scid ||
+      meta.servicio_custodio;
+    if (record?.servicio_custodio_id && !targetSc) {
+      const matches = String(record.servicio_custodio_id) === String(servicioCustodioId);
+      if (!matches) return false;
+    }
+    if (targetSc && String(targetSc) !== String(servicioCustodioId)) {
+      return false;
+    }
+    const targetCust = meta.target_custodia_id || meta.custodia_id;
+    if (
+      targetCust &&
+      custodiaIdActual &&
+      String(targetCust) !== String(custodiaIdActual)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function handleAdminPanic(record) {
+    try {
+      window.Alarma?.closeCheckinPrompt?.("admin-panic");
+    } catch (_) {}
+    clearLocalCheckinTimer("admin-panic");
+    handleExtremeReportRecord(record);
+  }
+
+  function startAlarmFallback() {
+    stopAlarmFallback("restart");
+    if (!window.sb) return;
+    alarmFallbackActive = true;
+    const seed = Date.now() - 5 * 60 * 1000;
+    lastAlarmAt = seed;
+    alarmPollTimer = setInterval(() => {
+      pollAlarmEvents().catch((err) =>
+        console.warn("[alarm-poll] error", err?.message || err)
+      );
+    }, 20000);
+    pollAlarmEvents().catch(() => {});
+  }
+
+  function stopAlarmFallback(reason = "stop") {
+    alarmFallbackActive = false;
+    if (alarmPollTimer) {
+      clearInterval(alarmPollTimer);
+      alarmPollTimer = null;
+    }
+  }
+
+  async function pollAlarmEvents() {
+    if (!alarmFallbackActive || !window.sb || !servicioId) return;
+    const now = Date.now();
+    try {
+      // Usa la función RPC provista por Supabase para filtrar por JWT
+      const { data, error } = await window.sb.rpc(
+        "get_panic_alarm_events_from_jwt",
+        {}
+      );
+      if (error) throw error;
+      const rows = Array.isArray(data) ? [...data].reverse() : [];
+      let maxTs = lastAlarmAt || 0;
+      rows.forEach((row) => {
+        if (row?.id && alarmSeenIds.has(row.id)) return;
+        if (row?.id) {
+          alarmSeenIds.add(row.id);
+          if (alarmSeenIds.size > 100) {
+            const firstKey = alarmSeenIds.values().next().value;
+            alarmSeenIds.delete(firstKey);
+          }
+        }
+        const ts = new Date(row?.created_at || now).getTime();
+        if (Number.isFinite(ts) && ts > maxTs) maxTs = ts;
+        const metaType =
+          row?.metadata && typeof row.metadata.event_type === "string"
+            ? row.metadata.event_type
+            : row?.type;
+        const normalizedType = (metaType || row?.type || "").toLowerCase();
+        if (normalizedType === "panic") {
+          if (matchesTargetCustodia(row)) {
+            handleAdminPanic(row);
+          }
+        }
+      });
+      if (Number.isFinite(maxTs) && maxTs > 0) {
+        lastAlarmAt = Math.min(maxTs, now);
+      }
+    } catch (err) {
+      console.warn("[alarm-poll] request fail", err?.message || err);
+      lastAlarmAt = now - 2 * 60 * 1000;
     }
   }
 
@@ -1024,12 +1156,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* === END HU:HU-CHECKIN-15M === */
 
   /* === BEGIN HU:HU-REPORTESE-EXTREMO-FRONT (NO TOCAR FUERA) === */
-  // Configura modal y listeners del flujo "Repórtese extremo".
+  // Configura modal y listeners del flujo "RepÃ³rtese extremo".
   function setupExtremeReportModal() {
     if (!extremeReportEl) return;
     extremeReportEl.setAttribute("aria-hidden", "true");
     extremeReportAudioBtn?.addEventListener("click", handleExtremeAudioAction);
     extremeReportSafeBtn?.addEventListener("click", handleExtremeSafeAction);
+    extremeReportTextSend?.addEventListener("click", handleExtremeTextSubmit);
+    extremeReportTextCancel?.addEventListener("click", () =>
+      closeExtremeTextArea(true)
+    );
+    extremeReportTextInput?.addEventListener("input", () => {
+      extremeFlow.textValue = extremeReportTextInput.value || "";
+    });
     document.addEventListener("visibilitychange", () => {
       if (!extremeFlow.active) return;
       if (document.hidden) {
@@ -1046,7 +1185,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!extremeReportEl) return;
     resetExtremeReportFlow("replace");
     showExtremeReport(record || {});
-    showMsg("El centro de monitoreo requiere un audio inmediato.");
+    const panicAdmin =
+      record?.metadata?.alert_kind === "panic_admin" ||
+      record?.metadata?.channel === "panic-admin";
+    const meta = record?.metadata || {};
+    const urgent =
+      meta.alert_stage === "urgent" ||
+      meta.alert_mode === "urgent" ||
+      meta.urgente === true ||
+      (typeof meta.title === "string" &&
+        meta.title.toUpperCase().includes("URGENTE"));
+    showMsg(
+      panicAdmin
+        ? "Alerta enviada por el administrador. Responde de inmediato."
+        : urgent
+        ? "REPORTESE URGENTE: responde ahora con audio o texto."
+        : "El centro de monitoreo requiere un audio inmediato."
+    );
+  }
+
+  function openExtremeTextArea() {
+    if (!extremeReportText) return;
+    extremeReportText.setAttribute("aria-hidden", "false");
+    extremeReportText.classList.add("is-visible");
+    if (extremeReportTextInput) {
+      extremeReportTextInput.value = extremeFlow.textValue || "";
+      extremeReportTextInput.focus();
+    }
+  }
+
+  function closeExtremeTextArea(resetValue = false) {
+    if (!extremeReportText) return;
+    extremeReportText.setAttribute("aria-hidden", "true");
+    extremeReportText.classList.remove("is-visible");
+    if (resetValue) {
+      extremeFlow.textValue = "";
+      if (extremeReportTextInput) extremeReportTextInput.value = "";
+    }
   }
 
   // Limpia el flujo cuando el admin confirma el acuse por otra via.
@@ -1055,19 +1230,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     resetExtremeReportFlow(reason || "remote-ack");
   }
 
-  // Muestra el modal, guarda el estado y enciende audio/vibración.
+  // Muestra el modal, guarda el estado y enciende audio/vibraciÃ³n.
   function showExtremeReport(record) {
     if (!extremeReportEl) return;
     const builtRecord = buildExtremeRecordSource(record);
+    const isAdminPanic =
+      builtRecord?.metadata?.alert_kind === "panic_admin" ||
+      builtRecord?.metadata?.channel === "panic-admin";
+    const meta = builtRecord?.metadata || {};
+    const isUrgent =
+      meta.alert_stage === "urgent" ||
+      meta.alert_mode === "urgent" ||
+      meta.urgente === true ||
+      (typeof meta.title === "string" &&
+        meta.title.toUpperCase().includes("URGENTE")) ||
+      (typeof builtRecord.title === "string" &&
+        builtRecord.title.toUpperCase().includes("URGENTE"));
+    extremeFlow.mode = isAdminPanic ? "panic_admin" : isUrgent ? "urgent" : "default";
+    applyExtremeCopy(extremeFlow.mode, builtRecord);
+    try {
+      window.Alarma?.closeCheckinPrompt?.("extreme-open");
+    } catch (_) {}
+    clearLocalCheckinTimer("extreme-open");
     extremeFlow.record = builtRecord;
     extremeFlow.active = true;
     extremeFlow.visible = true;
     extremeFlow.ackPending = true;
     extremeFlow.awaitingCheckin = false;
     extremeFlow.pendingMethod = null;
-    extremeFlow.safeBusy = false;
+    extremeFlow.textBusy = false;
+    extremeFlow.textValue = "";
+    closeExtremeTextArea(true);
     extremeReportEl.classList.add("is-open");
     extremeReportEl.setAttribute("aria-hidden", "false");
+    extremeReportEl.classList.toggle("is-urgent", extremeFlow.mode === "urgent");
     toggleExtremeButtons(false);
     startExtremeOutputs(builtRecord);
     triggerExtremeNotification(builtRecord);
@@ -1079,10 +1275,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     extremeReportEl.classList.remove("is-open");
     extremeReportEl.setAttribute("aria-hidden", "true");
     extremeFlow.visible = false;
+    closeExtremeTextArea(true);
     stopExtremeOutputs(reason || "hide");
   }
 
-  // Reactiva el modal en caso una confirmación falle.
+  // Reactiva el modal en caso una confirmaciÃ³n falle.
   function resumeExtremeReport(reason) {
     if (!extremeReportEl || !extremeFlow.active || extremeFlow.visible) return;
     extremeReportEl.classList.add("is-open");
@@ -1103,19 +1300,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     extremeFlow.ackPending = false;
     extremeFlow.awaitingCheckin = false;
     extremeFlow.pendingMethod = null;
-    extremeFlow.safeBusy = false;
+    extremeFlow.textBusy = false;
+    extremeFlow.textValue = "";
+    extremeReportEl?.classList.remove("is-urgent");
+    closeExtremeTextArea(true);
     extremeFlow.record = null;
     toggleExtremeButtons(false);
+    extremeFlow.mode = "default";
+    applyExtremeCopy("default");
+    if (servicioInfo?.estado !== "FINALIZADO" && reason !== "replace") {
+      scheduleLocalCheckin("extreme-reset");
+    }
   }
 
-  // Habilita o bloquea los botones del modal según el flujo actual.
+  // Habilita o bloquea los botones del modal segÃºn el flujo actual.
   function toggleExtremeButtons(disabled) {
     const isDisabled = Boolean(disabled);
     if (extremeReportAudioBtn) extremeReportAudioBtn.disabled = isDisabled;
     if (extremeReportSafeBtn) extremeReportSafeBtn.disabled = isDisabled;
+    if (extremeReportTextSend) extremeReportTextSend.disabled = isDisabled;
   }
 
-  // Prepara audio, vibración y bloqueo de pantalla durante la alerta.
+  function applyExtremeCopy(mode, record) {
+    if (!extremeReportTitle || !extremeReportCopy) return;
+    let metaText = "Tu centro de control espera tu respuesta.";
+    if (mode === "panic_admin") {
+      extremeReportTitle.textContent = EXTREME_TITLE_PANIC;
+      extremeReportCopy.textContent =
+        record?.metadata?.custom_copy || EXTREME_COPY_PANIC;
+      extremeReportEl?.classList.add("is-panic-admin");
+      extremeReportEl?.classList.remove("is-urgent");
+      metaText = "Alerta enviada por el administrador.";
+    } else if (mode === "urgent") {
+      extremeReportTitle.textContent = EXTREME_TITLE_URGENT;
+      extremeReportCopy.textContent =
+        record?.metadata?.custom_copy || EXTREME_COPY_URGENT;
+      extremeReportEl?.classList.remove("is-panic-admin");
+      extremeReportEl?.classList.add("is-urgent");
+      metaText = "No hemos recibido tu respuesta previa.";
+    } else {
+      extremeReportTitle.textContent = EXTREME_TITLE_DEFAULT;
+      extremeReportCopy.textContent = EXTREME_COPY_DEFAULT;
+      extremeReportEl?.classList.remove("is-panic-admin");
+      extremeReportEl?.classList.remove("is-urgent");
+    }
+    if (extremeReportMeta) {
+      extremeReportMeta.textContent = metaText;
+    }
+  }
+
+  // Prepara audio, vibraciÃ³n y bloqueo de pantalla durante la alerta.
   function startExtremeOutputs(record) {
     try {
       window.Alarma?.enableAlerts?.({ sound: true, haptics: true });
@@ -1143,7 +1377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     closeExtremeNotification();
   }
 
-  // Inicia un patrón de vibración fuerte y periódico.
+  // Inicia un patrÃ³n de vibraciÃ³n fuerte y periÃ³dico.
   function startExtremeVibration() {
     stopExtremeVibration();
     if (typeof navigator.vibrate !== "function") return;
@@ -1158,7 +1392,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 2200);
   }
 
-  // Limpia vibraciones pendientes para ahorrar batería.
+  // Limpia vibraciones pendientes para ahorrar baterÃ­a.
   function stopExtremeVibration() {
     if (extremeFlow.vibTimer) {
       clearInterval(extremeFlow.vibTimer);
@@ -1200,7 +1434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Lanza una notificación intrusiva cuando la app está en background.
+  // Lanza una notificaciÃ³n intrusiva cuando la app estÃ¡ en background.
   async function triggerExtremeNotification(record) {
     if (!document.hidden) return;
     if (typeof Notification === "undefined") return;
@@ -1212,13 +1446,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       if (Notification.permission !== "granted") return;
       closeExtremeNotification();
+      const panicAdmin =
+        record?.metadata?.alert_kind === "panic_admin" ||
+        record?.metadata?.channel === "panic-admin";
+      const urgent =
+        record?.metadata?.alert_stage === "urgent" ||
+        record?.metadata?.alert_mode === "urgent" ||
+        record?.metadata?.urgente === true;
       const infoParts = [];
       if (record?.cliente) infoParts.push(record.cliente);
       if (record?.placa) infoParts.push(`Placa ${record.placa}`);
-      const notif = new Notification("¡REPORTESE AHORA!", {
-        body:
-          "Tu centro de monitoreo requiere un audio inmediato." +
-          (infoParts.length ? ` (${infoParts.join(" · ")})` : ""),
+      const notifTitle = panicAdmin
+        ? "ALERTA DE PANICO"
+        : urgent
+        ? "REPORTESE URGENTE"
+        : "REPORTESE AHORA!";
+      const notifBody =
+        (panicAdmin
+          ? "El administrador solicito tu reporte inmediato."
+          : urgent
+          ? "No hemos recibido tu respuesta. Reporta ahora."
+          : "Tu centro de monitoreo requiere un audio inmediato.") +
+        (infoParts.length ? ` (${infoParts.join(" - ")})` : "");
+      const notif = new Notification(notifTitle, {
+        body: notifBody,
         tag: "reporte-extremo",
         renotify: true,
         requireInteraction: true,
@@ -1233,9 +1484,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       console.warn("[extreme-report] notification", err);
     }
-  }
-
-  // Cierra la última notificación mostrada para evitar duplicados.
+  }  // Cierra la Ãºltima notificaciÃ³n mostrada para evitar duplicados.
   function closeExtremeNotification() {
     if (extremeFlow.notification?.close) {
       try {
@@ -1251,6 +1500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!extremeFlow.active) {
       showExtremeReport({});
     }
+    closeExtremeTextArea(true);
     extremeFlow.pendingMethod = "audio";
     extremeFlow.awaitingCheckin = true;
     hideExtremeReportUI("audio");
@@ -1268,28 +1518,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Permite confirmar manualmente que todo está en orden sin audio.
+  // Permite confirmar manualmente que todo esta en orden sin audio.
   async function handleExtremeSafeAction() {
-    if (!extremeFlow.active || extremeFlow.safeBusy) return;
-    extremeFlow.pendingMethod = "safe";
-    extremeFlow.safeBusy = true;
+    if (!extremeFlow.active || extremeFlow.textBusy) return;
+    extremeFlow.pendingMethod = "text";
+    openExtremeTextArea();
+    if (extremeReportTextInput) {
+      extremeReportTextInput.focus();
+    }
+  }
+
+  async function handleExtremeTextSubmit() {
+    if (!extremeFlow.active || extremeFlow.textBusy) return;
+    const note = (extremeReportTextInput?.value || "").trim();
+    if (!note) {
+      showMsg("Escribe un breve texto para continuar.");
+      extremeReportTextInput?.focus();
+      return;
+    }
+    extremeFlow.pendingMethod = "text";
+    extremeFlow.textBusy = true;
     toggleExtremeButtons(true);
-    hideExtremeReportUI("safe");
+    hideExtremeReportUI("text");
     try {
-      await sendExtremeAck("safe");
-      showMsg("Confirmación enviada. Gracias por reportarte.");
-      resetExtremeReportFlow("safe");
+      await sendExtremeAck("text", { note });
+      showMsg("Texto enviado. Gracias por reportarte.");
+      resetExtremeReportFlow("text");
     } catch (err) {
-      console.warn("[extreme-report] safe ack", err);
-      extremeFlow.safeBusy = false;
+      console.warn("[extreme-report] text ack", err);
+      extremeFlow.textBusy = false;
       toggleExtremeButtons(false);
-      resumeExtremeReport("safe-error");
-      showMsg("No se pudo confirmar. Intenta nuevamente.");
+      resumeExtremeReport("text-error");
+      openExtremeTextArea();
+      showMsg("No se pudo enviar el texto. Intenta nuevamente.");
     }
   }
 
   // Emite el acuse de recibo para que el admin libere el botón.
-  async function sendExtremeAck(method) {
+  async function sendExtremeAck(method, options = {}) {
     if (!extremeFlow.ackPending) return true;
     if (!hasAlarma || typeof window.Alarma?.emit !== "function") {
       throw new Error("Modulo de alarma no disponible");
@@ -1299,6 +1565,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       ...(payload.metadata || {}),
       channel: "reporte-extremo",
       method: method || extremeFlow.pendingMethod || "unknown",
+      note:
+        typeof options.note === "string" && options.note.trim()
+          ? options.note.trim()
+          : undefined,
       responded_at: new Date().toISOString(),
       source: "mapa-resguardo",
     };
@@ -1391,7 +1661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!rutaAlertData) return;
     if (rutaAlertCopyEl) {
       const clienteLabel = rutaAlertData.cliente || "este cliente";
-      rutaAlertCopyEl.textContent = `Te has desviado de la ruta establecida para ${clienteLabel}. Verifica tu posición y regresa al trazo indicado por el sistema.`;
+      rutaAlertCopyEl.textContent = `Te has desviado de la ruta establecida para ${clienteLabel}. Verifica tu posiciÃ³n y regresa al trazo indicado por el sistema.`;
     }
     if (rutaAlertMetaEl) {
       const meta = rutaAlertData.metadata || {};
@@ -1405,13 +1675,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         pieces.push(`Tolerancia ${Math.round(tol)} m`);
       }
       if (meta.ultimo_ping) {
-        pieces.push(`Último ping ${formatRelativeTime(meta.ultimo_ping)}`);
+        pieces.push(`Ãšltimo ping ${formatRelativeTime(meta.ultimo_ping)}`);
       }
       if (meta.ruta_nombre) {
         pieces.push(meta.ruta_nombre);
       }
       rutaAlertMetaEl.textContent =
-        pieces.join(" · ") || "Confirma tu posición para continuar.";
+        pieces.join(" Â· ") || "Confirma tu posiciÃ³n para continuar.";
     }
   }
 
@@ -1424,7 +1694,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const routeData = await fetchRutaAsignada(rutaAlertData);
       if (!routeData?.geojson) {
-        showMsg("No se encontró una ruta activa para este cliente.");
+        showMsg("No se encontrÃ³ una ruta activa para este cliente.");
         return;
       }
       drawRutaClienteLayer(routeData.geojson);
@@ -1511,7 +1781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         parsed = JSON.parse(rawGeojson);
       } catch (err) {
-        console.warn("[mapa][ruta-alert] geojson inválido", err);
+        console.warn("[mapa][ruta-alert] geojson invÃ¡lido", err);
         return null;
       }
     }
@@ -1777,3 +2047,18 @@ function showFollowControl(show) {
     btn.style.display = show ? "inline-flex" : "none";
   } catch {}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

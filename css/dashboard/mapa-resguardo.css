@@ -414,11 +414,20 @@
   font-weight: 700;
   color: #fb8c00;
 }
+.extreme-report__meta {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #4b5563;
+}
 .extreme-report__title {
   margin: 0;
   font-size: 26px;
   line-height: 1.2;
   color: #0f1b2e;
+}
+.extreme-report__body {
+  display: grid;
+  gap: 14px;
 }
 .extreme-report__copy {
   margin: 0;
@@ -446,6 +455,55 @@
 .extreme-report__secondary:focus-visible {
   outline: 2px solid rgba(255, 145, 0, 0.9);
   outline-offset: 2px;
+}
+.extreme-report__text {
+  display: none;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.extreme-report__text.is-visible {
+  display: grid;
+}
+.extreme-report__text-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #253041;
+  font-weight: 700;
+}
+.extreme-report__text-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  padding: 12px;
+  font-size: 14px;
+  resize: vertical;
+  background: #fff;
+}
+.extreme-report__text-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.extreme-report__text-actions .mdl-button {
+  flex: 1;
+  min-width: 140px;
+}
+.extreme-report__text-cancel {
+  border: none;
+  background: rgba(15, 23, 42, 0.05);
+  color: #111c2c;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.extreme-report__text-cancel:hover {
+  background: rgba(15, 23, 42, 0.1);
 }
 @keyframes extreme-pulse {
   0% {
@@ -486,3 +544,23 @@
 }
 /* === END HU:HU-REPORTESE-EXTREMO-FRONT === */
 
+/* Variant visual para alerta de panico enviada por admin */
+.extreme-report.is-panic-admin .extreme-report__card {
+  border: 2px solid #ef5350;
+  background: #fff5f5;
+}
+.extreme-report.is-panic-admin .extreme-report__pulse {
+  background: linear-gradient(135deg, #d32f2f, #ef9a9a);
+}
+.extreme-report.is-panic-admin .extreme-report__eyebrow,
+.extreme-report.is-panic-admin .extreme-report__title {
+  color: #c62828;
+}
+.extreme-report.is-urgent .extreme-report__pulse {
+  background: linear-gradient(135deg, #f97316, #facc15);
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+}
+.extreme-report.is-urgent .extreme-report__eyebrow,
+.extreme-report.is-urgent .extreme-report__title {
+  color: #b45309;
+}
