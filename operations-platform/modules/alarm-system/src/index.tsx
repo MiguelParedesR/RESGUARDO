@@ -1,8 +1,8 @@
-import type { Role } from "@ops/auth";
+import type { AuthRole } from "@ops/auth";
 import { orderAlerts } from "@ops/alerts";
 
 type Props = {
-  role: Role;
+  role: AuthRole;
 };
 
 export function AlarmSystemModule({ role }: Props) {

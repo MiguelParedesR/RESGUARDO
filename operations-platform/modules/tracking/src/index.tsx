@@ -1,8 +1,8 @@
-import type { Role } from "@ops/auth";
+import type { AuthRole } from "@ops/auth";
 import { haversineDistanceMeters, isLatePing } from "@ops/tracking";
 
 type Props = {
-  role: Role;
+  role: AuthRole;
 };
 
 export function TrackingModule({ role }: Props) {

@@ -135,7 +135,33 @@ importers:
 
   packages/alerts: {}
 
-  packages/auth: {}
+  packages/auth:
+    dependencies:
+      '@hookform/resolvers':
+        specifier: ^3.10.0
+        version: 3.10.0(react-hook-form@7.71.2(react@18.3.1))
+      '@ops/supabase':
+        specifier: workspace:*
+        version: link:../../services/supabase
+      '@supabase/supabase-js':
+        specifier: ^2.49.0
+        version: 2.98.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-hook-form:
+        specifier: ^7.54.2
+        version: 7.71.2(react@18.3.1)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.11(@types/react@18.3.28)(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.28
 
   packages/maps:
     dependencies:
@@ -165,7 +191,11 @@ importers:
         specifier: ^18.3.12
         version: 18.3.28
 
-  services/supabase: {}
+  services/supabase:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.49.0
+        version: 2.98.0
 
 packages:
 
