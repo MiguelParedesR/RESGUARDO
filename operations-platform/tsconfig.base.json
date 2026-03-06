@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ops/ui": ["packages/ui/src/index.tsx"],
+      "@ops/maps": ["packages/maps/src/index.tsx"],
+      "@ops/alerts": ["packages/alerts/src/index.ts"],
+      "@ops/tracking": ["packages/tracking/src/index.ts"],
+      "@ops/auth": ["packages/auth/src/index.ts"],
+      "@ops/supabase": ["services/supabase/src/index.ts"],
+      "@ops/module-admin-dashboard": ["modules/admin-dashboard/src/index.tsx"],
+      "@ops/module-custodia-mobile": ["modules/custodia-mobile/src/index.tsx"],
+      "@ops/module-tracking": ["modules/tracking/src/index.tsx"],
+      "@ops/module-alarm-system": ["modules/alarm-system/src/index.tsx"]
+    }
+  }
+}

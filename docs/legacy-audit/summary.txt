@@ -1,0 +1,7 @@
+﻿legacy_audit_summary
+generated_at=2026-03-06T06:21:32-05:00
+functions_csv_rows=692
+events_csv_rows=234
+supabase_csv_rows=77
+fetch_csv_rows=16
+function_inventory_rows=624
